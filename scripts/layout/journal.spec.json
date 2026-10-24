@@ -1,0 +1,40 @@
+{
+ "name": "JournalLayout",
+ "source": "design/19-journal/desktop.html",
+ "viewport": [
+  1920,
+  1080
+ ],
+ "root": ".screen",
+ "origin": ".main .flexr",
+ "out": "src/Client/AstralForge/pages/generated/JournalLayout.ts",
+ "nodes": {
+  "Body": ".main .flexr",
+  "Pages": ".main .flexr .pn.f1",
+  "Heading": ".pn.f1 h3",
+  "HeadingNote": ".pn.f1 h3 small",
+  "Grid": ".pn.f1 .row ..",
+  "Card": ".pn.f1 .row",
+  "CardHead": ".pn.f1 .row div",
+  "CardNum": ".pn.f1 .row .num",
+  "CardTitle": ".pn.f1 .row b",
+  "CardCheck": ".pn.f1 .row div svg",
+  "CardGoal": ".pn.f1 .row span:1",
+  "CardChipDone": ".pn.f1 .row .chip.a",
+  "CardChip": ".pn.f1 .row:2 .chip",
+  "Bar": ".pn.f1 .bar",
+  "BarFill": ".pn.f1 .bar i",
+  "Side": ".main .flexr .pn:1",
+  "SideLine": ".pn:1 \"Fill all\"",
+  "SideRow": ".pn:1 .row",
+  "SideReward": ".pn:1 .wrap",
+  "SideCard": ".pn:1 .sc",
+  "SideBtn": ".pn:1 .btn",
+  "TabOn": ".hero .tab.on",
+  "Tab": ".hero .tab:1",
+  "Tabs": ".hero .tabs",
+  "SideArt": ".pn:1 .sc .w",
+  "SideName": ".pn:1 .sc b",
+  "SideTag": ".pn:1 .sc .tg"
+ }
+}

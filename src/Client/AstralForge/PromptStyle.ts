@@ -3,6 +3,7 @@
 // left on Default keeps the Roblox look.
 // Owner: presentation. Dependencies: Shared/ForgeTheme, MotionPreference.
 import { isReducedMotion } from "./MotionPreference";
+import { WorldLayout as W } from "./pages/generated/WorldLayout";
 
 const Players = game.GetService("Players");
 const ProximityPromptService = game.GetService("ProximityPromptService");
@@ -17,8 +18,8 @@ const ForgeTheme = require(
 ) as { newPalette(this: void): ThemeApi["Palette"] };
 const Palette = ForgeTheme.newPalette();
 
-const CAP = 44;
-const GAP = 10;
+const CAP = W.Prompt.h - 10;
+const GAP = W.Prompt.gap;
 const BODY_SEMI = new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold);
 const CAP_FILL = Color3.fromRGB(27, 21, 29);
 const NUMBERS = Font.fromEnum(Enum.Font.GothamBold);
@@ -120,25 +121,25 @@ function build(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInputType
 	corner(panel, 16);
 	stroke(panel, Palette.line, 1, 0);
 	const pad = new Instance("UIPadding");
-	pad.PaddingLeft = new UDim(0, 14);
-	pad.PaddingRight = new UDim(0, 14);
-	pad.PaddingTop = new UDim(0, 8);
-	pad.PaddingBottom = new UDim(0, 8);
+	pad.PaddingLeft = new UDim(0, W.PromptPanel.pad.left);
+	pad.PaddingRight = new UDim(0, W.PromptPanel.pad.right);
+	pad.PaddingTop = new UDim(0, W.PromptPanel.pad.top);
+	pad.PaddingBottom = new UDim(0, W.PromptPanel.pad.bottom);
 	pad.Parent = panel;
 	const stack = new Instance("UIListLayout");
 	stack.FillDirection = Enum.FillDirection.Vertical;
 	stack.VerticalAlignment = Enum.VerticalAlignment.Center;
 	stack.SortOrder = Enum.SortOrder.LayoutOrder;
-	stack.Padding = new UDim(0, 2);
+	stack.Padding = new UDim(0, W.PromptPanel.gap);
 	stack.Parent = panel;
 	const action = new Instance("TextLabel");
 	action.Name = "Action";
 	action.LayoutOrder = 1;
 	action.BackgroundTransparency = 1;
 	action.AutomaticSize = Enum.AutomaticSize.X;
-	action.Size = UDim2.fromOffset(0, 20);
+	action.Size = UDim2.fromOffset(0, W.Action.h);
 	action.FontFace = BODY_SEMI;
-	action.TextSize = 15;
+	action.TextSize = W.Action.text.size;
 	action.TextColor3 = Palette.cream;
 	action.TextXAlignment = Enum.TextXAlignment.Left;
 	action.Parent = panel;
@@ -147,9 +148,9 @@ function build(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInputType
 	detail.LayoutOrder = 2;
 	detail.BackgroundTransparency = 1;
 	detail.AutomaticSize = Enum.AutomaticSize.X;
-	detail.Size = UDim2.fromOffset(0, 16);
+	detail.Size = UDim2.fromOffset(0, W.Detail.h);
 	detail.FontFace = BODY;
-	detail.TextSize = 12;
+	detail.TextSize = math.round(W.Detail.text.size);
 	detail.TextColor3 = Palette.muted;
 	detail.TextXAlignment = Enum.TextXAlignment.Left;
 	detail.Parent = panel;

@@ -8,11 +8,19 @@ import { compactNumber, formatReward, Reward } from "../../CoreKit/format";
 import { chromeFor, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
 import { useEntrance, useFlash, useViewport } from "../../MotionKit/motion";
 import { kitMember, LuauComponent } from "../luauKits";
-import { Bar, BODY, Chip, Glyph, Line, MockPanel, mockGap, NUM, PanelHeading, panelPad, spaced, TITLE_FACE } from "../../UiCore/mockKit";
+import { Bar, BODY, BODY_BOLD, Chip, Glyph, Line, MockPanel, mockGap, NUM, PanelHeading, panelPad, spaced, TITLE_FACE } from "../../UiCore/mockKit";
 import { headingBlock, MockBtn, MockRow, panelHeight, RowFace, rowHeight } from "../mockRows";
-import { FlexCol, FlexFill, FlexFixed, FlexRow, stackSum, TAB_STRIP_H, TabStrip } from "../mockLayout";
+import { FlexCol, FlexFill, FlexFixed, FlexRow, stackSum } from "../mockLayout";
+
+import { PHONE_HEAD_H as PH_HEAD_H, PhoneHead } from "../mockLayout";
+import { useHeroShown, useHeroSlot } from "../../UiCore/heroSlot";
+import { GlyphWell } from "../../UiCore/mockKit";
 
 import { MotionFX } from "../../UiCore/screenFx";
+import { JournalLayout as L } from "../generated/JournalLayout";
+import { JournalEntryLayout as E } from "../generated/JournalEntryLayout";
+import { JournalPhoneLayout as P } from "../generated/JournalPhoneLayout";
+import { JournalEntryPhoneLayout as EP } from "../generated/JournalEntryPhoneLayout";
 
 const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 const PAGES_PER_CHAPTER = 6;
@@ -87,6 +95,92 @@ function rewardLines(reward: Reward | undefined): string[] {
 	}
 	lines.sort();
 	return lines;
+}
+
+// ---------- chapter reward tiles (mockup .sc: 176x227 card, 160 art well, 15px name, rarity-style tag) ----------
+interface RewardTileData {
+	key: string;
+	name: string;
+	tag: string;
+	glyph: string;
+	color: Color3;
+}
+const REWARD_KINDS: Record<string, { name: string; glyph: string; color: Color3; order: number; tag: (n: number) => string }> = {
+	Cash: { name: "Flux", glyph: "Gem", color: Palette.mango, order: 0, tag: (n) => compactNumber(n) },
+	CashMinutes: { name: "Flux time", glyph: "Timer", color: Palette.mango, order: 1, tag: (n) => `${compactNumber(n)} MIN` },
+	Stardust: { name: "Stardust", glyph: "Gem", color: L.SideTag.fill.color, order: 2, tag: (n) => compactNumber(n) },
+	Cores: { name: "Cores", glyph: "Gift", color: Palette.mint, order: 3, tag: (n) => compactNumber(n) },
+	Signals: { name: "Signals", glyph: "Gift", color: Palette.mint, order: 4, tag: (n) => compactNumber(n) },
+	CommandXP: { name: "Command XP", glyph: "Milestone", color: Palette.brass, order: 5, tag: (n) => compactNumber(n) },
+	StreakShield: { name: "Streak shield", glyph: "Lock", color: Palette.brass, order: 6, tag: (n) => `x${n}` },
+	Essence: { name: "Essence", glyph: "Gem", color: L.SideTag.fill.color, order: 7, tag: (n) => compactNumber(n) },
+	DomainEssence: { name: "Domain essence", glyph: "Gem", color: L.SideTag.fill.color, order: 8, tag: (n) => compactNumber(n) },
+	Fragments: { name: "Fragments", glyph: "Gift", color: Palette.brass, order: 9, tag: (n) => compactNumber(n) },
+	FreeSpins: { name: "Free spins", glyph: "Gift", color: Palette.mint, order: 10, tag: (n) => `x${n}` },
+};
+
+function RewardTile(props: { tile: RewardTileData; reducedMotion?: boolean; layoutOrder?: number }) {
+	const { tile } = props;
+	const art = L.SideArt;
+	const card = L.SideCard;
+	return (
+		<frame BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={props.layoutOrder ?? 0}>
+			<uicorner CornerRadius={new UDim(0, card.radius)} />
+			{card.gradient !== undefined && <uigradient Rotation={card.gradient.rotation} Color={card.gradient.color} Transparency={card.gradient.transparency} />}
+			<uistroke Color={tile.color} Transparency={0.55} Thickness={1.5} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+			{/* .sc .w: #0d090f well lit from the middle in the tile colour */}
+			<frame
+				Size={UDim2.fromOffset(art.w, art.h)}
+				Position={UDim2.fromOffset(art.x - card.x, art.y - card.y)}
+				BackgroundColor3={art.fill.color}
+				BorderSizePixel={0}
+				ClipsDescendants={true}
+			>
+				<uicorner CornerRadius={new UDim(0, art.radius)} />
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={tile.color} BackgroundTransparency={0.75} BorderSizePixel={0}>
+					<uigradient
+						Transparency={
+							new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.5, 0.25), new NumberSequenceKeypoint(1, 1)])
+						}
+						Rotation={90}
+					/>
+				</frame>
+				<GlyphWell
+					kind={tile.glyph}
+					accent={tile.color}
+					size={64}
+					radius={16}
+					position={UDim2.fromScale(0.5, 0.5)}
+					anchorPoint={new Vector2(0.5, 0.5)}
+					spin={false}
+					reducedMotion={props.reducedMotion}
+				/>
+			</frame>
+			<Line
+				text={tile.name}
+				size={L.SideName.text.size}
+				font={BODY_BOLD}
+				color={L.SideName.text.color}
+				width={new UDim(1, -card.pad.left * 2)}
+				height={L.SideName.h}
+				align={Enum.TextXAlignment.Center}
+				position={UDim2.fromOffset(card.pad.left, L.SideName.y - card.y)}
+			/>
+			{/* .sc .tg: 10px tracked tag on the tile colour */}
+			<frame
+				Size={UDim2.fromOffset(0, L.SideTag.h)}
+				AutomaticSize={Enum.AutomaticSize.X}
+				Position={new UDim2(0.5, 0, 0, L.SideTag.y - card.y)}
+				AnchorPoint={new Vector2(0.5, 0)}
+				BackgroundColor3={tile.color}
+				BorderSizePixel={0}
+			>
+				<uicorner CornerRadius={new UDim(0, L.SideTag.radius)} />
+				<uipadding PaddingLeft={new UDim(0, L.SideTag.pad.left)} PaddingRight={new UDim(0, L.SideTag.pad.right)} PaddingTop={new UDim(0, L.SideTag.pad.top)} />
+				<Line text={spaced(tile.tag.upper())} size={L.SideTag.text.size} font={NUM} color={L.SideTag.text.color} height={L.SideTag.h - L.SideTag.pad.top - L.SideTag.pad.bottom} />
+			</frame>
+		</frame>
+	);
 }
 
 // ---------- star map line art (built in code) ----------
@@ -170,10 +264,10 @@ function StarMap(props: { id: string; fraction: number; width: number; height: n
 }
 
 // ---------- page card (19-journal .row column: number + serif title + check, goal line, chip) ----------
-const CARD_PAD = 14;
+const CARD_PAD = L.Card.pad.top;
 function cardHeight(phone: boolean): number {
 	// padding, title line 22, gap 8, goal line 18, gap 8, chip / claim slot 36, padding
-	return phone ? 10 + 20 + 6 + 16 + 6 + TapTarget + 10 : CARD_PAD + 22 + 8 + 18 + 8 + 36 + CARD_PAD;
+	return phone ? P.Card.h : L.Card.h;
 }
 
 function PageCard(props: { page: JournalPage; phone: boolean; onOpen: () => void; onClaim: () => void; reducedMotion?: boolean; layoutOrder?: number }) {
@@ -186,41 +280,39 @@ function PageCard(props: { page: JournalPage; phone: boolean; onOpen: () => void
 		wasDone.current = page.done;
 	}, [page.done]);
 	const stamp = useFlash(stampNonce, props.reducedMotion === true, 0.18);
-	const pad = phone ? 10 : CARD_PAD;
+	const pad = phone ? P.Card.pad.top : CARD_PAD;
+	const padX = phone ? P.Card.pad.left : CARD_PAD;
 	const lit = page.done || page.ready;
 	return (
 		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={props.layoutOrder ?? 0} key={`Page${page.number}`}>
 			<RowFace outline={page.ready ? Palette.mint : undefined} />
 			{lit && (
 				// background:linear-gradient(180deg, mango .10, white .02)
-				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.mango} BorderSizePixel={0} ZIndex={0}>
-					<uicorner CornerRadius={new UDim(0, 11)} />
-					<uigradient Rotation={90} Transparency={new NumberSequence(0.9, 0.98)} />
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.white} BorderSizePixel={0} ZIndex={0}>
+					<uicorner CornerRadius={new UDim(0, L.Card.radius)} />
+					<uigradient Rotation={L.Card.gradient.rotation} Color={L.Card.gradient.color} Transparency={L.Card.gradient.transparency} />
 				</frame>
 			)}
 			<textbutton Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} Text="" ZIndex={1} Event={{ Activated: () => props.onOpen() }} />
 			<frame key="Content" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={2}>
-			<uipadding PaddingTop={new UDim(0, pad)} PaddingBottom={new UDim(0, pad)} PaddingLeft={new UDim(0, pad)} PaddingRight={new UDim(0, pad)} />
-			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, phone ? 6 : 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
-			<FlexRow height={phone ? 20 : 22} gap={10} align={Enum.VerticalAlignment.Center} layoutOrder={0}>
-				<Line text={tostring(page.number)} size={phone ? 15 : 18} font={NUM} color={Palette.mango} layoutOrder={0} zIndex={2} />
+			<uipadding PaddingTop={new UDim(0, pad)} PaddingBottom={new UDim(0, pad)} PaddingLeft={new UDim(0, padX)} PaddingRight={new UDim(0, padX)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, phone ? P.Card.gap : L.Card.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<FlexRow height={phone ? P.CardHead.h : L.CardHead.h} gap={L.CardHead.gap} align={Enum.VerticalAlignment.Center} layoutOrder={0}>
+				<Line text={tostring(page.number)} size={L.CardNum.text.size} font={NUM} color={L.CardNum.text.color} layoutOrder={0} zIndex={2} />
 				<FlexFill layoutOrder={1}>
-					<Line text={page.entry.Name} size={phone ? 15 : 18} font={TITLE_FACE} width={new UDim(1, 0)} height={phone ? 20 : 22} zIndex={2} />
+					<Line text={page.entry.Name} size={phone ? P.CardTitle.text.size : L.CardTitle.text.size} font={TITLE_FACE} color={L.CardTitle.text.color} width={new UDim(1, 0)} height={phone ? P.CardTitle.h : L.CardTitle.h} zIndex={2} />
 				</FlexFill>
 				{page.done && (
-					<frame Size={UDim2.fromOffset(18, 18)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<frame Size={UDim2.fromOffset(phone ? 18 : L.CardCheck.w, phone ? 18 : L.CardCheck.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
 						<uiscale Scale={stamp.map((t) => 1 + 0.15 * t)} />
-						<Glyph kind="Check" size={18} color={Palette.mango} />
+						<Glyph kind="Check" size={phone ? 18 : L.CardCheck.w} color={L.CardCheck.icon.color} />
 					</frame>
 				)}
 			</FlexRow>
-			<Line text={page.entry.Description ?? ""} size={phone ? 12 : 14} font={BODY} color={Palette.creamSoft} width={new UDim(1, 0)} height={phone ? 16 : 18} layoutOrder={1} zIndex={2} />
-			<FlexRow height={phone ? TapTarget : 36} gap={8} align={Enum.VerticalAlignment.Center} layoutOrder={2}>
-				{page.ready ? (
-					<MockBtn text="Claim" icon="Gift" accent={Palette.mint} sm={true} phone={phone} onClick={props.onClaim} reducedMotion={props.reducedMotion} layoutOrder={0} />
-				) : (
-					<Chip text={chipText(page)} accent={page.done ? Palette.mango : undefined} phone={phone} layoutOrder={0} />
-				)}
+			<Line text={page.entry.Description ?? ""} size={phone ? P.CardGoal.text.size : L.CardGoal.text.size} font={BODY} color={L.CardGoal.text.color} width={new UDim(1, 0)} height={phone ? P.CardGoal.h : L.CardGoal.h} layoutOrder={1} zIndex={2} />
+			<FlexRow height={phone ? P.CardChip.h : L.CardChipDone.h} gap={L.CardChipDone.gap} align={Enum.VerticalAlignment.Center} layoutOrder={2}>
+				{/* .chip / .chip.a (mockup cards carry a chip only; a ready page claims from its entry spread) */}
+				<Chip text={chipText(page)} accent={page.done ? Palette.mango : page.ready ? Palette.mint : undefined} phone={false} layoutOrder={0} />
 			</FlexRow>
 			</frame>
 		</frame>
@@ -252,32 +344,35 @@ function EntryView(props: {
 	const rowH = rowHeight(phone);
 	const btnH = phone ? TapTarget : 44;
 	const rewards = rewardLines(page.entry.Reward);
-	const artH = phone ? 150 : 260;
-	const titleSize = phone ? 30 : 72;
-	const descH = phone ? 40 : 60;
-	const bookPadY = phone ? 14 : 46 - pad.y;
-	const bookContent = 36 + 20 + titleSize + 12 + descH + 12 + artH;
+	const artH = phone ? 150 : math.floor(E.Art.h);
+	const titleSize = phone ? 30 : E.Title.text.size;
+	const descH = phone ? 40 : E.Desc.h;
+	const bookPadY = phone ? 14 : E.Book.pad.top - pad.y;
+	const titleGap = phone ? 20 : E.Title.y - (E.BookBar.y + E.BookBar.h);
+	const descGap = phone ? 12 : E.Desc.y - (E.Title.y + E.Title.h);
+	const artGap = phone ? 12 : E.Art.y - (E.Desc.y + E.Desc.h);
+	const bookContent = E.Back.h + titleGap + titleSize + descGap + descH + artGap + artH;
 	const bookH = panelHeight(phone, bookContent + bookPadY * 2);
 
 	const book = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.brass} glow={Palette.mango} reveal={props.enter} reducedMotion={props.reducedMotion} gap={0} name="EntryBook">
-			<uipadding PaddingTop={new UDim(0, bookPadY)} PaddingLeft={new UDim(0, phone ? 0 : 36)} PaddingRight={new UDim(0, phone ? 0 : 36)} />
-			<FlexRow height={36} gap={12} align={Enum.VerticalAlignment.Center} layoutOrder={0}>
+			<uipadding PaddingTop={new UDim(0, bookPadY)} PaddingLeft={new UDim(0, phone ? 0 : E.Book.pad.left - pad.x)} PaddingRight={new UDim(0, phone ? 0 : E.Book.pad.right - pad.x)} />
+			<FlexRow height={E.BookBar.h} gap={E.BookBar.gap} align={Enum.VerticalAlignment.Center} layoutOrder={0}>
 				<MockBtn text="Journal" icon="Back.1" sec={true} sm={true} phone={phone} onClick={props.onBack} reducedMotion={props.reducedMotion} layoutOrder={0} />
 				<FlexFill layoutOrder={1}>
-					<Line text={spaced(`PAGE ${page.number} OF ${props.total}`)} size={11} color={Palette.muted} width={new UDim(1, 0)} height={36} align={Enum.TextXAlignment.Right} />
+					<Line text={spaced(`PAGE ${page.number} OF ${props.total}`)} size={E.PageOf.text.size} color={E.PageOf.text.color} width={new UDim(1, 0)} height={E.BookBar.h} align={Enum.TextXAlignment.Right} />
 				</FlexFill>
 			</FlexRow>
-			<frame Size={new UDim2(1, 0, 0, 20)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1} />
+			<frame Size={new UDim2(1, 0, 0, titleGap)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1} />
 			<Line text={page.entry.Name} size={titleSize} font={TITLE_FACE} width={new UDim(1, 0)} height={titleSize} layoutOrder={2} />
-			<frame Size={new UDim2(1, 0, 0, 12)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} />
+			<frame Size={new UDim2(1, 0, 0, descGap)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} />
 			<frame Size={new UDim2(1, 0, 0, descH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
-				<uisizeconstraint MaxSize={new Vector2(720, math.huge)} />
+				<uisizeconstraint MaxSize={new Vector2(E.Desc.w, math.huge)} />
 				<textlabel
 					Size={UDim2.fromScale(1, 1)}
 					BackgroundTransparency={1}
 					Text={page.entry.Description ?? ""}
-					TextSize={phone ? 14 : 20}
+					TextSize={phone ? 14 : E.Desc.text.size}
 					FontFace={BODY}
 					TextColor3={Palette.creamSoft}
 					TextWrapped={true}
@@ -286,9 +381,9 @@ function EntryView(props: {
 					LineHeight={1.25}
 				/>
 			</frame>
-			<frame Size={new UDim2(1, 0, 0, 12)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={5} />
+			<frame Size={new UDim2(1, 0, 0, artGap)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={5} />
 			<frame Size={new UDim2(1, 0, 0, artH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={6} key="StarMap">
-				<StarMap id={page.entry.Id} fraction={page.fraction} width={phone ? 300 : 620} height={artH} reducedMotion={props.reducedMotion} />
+				<StarMap id={page.entry.Id} fraction={page.fraction} width={phone ? 300 : E.Art.w} height={artH} reducedMotion={props.reducedMotion} />
 			</frame>
 		</MockPanel>
 	);
@@ -331,28 +426,53 @@ function EntryView(props: {
 	const sideH = stackSum(sideHeights, gap);
 	const sections: { id: string; height: number; element: React.Element }[] = [];
 	if (phone) {
-		sections.push({ id: "book", height: bookH, element: book });
-		sections.push({ id: "progress", height: progressH, element: progressPanel });
-		sections.push({ id: "reward", height: rewardH, element: rewardPanel });
-		sections.push({ id: "nearby", height: nearbyH, element: nearbyPanel });
+		// phone.html: .ph-head (page title, "Page N"), then a .flexr of the progress panel (.row + .bar)
+		// and a 260 column of buttons (claim / back)
+		const headH = PH_HEAD_H;
+		const bodyH = EP.Body.h;
+		sections.push({
+			id: "head",
+			height: headH,
+			element: <PhoneHead title={page.entry.Name} line={`Page ${page.number}`} />,
+		});
+		sections.push({
+			id: "spread",
+			height: bodyH,
+			element: (
+				<FlexRow fillHeight={true} gap={EP.Body.gap} name="EntrySpread">
+					<FlexFill layoutOrder={0}>
+						<MockPanel size={UDim2.fromScale(1, 1)} phone={true} reveal={props.enter} reducedMotion={props.reducedMotion} name="EntryProgress">
+							<MockRow phone={true} icon="StarGrid" title={page.done ? "Filled" : page.entry.Description ?? "Progress"} value={chipText(page)} height={EP.Row.h} layoutOrder={1} />
+							<Bar fill={page.fraction} color={Palette.mango} layoutOrder={2} />
+						</MockPanel>
+					</FlexFill>
+					<FlexFixed width={EP.Side.w} layoutOrder={1}>
+						<MockPanel size={UDim2.fromScale(1, 1)} phone={true} reducedMotion={props.reducedMotion} name="EntryActions">
+							<MockBtn text={page.done ? "Claimed" : "Claim page"} icon="Gift" fill={true} phone={true} disabled={!page.ready} onClick={props.onClaim} reducedMotion={props.reducedMotion} layoutOrder={1} />
+							<MockBtn text="Back" icon="Back.1" sec={true} fill={true} phone={true} onClick={props.onBack} reducedMotion={props.reducedMotion} layoutOrder={2} />
+						</MockPanel>
+					</FlexFixed>
+				</FlexRow>
+			),
+		});
 	} else {
 		const bodyH = math.max(bookH, sideH);
 		sections.push({
 			id: "spread",
 			height: bodyH,
 			element: (
-				<FlexRow fillHeight={true} gap={gap} name="EntrySpread">
+				<FlexRow fillHeight={true} gap={phone ? gap : E.Body.gap} name="EntrySpread">
 					<FlexFill layoutOrder={0}>{book}</FlexFill>
-					<FlexFixed width={460} layoutOrder={1}>
-						<FlexCol fill={true} gap={gap}>
-							<FlexFixed width={460} height={progressH} layoutOrder={0}>
+					<FlexFixed width={E.Column.w} layoutOrder={1}>
+						<FlexCol fill={true} gap={E.Column.gap}>
+							<FlexFixed width={E.Column.w} height={progressH} layoutOrder={0}>
 								{progressPanel}
 							</FlexFixed>
-							<FlexFixed width={460} height={rewardH} layoutOrder={1}>
+							<FlexFixed width={E.Column.w} height={rewardH} layoutOrder={1}>
 								{rewardPanel}
 							</FlexFixed>
 							{/* .pn.f1: the nearby list takes what is left of the column */}
-							<FlexFixed width={460} height={math.max(nearbyH, bodyH - progressH - rewardH - gap * 2)} layoutOrder={2}>
+							<FlexFixed width={E.Column.w} height={math.max(nearbyH, bodyH - progressH - rewardH - gap * 2)} layoutOrder={2}>
 								{nearbyPanel}
 							</FlexFixed>
 						</FlexCol>
@@ -395,6 +515,9 @@ export function JournalView(props: JournalProps) {
 	const btnH = phone ? TapTarget : 44;
 
 	const opened = openId !== undefined ? allPages.find((page) => page.entry.Id === openId) : undefined;
+	// desktop: the hero's bottom-right .tabs slot (shell); phones: .ph-head
+	useHeroSlot("Journal", opened === undefined ? { tabs: { options: TABS, value: tab, onChange: (id) => setTab(id), accent: Palette.mango, width: math.ceil(L.Tabs.w) } } : undefined);
+	const inHero = useHeroShown();
 	if (opened !== undefined) {
 		const nearby: JournalPage[] = [];
 		for (const delta of [1, -1, 2, -2, 3]) {
@@ -436,10 +559,9 @@ export function JournalView(props: JournalProps) {
 	}
 	const columns = phone ? 2 : 3;
 	const cellH = cardHeight(phone);
-	const cellGap = phone ? 6 : 12;
+	const cellGap = phone ? P.Grid.gap : L.Grid.gap;
 	const rows = math.max(1, math.ceil(shown.size() / columns));
 	const gridH = rows * cellH + (rows - 1) * cellGap;
-	const navH = phone ? TapTarget : 36;
 
 	let mainPanel: React.Element;
 	let mainH: number;
@@ -481,41 +603,14 @@ export function JournalView(props: JournalProps) {
 			</MockPanel>
 		);
 	} else {
-		const chapterNav = tab === "Pages" && current !== undefined && chapters.size() > 1;
 		const emptyText = list.size() === 0 ? "Pages appear as you play." : "Every page is filled.";
-		mainH = panelHeight(
-			phone,
-			head + (chapterNav ? navH + pad.gap : 0) + (shown.size() > 0 ? gridH : rowH) + (tab === "Pages" ? pad.gap + 10 : 0),
-		);
+		mainH = phone
+			? P.Pages.pad.top * 2 + (shown.size() > 0 ? gridH : rowH)
+			: panelHeight(phone, head + (shown.size() > 0 ? gridH : rowH) + (tab === "Pages" ? pad.gap + 10 : 0));
 		mainPanel = (
 			<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} reveal={enter} reducedMotion={reducedMotion} name="JournalPages">
-				<PanelHeading icon="Journal" title={panelTitle} note={panelCount} phone={phone} layoutOrder={0} />
-				{chapterNav && (
-					<FlexRow height={navH} gap={8} align={Enum.VerticalAlignment.Center} layoutOrder={1}>
-						<MockBtn
-							text="Previous"
-							icon="Back.1"
-							sec={true}
-							sm={true}
-							phone={phone}
-							disabled={current!.index === 0}
-							onClick={() => setChapterPick(math.max(0, current!.index - 1))}
-							reducedMotion={reducedMotion}
-							layoutOrder={0}
-						/>
-						<MockBtn
-							text="Next"
-							icon="Chevron"
-							sec={true}
-							sm={true}
-							phone={phone}
-							disabled={current!.index >= chapters.size() - 1}
-							onClick={() => setChapterPick(math.min(chapters.size() - 1, current!.index + 1))}
-							reducedMotion={reducedMotion}
-							layoutOrder={1}
-						/>
-					</FlexRow>
-				)}
+				{/* phone.html: the page panel is the grid alone (the count sits in .ph-head) */}
+				{!phone && <PanelHeading icon="Journal" title={panelTitle} note={panelCount} phone={phone} layoutOrder={0} />}
 				{shown.size() > 0 ? (
 					<frame Size={new UDim2(1, 0, 0, gridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2} key="PageGrid">
 						<uigridlayout
@@ -531,14 +626,14 @@ export function JournalView(props: JournalProps) {
 				) : (
 					<MockRow phone={phone} icon="Check" title={emptyText} dim={true} layoutOrder={2} />
 				)}
-				{tab === "Pages" && current !== undefined && <Bar fill={current.filled / math.max(1, current.pages.size())} color={Palette.mango} layoutOrder={3} />}
+				{!phone && tab === "Pages" && current !== undefined && <Bar fill={current.filled / math.max(1, current.pages.size())} color={Palette.mango} layoutOrder={3} />}
 			</MockPanel>
 		);
 	}
 
 	// chapter reward card: what finishing it gives (the sum of its page rewards) and the next open page
 	const nextOpen = current?.pages.find((page) => !page.done);
-	const chapterRewards: string[] = [];
+	const chapterTotals: RewardTileData[] = [];
 	if (current !== undefined) {
 		const totals: Record<string, number> = {};
 		for (const page of current.pages) {
@@ -547,60 +642,72 @@ export function JournalView(props: JournalProps) {
 				if (typeIs(value, "number")) totals[key as string] = (totals[key as string] ?? 0) + value;
 			}
 		}
-		for (const line of rewardLines(totals as unknown as Reward)) chapterRewards.push(line);
+		for (const [key, amount] of pairs(totals)) {
+			const kind = REWARD_KINDS[key as string];
+			if (kind !== undefined && amount > 0) chapterTotals.push({ key: key as string, name: kind.name, tag: kind.tag(amount), glyph: kind.glyph, color: kind.color });
+		}
+		chapterTotals.sort((a, b) => REWARD_KINDS[a.key].order < REWARD_KINDS[b.key].order);
 	}
 	const readyCount = current !== undefined ? current.pages.filter((page) => page.ready).size() : 0;
-	const rewardCount = math.max(1, chapterRewards.size());
-	const lineH = phone ? 18 : 20;
-	const sideContent =
-		head + rewardCount * rowH + (rewardCount - 1) * pad.gap + pad.gap + lineH + pad.gap + rowH + (nextOpen !== undefined ? pad.gap + btnH : 0);
+	// .wrap of .sc reward tiles, two to a row (176 + 12 + 176 fills the 390 column)
+	const tilesPerRow = math.max(1, math.floor((L.SideReward.w + L.SideReward.gap) / (L.SideCard.w + L.SideReward.gap)));
+	const tileRows = math.max(1, math.ceil(chapterTotals.size() / tilesPerRow));
+	const wrapH = chapterTotals.size() === 0 ? rowH : tileRows * L.SideCard.h + (tileRows - 1) * L.SideReward.gap;
+	const lineH = L.SideLine.h;
+	const sideContent = head + wrapH + pad.gap + lineH + pad.gap + L.SideRow.h + (nextOpen !== undefined ? pad.gap + L.SideBtn.h : 0);
 	const sideH = panelHeight(phone, sideContent);
 	const side = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} reveal={enter} reducedMotion={reducedMotion} name="ChapterReward">
 			<PanelHeading icon="Gift" title="Chapter reward" phone={phone} layoutOrder={0} />
-			{rewardRows(chapterRewards, phone, "", 1, "No rewards in this chapter")}
+			{chapterTotals.size() === 0 ? (
+				<MockRow phone={phone} icon="Gift" title="No rewards in this chapter" dim={true} layoutOrder={1} />
+			) : (
+				<frame Size={new UDim2(1, 0, 0, wrapH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uigridlayout
+						CellSize={UDim2.fromOffset(L.SideCard.w, L.SideCard.h)}
+						CellPadding={UDim2.fromOffset(L.SideReward.gap, L.SideReward.gap)}
+						FillDirectionMaxCells={tilesPerRow}
+						SortOrder={Enum.SortOrder.LayoutOrder}
+					/>
+					{chapterTotals.map((tile, index) => (
+						<RewardTile key={tile.key} tile={tile} reducedMotion={reducedMotion} layoutOrder={index} />
+					))}
+				</frame>
+			)}
 			<Line
 				text={current !== undefined ? `Fill all ${current.pages.size()} pages in this chapter.` : "Pages appear as you play."}
-				size={phone ? 13 : 15}
+				size={L.SideLine.text.size}
 				font={BODY}
-				color={Palette.creamSoft}
+				color={L.SideLine.text.color}
 				width={new UDim(1, 0)}
 				height={lineH}
 				layoutOrder={20}
 			/>
-			<MockRow phone={phone} icon="Timer" title="Ready to claim" value={readyCount > 0 ? `${readyCount} new` : "None"} layoutOrder={21} />
+			<MockRow phone={phone} icon="Timer" title="Ready to claim" value={readyCount > 0 ? `${readyCount} new` : "None"} height={L.SideRow.h} layoutOrder={21} />
 			{nextOpen !== undefined && (
 				<MockBtn text="Open next page" icon="Journal" fill={true} phone={phone} onClick={() => setOpenId(nextOpen.entry.Id)} reducedMotion={reducedMotion} layoutOrder={22} />
 			)}
 		</MockPanel>
 	);
 
-	const tabs = (
-		<TabStrip
-			options={TABS}
-			value={tab}
-			onChange={setTab}
-			accent={Palette.mango}
-			phone={phone}
-			note={`${filledTotal} of ${allPages.size()} pages filled`}
-			width={phone ? 252 : 330}
-			reducedMotion={reducedMotion}
-		/>
-	);
-	const sections: { id: string; height: number; element: React.Element }[] = [{ id: "tabs", height: TAB_STRIP_H, element: tabs }];
-	const showSide = tab === "Pages";
-	if (phone || !showSide) {
+	const sections: { id: string; height: number; element: React.Element }[] = [];
+	if (!inHero) {
+		const note = tab === "Keepsakes" ? `${filledTotal} of ${allPages.size()} pages` : panelCount;
+		sections.push({ id: "head", height: PH_HEAD_H, element: <PhoneHead line={note} options={TABS} value={tab} onChange={(id) => setTab(id)} accent={Palette.mango} reducedMotion={reducedMotion} /> });
+	}
+	// phone.html shows the page grid alone; the chapter reward card is desktop-only there
+	const showSide = tab === "Pages" && !phone;
+	if (!showSide) {
 		sections.push({ id: "pages", height: mainH, element: mainPanel });
-		if (showSide) sections.push({ id: "reward", height: sideH, element: side });
 	} else {
 		const bodyH = math.max(mainH, sideH);
 		sections.push({
 			id: "body",
 			height: bodyH,
 			element: (
-				<FlexRow fillHeight={true} gap={gap} name="JournalBody">
+				<FlexRow fillHeight={true} gap={L.Body.gap} name="JournalBody">
 					<FlexFill layoutOrder={0}>{mainPanel}</FlexFill>
-					<FlexFixed width={430} height={sideH} layoutOrder={1}>
+					<FlexFixed width={L.Side.w} height={sideH} layoutOrder={1}>
 						{side}
 					</FlexFixed>
 				</FlexRow>

@@ -1,5 +1,8 @@
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import { ModalSelectionScope } from "./overlayCore";
+import { PlayerlistLayout as P } from "../pages/generated/PlayerlistLayout";
+import { PlayerlistPhoneLayout as PP } from "../pages/generated/PlayerlistPhoneLayout";
+import { MockTabs } from "../pages/socialKit";
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import { InteractionFeedback } from "../CoreKit/interaction";
@@ -106,12 +109,12 @@ interface Response {
 }
 
 const TEST_BOT_USER_ID = 771133001;
-const ROW_H = 52;
+const ROW_H = P.Row.h;
 // phones (card narrower than this): one-line rows, so about a third more players fit on screen
 const COMPACT_W = 340;
 const COMPACT_ROW_H = 44;
 const SWIPE_W = 190;
-const ROW_GAP = 6;
+const ROW_GAP = P.Panel.gap;
 const FRIEND_TTL = 120;
 const REPORT_COOLDOWN = 600;
 
@@ -324,9 +327,9 @@ function PlayerRow(param: PlayerRowProps) {
 	const detailsH = detailsHeight(row, width);
 	const compact = width < COMPACT_W;
 	const rowH = compact ? COMPACT_ROW_H : ROW_H;
-	const avatarSize = compact ? 28 : 34;
+	const avatarSize = compact ? 28 : P.Avatar.w;
 	// rank column ahead of the avatar; everything after it shifts right by this much
-	const rankW = compact ? 22 : 28;
+	const rankW = compact ? 22 : P.Rank.w;
 	const topRank = param.rank === 1;
 	let statValue = `${compactNumber(row.Production)}/s`;
 	if (param.sortId === "Lifetime") {
@@ -1397,7 +1400,6 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const [expandedId, setExpandedId] = React.useState<number | undefined>(undefined);
 	const [sortId, setSortId] = React.useState("Production");
 	const [query, setQuery] = React.useState("");
-	const [friendsOnly, setFriendsOnly] = React.useState(false);
 	const [friends, setFriends] = React.useState<Record<number, boolean>>({});
 	const [blocked, setBlocked] = React.useState<Record<number, boolean>>({});
 	const [reportTarget, setReportTarget] = React.useState<Row | undefined>(undefined);
@@ -1619,41 +1621,36 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const side = math.max(chrome.sideSafe, viewport.sideInset, 8) + 6;
 	const top = math.max(viewport.topInset, 36) + 8;
 	const bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 8;
-	// never wider or taller than the room left between the safe insets (286px phones, 286px-tall landscape)
-	const width = math.min(viewport.width - 12, math.max(240, math.min(viewport.height < 500 ? 560 : 620, viewport.width - side * 2)));
-	const height = math.max(1, math.min(680, viewport.height - top - bottom));
-	const innerW = width - 20;
+	// design/24-playerlist: desktop.html .pn 620 at the top-right; phone.html .pn 560 (landscape phones)
+	const phoneSheet = viewport.height < 500;
+	const L = phoneSheet ? PP : P;
+	const width = math.min(viewport.width - 12, math.max(240, math.min(L.Panel.w, viewport.width - side * 2)));
+	const height = math.max(1, math.min(L.Panel.h, viewport.height - top - bottom));
+	const pad = L.Panel.pad;
+	const innerW = width - pad.left - pad.right;
 	const showSearch = rows.size() >= Model.SEARCH_MIN_ROWS;
-	const headerH = 58;
-	const boostH = 52;
-	const controlsTop = headerH + boostH + 14;
-	// phones and touch: filter chips and the search box get a full 44px row so the
-	// scroller doesn't clip their hit area down to the drawn 28px
 	const touchRows = useTouchTargets();
-	const ctlH = touchRows ? TapTarget : 30;
-	const controlsH = ctlH + (showSearch ? ctlH + 8 : 0);
-	const listTop = controlsTop + controlsH + 8;
-	// 640x286 landscape: header, boost and controls leave the list almost nothing, so the boost
-	// strip and the controls move into a left column and the list runs full height beside them
-	const shortRoster = height - listTop - 10 < 96 && innerW >= 360;
-	const colW = shortRoster ? math.floor(innerW * 0.45) : innerW;
-	const listX = shortRoster ? 10 + colW + 8 : 10;
-	const listW = shortRoster ? innerW - colW - 8 : innerW;
-	const listY = shortRoster ? headerH + 6 : listTop;
-	// the roster never gets a floor larger than the room under the controls: the old 80px minimum pushed it past the sheet on short narrow phones
-	const listH = shortRoster ? math.max(1, height - listY - 10) : math.max(1, height - listTop - 10);
-	// pad: invite, filters, the player rows, then the rest of the sheet (search, home, close)
-	useFocusOrder(
-		padFocus,
-		{
-			regions: ["RosterBoost", "RosterFilters", "RosterList", "Roster"],
-			first: ["RosterList", "RosterBoost"],
-			columns: shortRoster ? [["RosterBoost", "RosterList"], ["RosterFilters", "RosterList"]] : [],
-		},
-		[shortRoster, showSearch],
-	);
+	// h3: icon, title, "N here" note, spacer, close; touch keeps the close at the tap target
+	const closeH = touchRows ? TapTarget : 32;
+	const headH = math.max(math.ceil(L.Heading.h), closeH);
+	const toolsY = pad.top + headH + L.Panel.gap;
+	const toolsH = math.ceil(L.Tools.h);
+	const tabsW = math.min(math.ceil(L.Tabs.w), innerW - (showSearch ? 120 : 0));
+	const searchW = math.max(0, innerW - tabsW - L.Tools.gap);
+	const listY = toolsY + toolsH + L.Panel.gap;
+	const listW = innerW;
+	const listH = math.max(1, height - listY - pad.bottom);
+	const boostPct = math.floor(social.FriendBonus * 100 + 0.5);
+	const premiumPct = social.Premium ? math.floor(social.PremiumBonus * 100 + 0.5) : 0;
+	// the friend boost folds into the h3 note (the mockup has no boost strip)
+	const note =
+		`${rows.size()} here` +
+		(social.FriendCount > 0 ? ` · friends ${social.FriendCount}/${social.FriendLimit} +${boostPct}%` : "") +
+		(premiumPct > 0 ? ` · premium +${premiumPct}%` : "");
+	// pad: the player rows first, then tabs and search, then the rest of the sheet (home, close)
+	useFocusOrder(padFocus, { regions: ["RosterList", "RosterTools", "Roster"], first: ["RosterList"], columns: [] }, [showSearch]);
 
-	const visible = Model.view(rows, sortId, query, friendsOnly, friends);
+	const visible = Model.view(rows, sortId, query, false, friends);
 	const rankOf = Model.ranks(rows, sortId);
 	const crewState = (require(AstralForge.WaitForChild("CrewStore") as ModuleScript) as CrewStoreModule).useCrew();
 	const crewmates: Record<number, boolean> = {};
@@ -1752,9 +1749,9 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 			},
 		});
 	}
-	if (visible.size() <= 1 && (query !== "" || friendsOnly)) {
+	if (visible.size() <= 1 && query !== "") {
 		listChildren.empty = h(Text, {
-			value: friendsOnly ? "No friends in this server right now." : `Nobody matches "${query}".`,
+			value: `Nobody matches "${query}".`,
 			size: 12,
 			color: Palette.muted,
 			align: Enum.TextXAlignment.Center,
@@ -1777,54 +1774,41 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 		});
 	}
 
-	const chips: Record<string, unknown> = {};
-	chips.layout = h("uilistlayout", {
-		FillDirection: Enum.FillDirection.Horizontal,
-		Padding: new UDim(0, 6),
-		SortOrder: Enum.SortOrder.LayoutOrder,
-		VerticalAlignment: Enum.VerticalAlignment.Center,
-	});
-	const chip = (key: string, order: number, label: string, active: boolean, accent: Color3, onClick: () => void) => {
-		chips[key] = h(
-			"textbutton",
-			{
-				Size: UDim2.fromOffset(math.max(56, label.size() * 7 + 22), touchRows ? TapTarget : 28),
-				LayoutOrder: order,
-				BackgroundColor3: active ? darken(accent, 0.5) : Palette.panel,
-				BorderSizePixel: 0,
-				AutoButtonColor: false,
-				Text: "",
-				ZIndex: 616,
-				Event: {
-					Activated: () => {
-						Audio.play("tabSwitch");
-						onClick();
-					},
-				},
-			},
-			h("uicorner", { CornerRadius: new UDim(1, 0) }),
-			h("uistroke", { Color: accent, Transparency: active ? 0.15 : 0.7 }),
-			h(Text, {
-				value: string.upper(label),
-				size: 10,
-				color: active ? Palette.cream : Palette.creamSoft,
-				weight: Enum.FontWeight.Heavy,
-				align: Enum.TextXAlignment.Center,
-				fit: true,
-				minSize: 8,
-				position: UDim2.fromOffset(6, 0),
-				sizeConstraint: new UDim2(1, -12, 1, 0),
-				zIndex: 617,
+	// last .row: invite friends (what the boost strip used to offer), same row box as the players
+	listChildren.invite = h(
+		"frame",
+		{ Name: "InviteRow", Size: new UDim2(1, 0, 0, ROW_H), BackgroundTransparency: 1, BorderSizePixel: 0, LayoutOrder: 10000 },
+		h("uicorner", { CornerRadius: new UDim(0, P.Row.radius) }),
+		h("uistroke", { Color: Palette.mint, Transparency: 0.7 }),
+		h(Text, {
+			value: social.FriendCount < social.FriendLimit ? `Invite friends · +${boostPct}% now, up to ${social.FriendLimit}` : `Friend boost full · +${boostPct}%`,
+			size: L.Place.text.size,
+			color: Palette.creamSoft,
+			weight: Enum.FontWeight.SemiBold,
+			fit: true,
+			minSize: 9,
+			position: UDim2.fromOffset(P.Row.pad.left, 0),
+			sizeConstraint: new UDim2(1, -(P.Row.pad.left + P.Row.pad.right + 130), 1, 0),
+			zIndex: 620,
+		}),
+		h(
+			"frame",
+			{ Size: UDim2.fromOffset(120, math.min(ROW_H - 8, touchRows ? TapTarget : 36)), Position: new UDim2(1, -P.Row.pad.right, 0.5, 0), AnchorPoint: new Vector2(1, 0.5), BackgroundTransparency: 1, ZIndex: 621 },
+			h(Button, {
+				text: inviteBusy ? "OPENING" : "INVITE",
+				icon: "Crew.19",
+				onClick: invite,
+				color: Palette.mint,
+				textColor: Palette.ink,
+				size: UDim2.fromScale(1, 1),
+				reducedMotion: reducedMotion,
+				disabled: inviteBusy,
+				zIndex: 621,
 			}),
-		);
-	};
-	for (const [order, sort] of ipairs(Model.SORTS)) {
-		chip("sort" + sort.id, order, sort.label, sortId === sort.id, Palette.cyan, () => setSortId(sort.id));
-	}
-	chip("friends", Model.SORTS.size() + 1, "Friends", friendsOnly, Palette.mango, () => setFriendsOnly(!friendsOnly));
+		),
+	);
 
 	const showAmount = composePresence(enter, exitAmount);
-	const friendProgress = math.clamp(social.FriendCount / math.max(1, social.FriendLimit), 0, 1);
 	return h(
 		OverlayPresence,
 		{ amount: showAmount },
@@ -1866,38 +1850,36 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 					ClipsDescendants: true,
 					ZIndex: 610,
 				},
-				h("uicorner", { CornerRadius: new UDim(0, 18) }),
-				h("frame", { Name: "BrassRule", Size: new UDim2(1, -6, 1, -6), Position: UDim2.fromOffset(3, 3), BackgroundTransparency: 1, BorderSizePixel: 0, Active: false }, h("uicorner", { CornerRadius: new UDim(0, 15) }), h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.75 })),
-				h("uistroke", { Color: Palette.cyan, Thickness: 1.25, Transparency: 0.55 }),
-				h(Icon, { kind: "Crew.18", color: Palette.cream, accent: Palette.cyan, size: 30, spin: false, position: UDim2.fromOffset(14, 14) }),
+				h("uicorner", { CornerRadius: new UDim(0, P.Panel.radius) }),
+				h("uistroke", { Color: Palette.line, Thickness: 1, Transparency: 0.35 }),
+				// h3: icon, PLAYERS, "N here", spacer, (home), close
+				h(Icon, { kind: "Crew.18", color: Palette.cream, accent: Palette.cyan, size: 18, spin: false, position: UDim2.fromOffset(pad.left, pad.top + (headH - 18) / 2) }),
 				h(Text, {
-					value: "Roster",
-					size: 20,
+					value: "PLAYERS",
+					size: L.Heading.text.size,
 					color: Palette.cream,
 					weight: Enum.FontWeight.Heavy,
-					fit: visitingSomeone,
-					minSize: 12,
-					position: UDim2.fromOffset(54, 9),
-					sizeConstraint: new UDim2(1, visitingSomeone ? -(112 + HOME_W + 6) : -112, 0, 24),
+					position: UDim2.fromOffset(pad.left + 28, pad.top),
+					sizeConstraint: new UDim2(0, 96, 0, headH),
 					zIndex: 613,
 				}),
 				h(Text, {
-					value: tostring(rows.size()),
-					size: 10,
-					color: Palette.cyan,
-					weight: Enum.FontWeight.Bold,
+					value: note,
+					size: L.Count.text.size,
+					color: Palette.muted,
+					weight: Enum.FontWeight.SemiBold,
 					fit: true,
 					minSize: 9,
-					position: UDim2.fromOffset(54, 33),
-					sizeConstraint: new UDim2(1, visitingSomeone ? -(112 + HOME_W + 6) : -112, 0, 16),
+					position: UDim2.fromOffset(pad.left + 28 + 96 + 10, pad.top),
+					sizeConstraint: new UDim2(1, -(pad.left + pad.right + 134 + closeH + 10 + (visitingSomeone ? HOME_W + 8 : 0)), 0, headH),
 					zIndex: 613,
 				}),
 				visitingSomeone
 					? h(
 							"frame",
 							{
-								Size: UDim2.fromOffset(HOME_W, TapTarget),
-								Position: new UDim2(1, -(TapTarget + 8 + 6 + HOME_W), 0, 7),
+								Size: UDim2.fromOffset(HOME_W, closeH),
+								Position: new UDim2(1, -(pad.right + closeH + 8 + HOME_W), 0, pad.top + (headH - closeH) / 2),
 								BackgroundTransparency: 1,
 								ZIndex: 614,
 							},
@@ -1921,8 +1903,8 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				h(
 					"frame",
 					{
-						Size: UDim2.fromOffset(TapTarget, TapTarget),
-						Position: new UDim2(1, -(TapTarget + 8), 0, 7),
+						Size: UDim2.fromOffset(closeH, closeH),
+						Position: new UDim2(1, -(pad.right + closeH), 0, pad.top + (headH - closeH) / 2),
 						BackgroundTransparency: 1,
 						ZIndex: 614,
 					},
@@ -1939,113 +1921,53 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 						zIndex: 614,
 					}),
 				),
+				// .flexr: search chip, spacer, sort .tabs
 				h(
 					"frame",
 					{
-						Name: "RosterBoost",
-						Size: shortRoster ? UDim2.fromOffset(colW, boostH) : new UDim2(1, -20, 0, boostH),
-						Position: UDim2.fromOffset(10, headerH + 6),
-						BackgroundColor3: Palette.panelRaised,
-						BorderSizePixel: 0,
-						ZIndex: 612,
-					},
-					h("uicorner", { CornerRadius: new UDim(0, 10) }),
-					h("uistroke", { Color: Palette.mint, Transparency: 0.55 }),
-					h(Text, {
-						value: `FRIEND BOOST  ${social.FriendCount}/${social.FriendLimit}  ·  +${math.floor(social.FriendBonus * 100 + 0.5)}%`,
-						size: 11,
-						color: Palette.mint,
-						weight: Enum.FontWeight.Heavy,
-						fit: true,
-						minSize: 8,
-						position: UDim2.fromOffset(10, 8),
-						sizeConstraint: new UDim2(0.6, -14, 0, 16),
-						zIndex: 613,
-					}),
-					h(Text, {
-						value: social.Premium
-							? `PREMIUM +${math.floor(social.PremiumBonus * 100 + 0.5)}%`
-							: "Friends boost output",
-						size: 10,
-						color: social.Premium ? Palette.mango : Palette.muted,
-						weight: Enum.FontWeight.Bold,
-						fit: true,
-						minSize: 8,
-						position: UDim2.fromOffset(10, 25),
-						sizeConstraint: new UDim2(0.6, -14, 0, 14),
-						zIndex: 613,
-					}),
-					h(
-						"frame",
-						{
-							Size: new UDim2(0.6, -20, 0, 3),
-							Position: UDim2.fromOffset(10, 43),
-							BackgroundColor3: Palette.lineSoft,
-							BorderSizePixel: 0,
-							ZIndex: 613,
-						},
-						h("uicorner", { CornerRadius: new UDim(1, 0) }),
-						h(
-							"frame",
-							{ Size: new UDim2(friendProgress, 0, 1, 0), BackgroundColor3: Palette.mint, BorderSizePixel: 0 },
-							h("uicorner", { CornerRadius: new UDim(1, 0) }),
-						),
-					),
-					h(
-						"frame",
-						{
-							Size: new UDim2(0.4, -8, 0, 36),
-							Position: new UDim2(0.6, 0, 0.5, -18),
-							BackgroundTransparency: 1,
-							ZIndex: 614,
-						},
-						h(Button, {
-							text: inviteBusy ? "OPENING" : "INVITE",
-							icon: "Crew.19",
-							onClick: invite,
-							color: Palette.mint,
-							textColor: Palette.ink,
-							size: UDim2.fromScale(1, 1),
-							reducedMotion: reducedMotion,
-							disabled: inviteBusy,
-							highlight: true,
-							zIndex: 614,
-						}),
-					),
-				),
-				showSearch &&
-					h(SearchField, {
-						value: query,
-						onChange: setQuery,
-						accent: Palette.cyan,
-						placeholder: "Find a player",
-						position: UDim2.fromOffset(10, controlsTop),
-						size: UDim2.fromOffset(colW, ctlH),
-						reducedMotion: reducedMotion,
-						zIndex: 616,
-					}),
-				h(
-					"scrollingframe",
-					{
-						Name: "RosterFilters",
-						Size: UDim2.fromOffset(colW, ctlH),
-						Position: UDim2.fromOffset(10, controlsTop + (showSearch ? ctlH + 8 : 0)),
+						Name: "RosterTools",
+						Size: UDim2.fromOffset(innerW, toolsH),
+						Position: UDim2.fromOffset(pad.left, toolsY),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
-						ScrollBarThickness: 0,
-						ScrollingDirection: Enum.ScrollingDirection.X,
-						AutomaticCanvasSize: Enum.AutomaticSize.X,
-						CanvasSize: new UDim2(),
 						ZIndex: 615,
 					},
-					chips,
+					showSearch &&
+						h(SearchField, {
+							value: query,
+							onChange: setQuery,
+							accent: Palette.cyan,
+							placeholder: "Find a player",
+							position: UDim2.fromOffset(0, (toolsH - (touchRows ? TapTarget : L.Search.h)) / 2),
+							size: UDim2.fromOffset(searchW, touchRows ? TapTarget : L.Search.h),
+							reducedMotion: reducedMotion,
+							zIndex: 616,
+						}),
+					h(
+						"frame",
+						{ Size: UDim2.fromOffset(tabsW, toolsH), Position: new UDim2(1, 0, 0, 0), AnchorPoint: new Vector2(1, 0), BackgroundTransparency: 1, ZIndex: 616 },
+						h(MockTabs, {
+							options: Model.SORTS.map((sort) => ({ id: sort.id, label: string.upper(sort.label) })),
+							value: sortId,
+							onChange: (id: string) => {
+								Audio.play("tabSwitch");
+								setSortId(id);
+							},
+							accent: Palette.cyan,
+							phone: phoneSheet,
+							fill: true,
+							tabHeight: L.TabOn.h,
+							padX: L.TabOn.pad.left,
+							reducedMotion: reducedMotion,
+						}),
+					),
 				),
 				h(
 					"scrollingframe",
 					{
 						Name: "RosterList",
 						Size: UDim2.fromOffset(listW, listH),
-						Position: UDim2.fromOffset(listX, listY),
+						Position: UDim2.fromOffset(pad.left, listY),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
 						CanvasSize: new UDim2(),

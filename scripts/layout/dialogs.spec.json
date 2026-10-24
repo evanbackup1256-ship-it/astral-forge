@@ -1,0 +1,2 @@
+{"name":"DialogLayout","source":"design/26-dialogs/desktop.html","viewport":[1920,1080],"root":".screen","origin":".pn","out":"src/Client/AstralForge/pages/generated/DialogLayout.ts",
+"nodes":{"Dialog":".pn","Heading":".pn h3","Close":".pn h3 svg:1","Media":".pn .flexr","Art":".pn .flexr img","Title":".pn .flexr b","Body":".pn .flexr small","Actions":".pn .flexr:1","Cancel":".pn .btn.sec","Danger":".pn .btn.danger","Coach":".pn:2","CoachLine":".pn:2 small:1","CoachBtns":".pn:2 .flexr","Tip":".pn:3","TipTitle":".pn:3 b","TipBody":".pn:3 small"}}

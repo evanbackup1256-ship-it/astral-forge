@@ -18,7 +18,7 @@ export interface MockTabOption {
 	label: string;
 }
 
-function MockTab(p: { option: MockTabOption; on: boolean; accent: Color3; height: number; onPick: (id: string) => void; reducedMotion?: boolean; order: number }) {
+function MockTab(p: { option: MockTabOption; on: boolean; accent: Color3; height: number; padX: number; onPick: (id: string) => void; reducedMotion?: boolean; order: number }) {
 	const chrome = useButtonChrome(() => p.onPick(p.option.id), p.reducedMotion === true, false, "tabSwitch", false);
 	const lit = useFlipperSpring(p.on ? 1 : 0, p.reducedMotion, 700, 38);
 	return (
@@ -39,7 +39,7 @@ function MockTab(p: { option: MockTabOption; on: boolean; accent: Color3; height
 				Rotation={90}
 				Color={new ColorSequence(Palette.white, Color3.fromRGB(178, 178, 178))}
 			/>
-			<uipadding PaddingLeft={new UDim(0, 18)} PaddingRight={new UDim(0, 18)} />
+			<uipadding PaddingLeft={new UDim(0, p.padX)} PaddingRight={new UDim(0, p.padX)} />
 			<textlabel
 				Size={new UDim2(0, 0, 1, 0)}
 				AutomaticSize={Enum.AutomaticSize.X}
@@ -63,14 +63,19 @@ export function MockTabs(p: {
 	reducedMotion?: boolean;
 	layoutOrder?: number;
 	fill?: boolean;
+	/** full-width well with hugging tabs (design/22 admin category row) */
+	wide?: boolean;
+	/** mockup .tab height / side padding (generated); defaults 40 (phones: tap target) and 18 */
+	tabHeight?: number;
+	padX?: number;
 }) {
 	// .tab min-height 40; phones keep the full tap target
-	const tabH = p.phone ? TapTarget : 40;
+	const tabH = p.tabHeight ?? (p.phone ? TapTarget : 40);
 	return (
 		<frame
 
-			Size={p.fill === true ? new UDim2(1, 0, 0, tabH + 8) : UDim2.fromOffset(0, tabH + 8)}
-			AutomaticSize={p.fill === true ? Enum.AutomaticSize.None : Enum.AutomaticSize.X}
+			Size={p.fill === true || p.wide === true ? new UDim2(1, 0, 0, tabH + 8) : UDim2.fromOffset(0, tabH + 8)}
+			AutomaticSize={p.fill === true || p.wide === true ? Enum.AutomaticSize.None : Enum.AutomaticSize.X}
 			BackgroundColor3={TABS_WELL}
 			BackgroundTransparency={0.3}
 			BorderSizePixel={0}
@@ -93,6 +98,7 @@ export function MockTabs(p: {
 					on={option.id === p.value}
 					accent={p.accent ?? Palette.mint}
 					height={tabH}
+					padX={p.padX ?? 18}
 					onPick={p.onChange}
 					reducedMotion={p.reducedMotion}
 					order={index}

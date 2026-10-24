@@ -1,0 +1,24 @@
+{
+ "name": "JournalPhoneLayout",
+ "source": "design/19-journal/phone.html",
+ "viewport": [
+  844,
+  390
+ ],
+ "root": ".screen",
+ "origin": ".main",
+ "out": "src/Client/AstralForge/pages/generated/JournalPhoneLayout.ts",
+ "nodes": {
+  "Head": ".ph-head",
+  "Note": ".ph-head p",
+  "Tabs": ".ph-head .tabs",
+  "Tab": ".ph-head .tab",
+  "Pages": ".main .pn.f1",
+  "Grid": ".pn.f1 .row ..",
+  "Card": ".pn.f1 .row",
+  "CardHead": ".pn.f1 .row div",
+  "CardTitle": ".pn.f1 .row b",
+  "CardGoal": ".pn.f1 .row span:1",
+  "CardChip": ".pn.f1 .row .chip"
+ }
+}

@@ -1,0 +1,21 @@
+{
+ "name": "JournalEntryPhoneLayout",
+ "source": "design/20-journal-entry/phone.html",
+ "viewport": [
+  844,
+  390
+ ],
+ "root": ".screen",
+ "origin": ".main",
+ "out": "src/Client/AstralForge/pages/generated/JournalEntryPhoneLayout.ts",
+ "nodes": {
+  "Head": ".ph-head",
+  "Body": ".main .flexr",
+  "Progress": ".flexr .pn.f1",
+  "Row": ".pn.f1 .row",
+  "Bar": ".pn.f1 .bar",
+  "Side": ".flexr .pn:1",
+  "Btn": ".pn:1 .btn",
+  "BtnSec": ".pn:1 .btn.sec"
+ }
+}

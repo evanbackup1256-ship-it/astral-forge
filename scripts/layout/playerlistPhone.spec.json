@@ -1,0 +1,28 @@
+{
+ "name": "PlayerlistPhoneLayout",
+ "source": "design/24-playerlist/phone.html",
+ "viewport": [
+  844,
+  390
+ ],
+ "root": ".screen",
+ "origin": ".pn",
+ "out": "src/Client/AstralForge/pages/generated/PlayerlistPhoneLayout.ts",
+ "nodes": {
+  "Panel": ".pn",
+  "Heading": ".pn h3",
+  "Count": ".pn h3 small",
+  "Tools": ".pn .flexr",
+  "Search": ".pn .flexr .chip",
+  "TabOn": ".pn .tab.on",
+  "Tab": ".pn .tab:1",
+  "Row": ".pn .row:1",
+  "Rank": ".pn .row:1 .num",
+  "Avatar": ".pn .row:1 div",
+  "Name": ".pn .row:1 b",
+  "Place": ".pn .row:1 small",
+  "Chip": ".pn .row:1 .chip",
+  "Value": ".pn .row:1 .v",
+  "Tabs": ".pn .tabs"
+ }
+}

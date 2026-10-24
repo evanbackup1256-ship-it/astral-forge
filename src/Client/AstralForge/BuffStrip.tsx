@@ -2,6 +2,7 @@
 // underneath (boost and surge timers count down). Chips pop in when a buff starts, bob gently out of
 // step with each other, and the timed ones pulse.
 import React from "@rbxts/react";
+import { ToastLayout as T } from "./pages/generated/ToastLayout";
 import ArtKit = require("./ArtKit");
 import Juice = require("./JuiceFx");
 import Rainbow = require("./Rainbow");
@@ -414,7 +415,7 @@ BuffStrip.Strip = function (props: StripProps): React.Element {
 // settles back. Size, corners and contents all spring between shapes.
 
 const COMPACT_H = 44;
-const EVENT_H = 62;
+const EVENT_H = T.Toast.h;
 const ROW_H = 40;
 
 function easeOutBack(x: number): number {
@@ -1239,8 +1240,8 @@ function toneMotion(
 
 // toast spacing (uirevamp): one edge inset shared by Announcement and LiveActivity, text starts
 // a clear gap after the icon. measureEvent sizes the island from the same numbers.
-const TOAST_INSET = 16;
-const TOAST_TEXT_X = { moment: 88, notice: 68, pill: 52 } as const;
+const TOAST_INSET = T.Toast.pad.left;
+const TOAST_TEXT_X = { moment: 88, notice: T.Text.x, pill: 52 } as const;
 const LIVE_ICON = 32;
 const LIVE_TEXT_X = 12 + LIVE_ICON + 12;
 
@@ -1258,7 +1259,9 @@ function Announcement(props: AnnouncementProps): React.Element {
 	const style = info.style || "notice";
 	const moment = style === "moment";
 	const pill = style === "pill";
-	const iconBox = moment ? 52 : pill ? 28 : 38;
+	const notice = !moment && !pill;
+	// 25-toasts .pn: the notice glyph sits bare (no well), 20px at the 16px inset
+	const iconBox = moment ? 52 : pill ? 28 : T.Icon.w;
 	const textX = moment ? TOAST_TEXT_X.moment : pill ? TOAST_TEXT_X.pill : TOAST_TEXT_X.notice;
 	const startedAt = info.startedAt ?? os.clock();
 	const hold = math.max(0.5, info.hold ?? 2.6);
@@ -1314,6 +1317,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 				Position: new UDim2(0, pill ? 12 : TOAST_INSET, 0.5, 0),
 				AnchorPoint: new Vector2(0, 0.5),
 				BackgroundColor3: theme.darken(info.color, 0.55),
+				BackgroundTransparency: notice ? 1 : 0,
 				BorderSizePixel: 0,
 				ZIndex: 63,
 				Rotation: moment ? arrive.map((t) => (1 - easeOutBack(t)) * -90) : 0,
@@ -1334,7 +1338,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 				{
 					Color: moment ? P.white : theme.lighten(info.color, 0.25),
 					Thickness: moment ? 2 : 1.5,
-					Transparency: 0.15,
+					Transparency: notice ? 1 : 0.15,
 				},
 				moment &&
 					h("uigradient", {
@@ -1346,7 +1350,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 				kind: info.icon ?? "Boost.5",
 				color: P.white,
 				accent: info.color,
-				size: math.floor(iconBox * 0.58),
+				size: notice ? iconBox : math.floor(iconBox * 0.58),
 				position: UDim2.fromScale(0.5, 0.5),
 				anchorPoint: new Vector2(0.5, 0.5),
 				spin: false,
@@ -1355,9 +1359,9 @@ function Announcement(props: AnnouncementProps): React.Element {
 		h(
 			"textlabel",
 			{
-				Size: new UDim2(1, -(textX + TOAST_INSET), 0, moment ? 30 : pill ? 20 : 22),
+				Size: new UDim2(1, -(textX + TOAST_INSET), 0, moment ? 30 : pill ? 20 : T.Title.h),
 				Position: arrive.map((t) => {
-					const y = pill ? 12 : moment ? (info.subtitle !== undefined ? 16 : 33) : info.subtitle !== undefined ? 10 : 20;
+					const y = pill ? 12 : moment ? (info.subtitle !== undefined ? 16 : 33) : info.subtitle !== undefined ? T.Title.y : math.floor((T.Toast.h - T.Title.h) / 2);
 					return new UDim2(0, textX + (1 - t) * 12, 0, y);
 				}),
 				BackgroundTransparency: 1,
@@ -1382,7 +1386,7 @@ function Announcement(props: AnnouncementProps): React.Element {
 			!pill &&
 			h("textlabel", {
 				Size: new UDim2(1, -(textX + TOAST_INSET), 0, 16 * (info.lines ?? 1)),
-				Position: arrive.map((t) => new UDim2(0, textX + (1 - t) * 18, 0, moment ? 50 : 33)),
+				Position: arrive.map((t) => new UDim2(0, textX + (1 - t) * 18, 0, moment ? 50 : T.Sub.y)),
 				BackgroundTransparency: 1,
 				Text: info.subtitle,
 				TextColor3: P.creamSoft,
@@ -1704,7 +1708,7 @@ function measureEvent(info: IslandNotice, maxWidth?: number) {
 	const subtitleW =
 		info.subtitle !== undefined ? textWidth(info.subtitle, moment ? 14 : 13, Enum.Font.BuilderSansBold) : 0;
 	// notices are at most 420 px wide (the island's own cap keeps them narrower on phones); moments keep 560
-	const width = math.clamp(math.ceil(textX + TOAST_INSET + 8 + math.max(titleW, math.min(subtitleW, 400))), moment ? 320 : 240, moment ? cap : math.min(cap, 420));
+	const width = math.clamp(math.ceil(textX + TOAST_INSET + 8 + math.max(titleW, math.min(subtitleW, 400))), moment ? 320 : math.min(cap, T.Toast.w), moment ? cap : math.min(cap, T.Toast.w));
 	const room = math.max(80, width - textX - TOAST_INSET - 8);
 	info.width = width;
 	info.lines = subtitleW > room ? 2 : 1;
@@ -1801,6 +1805,23 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 			pcall(() => task.cancel(job));
 		};
 	}, [live !== undefined ? live.token : undefined]);
+	// 25-toasts .flexc: the stack keeps the last two messages under the live one (420x64, gap 10)
+	const [trail, setTrail] = React.useState<IslandNotice[]>([]);
+	const lastEvent = React.useRef<IslandNotice | undefined>(undefined);
+	React.useEffect(() => {
+		const previous = lastEvent.current;
+		lastEvent.current = event;
+		if (previous === undefined || (event !== undefined && event.token === previous.token)) {
+			return undefined;
+		}
+		setTrail((old) => [previous, ...old.filter((n) => n.token !== previous.token)].filter((_, i) => i < 2));
+		const job = task.delay(math.max(2.5, previous.hold ?? 2.6), () =>
+			setTrail((old) => old.filter((n) => n.token !== previous.token)),
+		);
+		return () => {
+			pcall(() => task.cancel(job));
+		};
+	}, [event !== undefined ? event.token : undefined]);
 	// hover is read from the pointer itself: enter/leave events go stale when the capsule
 	// changes size under the cursor, and touch never sends a leave
 	React.useEffect(() => {
@@ -2238,7 +2259,43 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 			h("uitextsizeconstraint", { MaxTextSize: 15, MinTextSize: 8 }),
 		),
 	);
-	return h(React.Fragment, undefined, capsule, bubble);
+	const stackClock = motion.useClock(trail.size() > 0, 1, 3600, true);
+	const stack =
+		role === "toasts" &&
+		trail.size() > 0 &&
+		h(
+			"frame",
+			{
+				Name: "ToastStack",
+				Size: UDim2.fromOffset(math.min(maxWidth, T.Stack.w), (T.Toast.h + T.Stack.gap) * trail.size()),
+				Position: height.map((v) => (props.position ?? new UDim2()).add(UDim2.fromOffset(0, v + T.Stack.gap))),
+				AnchorPoint: props.anchorPoint ?? new Vector2(0.5, 0),
+				BackgroundTransparency: 1,
+				ZIndex: 59,
+			},
+			h("uilistlayout", { Padding: new UDim(0, T.Stack.gap), SortOrder: Enum.SortOrder.LayoutOrder }),
+			...trail.map((n, i) =>
+				h(
+					"textbutton",
+					{
+						key: `trail${tostring(n.token)}`,
+						Size: UDim2.fromOffset(math.min(maxWidth, T.Toast.w), T.Toast.h),
+						LayoutOrder: i,
+						BackgroundColor3: Color3.fromRGB(6, 6, 10),
+						BackgroundTransparency: 0.02,
+						AutoButtonColor: false,
+						Text: "",
+						ClipsDescendants: true,
+						ZIndex: 59,
+						Event: { Activated: () => setTrail((old) => old.filter((o) => o.token !== n.token)) },
+					},
+					h("uicorner", { CornerRadius: new UDim(0, T.Toast.radius) }),
+					h("uistroke", { Color: n.color, Thickness: 1, Transparency: 0.55 }),
+					h(Announcement, { info: n, token: n.token, clock: stackClock }),
+				),
+			),
+		);
+	return h(React.Fragment, undefined, capsule, bubble, stack);
 };
 
 // 25-toasts moment banner: top-centre of the play area, 44px serif caps in brass with one line under it.

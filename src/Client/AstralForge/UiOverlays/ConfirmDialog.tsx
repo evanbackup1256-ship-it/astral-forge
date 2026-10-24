@@ -1,12 +1,13 @@
 import { named } from "../lua";
 import { useFocusOrder } from "../CoreKit/focusOrder";
+import { DialogLayout as D } from "../pages/generated/DialogLayout";
 import React from "@rbxts/react";
 import { Audio } from "../AudioKit/audio";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, Space, TapTarget } from "../CoreKit/theme";
 import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
 import { Button, OverlayPresence, TITLE_FACE, Text, measureWrappedTextHeight, useGamepadAutofocus } from "../UiCore/ui";
-import { Glyph, PnSurface, spaced } from "../UiCore/mockKit";
+import { Glyph, GlyphWell, PnSurface, spaced } from "../UiCore/mockKit";
 
 const ContextActionService = game.GetService("ContextActionService");
 
@@ -20,6 +21,9 @@ export type ConfirmTone = "danger" | "neutral" | "accent";
 export interface ConfirmRequest {
 	title: string;
 	body?: string;
+	/** 26-dialogs .flexr: the 84px art (a glyph kind) and the bold line beside it */
+	art?: string;
+	subtitle?: string;
 	confirmText?: string;
 	cancelText?: string;
 	tone?: ConfirmTone;
@@ -147,22 +151,29 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 	useFocusOrder(focus, { regions: ["ConfirmCancel", "ConfirmOk"], first: ["ConfirmCancel"], columns: [["ConfirmCancel", "ConfirmOk"]] }, []);
 
 	const safeSide = math.max(Space.md, viewport.sideInset);
-	const width = math.clamp(viewport.width - safeSide * 2, math.min(240, viewport.width - 16), 420);
-	const padding = width < 320 ? Space.lg : Space.xl;
+	const width = math.clamp(viewport.width - safeSide * 2, math.min(240, viewport.width - 16), D.Dialog.w);
+	const padding = width < 320 ? Space.lg : D.Dialog.pad.left;
+	const btnGap = width < 320 ? Space.sm : D.Actions.gap;
 	const inner = width - padding * 2;
 	const stackButtons = inner < 300;
-	const titleH = math.max(22, measureWrappedTextHeight(props.title.upper(), inner - 60, 15, Enum.FontWeight.Heavy));
+	const titleH = math.max(D.Heading.h, measureWrappedTextHeight(props.title.upper(), inner - 60, D.Heading.text.size, Enum.FontWeight.Heavy));
 	// measured at the width the body really wraps at (the 6px scrollbar gutter comes off the frame below)
-	const bodyH = props.body !== undefined ? measureWrappedTextHeight(props.body, inner - 6, 14) : 0;
-	const actionsH = stackButtons ? TapTarget * 2 + Space.sm : TapTarget;
-	const bodyGap = props.body !== undefined ? Space.sm : 0;
+	// .flexr: img 84 + .tt (b, small); without art the .tt runs the full width
+	const hasArt = props.art !== undefined;
+	const ttX = hasArt ? D.Art.w + D.Media.gap : 0;
+	const subH = props.subtitle !== undefined ? D.Title.h + (D.Body.y - D.Title.y - D.Title.h) : 0;
+	const textH = props.body !== undefined ? measureWrappedTextHeight(props.body, inner - ttX - 6, D.Body.text.size) : 0;
+	const bodyH = math.max(hasArt ? D.Art.h : 0, subH + textH);
+	const actionsH = stackButtons ? TapTarget * 2 + btnGap : D.Actions.h;
+	const hasMedia = props.body !== undefined || hasArt || props.subtitle !== undefined;
+	const bodyGap = hasMedia ? D.Dialog.gap : 0;
 	const maxH = math.max(200, viewport.height - math.max(Space.lg, viewport.topInset) - math.max(Space.lg, viewport.bottomInset));
-	const height = math.min(maxH, padding * 2 + titleH + bodyGap + bodyH + Space.xl + actionsH);
+	const height = math.min(maxH, padding * 2 + titleH + bodyGap + bodyH + D.Dialog.gap + actionsH);
 	// a long body on a short screen (640x286) scrolls above the buttons instead of running under them
-	const bodyRoom = math.max(0, math.min(bodyH, height - padding * 2 - titleH - bodyGap - Space.xl - actionsH));
+	const bodyRoom = math.max(0, math.min(bodyH, height - padding * 2 - titleH - bodyGap - D.Dialog.gap - actionsH));
 	const confirmText = props.confirmText ?? "Confirm";
 	const cancelText = props.cancelText ?? (props.tone === "danger" ? "Keep" : "Cancel");
-	const buttonW = stackButtons ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0.5, -Space.sm / 2, 0, TapTarget);
+	const buttonW = stackButtons ? new UDim2(1, 0, 0, TapTarget) : new UDim2(0.5, -btnGap / 2, 0, D.Actions.h);
 
 	return (
 		<OverlayPresence amount={reveal}>
@@ -192,11 +203,11 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 					ZIndex={z + 2}
 				>
 					<imagebutton Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} AutoButtonColor={false} Active={true} Selectable={false} ZIndex={z + 2} />
-					<PnSurface size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={padding} radius={18} rule={true} zIndex={z + 3} reveal={reveal} reducedMotion={props.reducedMotion}>
+					<PnSurface size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panel} padding={padding} radius={D.Dialog.radius} rule={true} zIndex={z + 3} reveal={reveal} reducedMotion={props.reducedMotion}>
 						{/* 26-dialogs .pn h3: tone glyph, Cinzel caps title, close X pushed right */}
 						<Glyph kind={props.tone === "danger" ? "Warning" : "Info"} size={18} color={accent} position={UDim2.fromOffset(0, 2)} />
 						<frame Size={new UDim2(1, -60, 0, titleH)} Position={UDim2.fromOffset(28, 0)} BackgroundTransparency={1} ZIndex={z + 4}>
-							<textlabel Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} Text={spaced(props.title.upper())} TextSize={15} FontFace={TITLE_FACE} TextColor3={Palette.cream} TextWrapped={true} TextXAlignment={Enum.TextXAlignment.Left} TextYAlignment={Enum.TextYAlignment.Top} ZIndex={z + 4} />
+							<textlabel Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} Text={spaced(props.title.upper())} TextSize={D.Heading.text.size} FontFace={TITLE_FACE} TextColor3={Palette.cream} TextWrapped={true} TextXAlignment={Enum.TextXAlignment.Left} TextYAlignment={Enum.TextYAlignment.Top} ZIndex={z + 4} />
 						</frame>
 						<textbutton
 							Size={UDim2.fromOffset(44, 44)}
@@ -211,7 +222,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 						>
 							<Glyph kind="Close" size={18} color={Palette.muted} position={UDim2.fromOffset(13, 13)} />
 						</textbutton>
-						{props.body !== undefined && (
+						{hasMedia && (
 							<scrollingframe
 								Size={new UDim2(1, 0, 0, bodyRoom)}
 								Position={UDim2.fromOffset(0, titleH + bodyGap)}
@@ -225,8 +236,14 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 								BorderSizePixel={0}
 								ZIndex={z + 4}
 							>
-								<frame Size={new UDim2(1, -6, 0, bodyH)} BackgroundTransparency={1} ZIndex={z + 4}>
-									<Text value={props.body} size={14} color={Palette.creamSoft} wrap={true} sizeConstraint={UDim2.fromScale(1, 1)} zIndex={z + 4} />
+								{hasArt && <GlyphWell kind={props.art} accent={accent} size={D.Art.w} still={true} reducedMotion={props.reducedMotion} />}
+								<frame Size={new UDim2(1, -(ttX + 6), 0, subH + textH)} Position={UDim2.fromOffset(ttX, math.max(0, (bodyH - subH - textH) / 2))} BackgroundTransparency={1} ZIndex={z + 4}>
+									{props.subtitle !== undefined && (
+										<Text value={props.subtitle} size={D.Title.text.size} color={D.Title.text.color} weight={Enum.FontWeight.Bold} sizeConstraint={new UDim2(1, 0, 0, D.Title.h)} zIndex={z + 4} />
+									)}
+									{props.body !== undefined && (
+										<Text value={props.body} size={D.Body.text.size} color={D.Body.text.color} wrap={true} fit={true} minSize={11} position={UDim2.fromOffset(0, subH)} sizeConstraint={new UDim2(1, 0, 0, textH)} zIndex={z + 4} />
+									)}
 								</frame>
 							</scrollingframe>
 						)}
@@ -239,7 +256,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 								color={Color3.fromRGB(58, 46, 62)}
 								textColor={Palette.cream}
 								size={buttonW}
-								position={stackButtons ? UDim2.fromOffset(0, TapTarget + Space.sm) : UDim2.fromScale(0, 0)}
+								position={stackButtons ? UDim2.fromOffset(0, TapTarget + btnGap) : UDim2.fromScale(0, 0)}
 								disabled={exiting}
 								reducedMotion={props.reducedMotion}
 								sound={false}
@@ -254,7 +271,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 								textColor={Palette.ink}
 								highlight={true}
 								size={buttonW}
-								position={stackButtons ? UDim2.fromScale(0, 0) : new UDim2(0.5, Space.sm / 2, 0, 0)}
+								position={stackButtons ? UDim2.fromScale(0, 0) : new UDim2(0.5, btnGap / 2, 0, 0)}
 								disabled={exiting}
 								reducedMotion={props.reducedMotion}
 								sound={false}
@@ -291,6 +308,8 @@ export function ConfirmHost(props: { reducedMotion?: boolean }) {
 			key={`confirm${serial}`}
 			title={request.title}
 			body={request.body}
+			art={request.art}
+			subtitle={request.subtitle}
 			confirmText={request.confirmText}
 			cancelText={request.cancelText}
 			tone={request.tone}

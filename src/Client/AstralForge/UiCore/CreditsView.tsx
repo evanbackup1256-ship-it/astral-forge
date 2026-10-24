@@ -1,4 +1,5 @@
 import { named } from "../lua";
+import { CreditsLayout as C } from "../pages/generated/CreditsLayout";
 // Credits: everyone who made the game, read from SharedData#CreditsConfig through CreditsModel.
 //
 // 21-credits: one brass-ruled Surface that hugs its content. A serif title block, the lead in a
@@ -7,17 +8,16 @@ import { named } from "../lua";
 // acknowledgements in small print. Nothing to tap but Close: B, Esc or a tap outside also close
 // it. Motion is unchanged: the panel reveals on usePresence, medallions rise on the shared surface
 // stagger and settle on the surface spring.
-import { ModalSelectionScope } from "./overlayCore";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import React from "@rbxts/react";
-import { useBackLayer } from "../CoreKit/backLayer";
-import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { ClientLog } from "../CoreKit/log";
-import { chromeFor, darken, Palette, TapTarget } from "../CoreKit/theme";
-import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
-import { Button, OverlayPresence, useGamepadAutofocus } from "./ui";
-import { Surface, SurfaceMetrics, SurfaceMotion, SurfaceText, useSurfaceEnter, useSurfaceSpring } from "./surface";
-import { measureText, Space } from "./layoutEngine";
+import { chromeFor, darken, Palette, scrollTail } from "../CoreKit/theme";
+import { useEntrance, useViewport } from "../MotionKit/motion";
+import { Line, MockPanel, mockGap, panelPad } from "./mockKit";
+import { PHONE_HEAD_H as PH_HEAD_H, PhoneHead } from "../pages/mockLayout";
+import { CreditsPhoneLayout as CP } from "../pages/generated/CreditsPhoneLayout";
+import { SurfaceMotion, useSurfaceEnter, useSurfaceSpring } from "./surface";
+import { measureText } from "./layoutEngine";
 import { Glow } from "./depth";
 
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
@@ -81,6 +81,7 @@ const SharedData = require(
 const CreditsModel = SharedData("CreditsModel") as CreditsModelModule;
 const MODEL = CreditsModel.normalize(SharedData("CreditsConfig"));
 
+const { PageScaffold } = loadKit("LayoutKit")("pageScaffold") as { PageScaffold: (props: Record<string, unknown>) => React.Element };
 const SERIF = new Font("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold);
 const BODY = Font.fromName("BuilderSans", Enum.FontWeight.Medium);
 // companion idle sheets come from Shared/ElementSprites (the one source for them)
@@ -225,13 +226,16 @@ function Medallion(props: {
 	const initial = display.sub(1, 1).upper();
 	const size = props.size;
 	// 21-credits at 1920x1080: 230px lead with a 22px name, 150px ring with 17px names and 14px roles
-	const nameSize = size >= 200 ? 22 : size >= 150 ? 17 : props.lead ? 17 : 14;
-	const roleSize = size >= 150 ? 14 : 12;
+	const nameSize = size >= C.LeadRing.w ? C.LeadName.text.size : size >= C.Ring.w ? C.Name.text.size : props.lead ? 17 : 14;
+	const roleSize = size >= C.Ring.w ? C.Role.text.size : 12;
+	const nameH = size >= C.LeadRing.w ? C.LeadName.h : size >= C.Ring.w ? C.Name.h : nameSize + 4;
+	const roleH = size >= C.Ring.w ? C.Role.h : roleSize + 4;
+	const lineGap = C.Cell.gap;
 	const role = MODEL.ShowRoles !== false ? props.credit.roles.join(" · ") : "";
 	const cell = CompanionSheets.FRAME;
 	return (
 		<frame
-			Size={UDim2.fromOffset(props.width, size + 8 + nameSize + 4 + (role !== "" ? roleSize + 4 : 0))}
+			Size={UDim2.fromOffset(props.width, size + lineGap + nameH + (role !== "" ? lineGap + roleH : 0))}
 			LayoutOrder={props.order}
 			BackgroundTransparency={1}
 			ZIndex={6}
@@ -249,9 +253,9 @@ function Medallion(props: {
 				<uicorner CornerRadius={new UDim(1, 0)} />
 				{props.lead && <Glow color={Palette.brass} radius={size / 2} spread={18} strength={0.88} zIndex={6} />}
 				<uistroke
-					Color={Palette.brass}
-					Thickness={props.lead ? 2 : 1.5}
-					Transparency={lit.map((v) => 0.55 - v * 0.35)}
+					Thickness={props.lead ? C.LeadRing.stroke.thickness : C.Ring.stroke.thickness}
+					Color={C.Ring.stroke.color}
+					Transparency={lit.map((v) => 0.55 - v * (0.55 - C.Ring.stroke.transparency))}
 					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
 				/>
 				<uigradient
@@ -326,11 +330,11 @@ function Medallion(props: {
 				</frame>
 			</frame>
 			<textlabel
-				Size={new UDim2(1, 0, 0, nameSize + 4)}
-				Position={UDim2.fromOffset(0, size + 8)}
+				Size={new UDim2(1, 0, 0, nameH)}
+				Position={UDim2.fromOffset(0, size + lineGap)}
 				BackgroundTransparency={1}
 				Text={display}
-				TextColor3={Palette.cream}
+				TextColor3={C.Name.text.color}
 				TextTransparency={fade}
 				TextSize={nameSize}
 				TextScaled={false}
@@ -340,11 +344,11 @@ function Medallion(props: {
 			/>
 			{role !== "" && (
 				<textlabel
-					Size={new UDim2(1, 0, 0, roleSize + 4)}
-					Position={UDim2.fromOffset(0, size + 8 + nameSize + 4)}
+					Size={new UDim2(1, 0, 0, roleH)}
+					Position={UDim2.fromOffset(0, size + lineGap + nameH + lineGap)}
 					BackgroundTransparency={1}
 					Text={role}
-					TextColor3={Palette.muted}
+					TextColor3={C.Role.text.color}
 					TextTransparency={fade}
 					TextSize={roleSize}
 					TextTruncate={Enum.TextTruncate.AtEnd}
@@ -363,7 +367,7 @@ function lighten3(color: Color3): Color3 {
 // brass hairline with a small diamond in the middle
 function Hairline(props: { order: number; width: number }) {
 	return (
-		<frame Size={new UDim2(1, 0, 0, 14)} LayoutOrder={props.order} BackgroundTransparency={1} ZIndex={6}>
+		<frame Size={new UDim2(1, 0, 0, C.Rule.h + 2)} LayoutOrder={props.order} BackgroundTransparency={1} ZIndex={6}>
 			<frame
 				Size={UDim2.fromOffset(props.width, 1)}
 				Position={UDim2.fromScale(0.5, 0.5)}
@@ -397,64 +401,42 @@ function Hairline(props: { order: number; width: number }) {
 	);
 }
 
-// ── Overlay ────────────────────────────────────────────────────────────────────
+// ── Page ───────────────────────────────────────────────────────────────────────
 
-export function CreditsOverlay(props: { version?: string; reducedMotion?: boolean; onClose: () => void }) {
+// 21-credits is a routed page in the hero shell: one .pn.f1 holding the lead row (150 / 230 / 150),
+// rows of three 150 rings, the brass rule and the thank-you line, centred in the panel. phone.html:
+// .ph-head (title + tagline) over a .pn.f1 with one row of 96 rings.
+export function CreditsPage(props: { version?: string; reducedMotion?: boolean; bottomSafe?: number }) {
 	const reduced = props.reducedMotion === true;
-	const [reveal, exiting, beginExit] = usePresence(reduced);
 	useLiveNames();
-	const onClose = props.onClose;
-	const requestClose = React.useCallback(() => {
-		if (exiting) {
-			return;
-		}
-		Audio.play("close");
-		beginExit(onClose);
-	}, [beginExit, exiting, onClose]);
-
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
-	const stack = chrome.contentStack;
-	const pad = stack ? Space.md : SurfaceMetrics.pad + Space.xs;
-	const safeSide = math.max(Space.sm, viewport.sideInset, chrome.sideSafe);
-	const safeTop = math.max(Space.sm, viewport.topInset);
-	const safeBottom = math.max(Space.sm, viewport.bottomInset, chrome.bottomSafe);
-	const roomy = !stack && viewport.height >= 900 && viewport.width >= 1400;
-	const maxW = math.min(roomy ? 1500 : 1040, viewport.width - safeSide * 2 - Space.md);
-	const maxH = math.max(1, math.min(roomy ? 1000 : 720, viewport.height - safeTop - safeBottom - Space.md));
-	const centerY = safeTop + math.max(0, (viewport.height - safeTop - safeBottom) / 2);
-	const short = viewport.height < 520;
+	const phone = chrome.contentStack;
+	const enter = useEntrance(reduced);
 
 	const visible = CreditsModel.visible(MODEL, "All", "");
 	const [credits, thanks] = rollOf(visible);
-	const leadSize = roomy ? 230 : short ? 84 : stack ? 104 : 124;
-	const ringSize = roomy ? 150 : short ? 60 : stack ? 68 : 80;
-	const cellW = roomy ? 240 : stack ? 120 : 156;
-	const perRow = stack ? 3 : 4;
+	const leadSize = phone ? CP.Ring.w : C.LeadRing.w;
+	const ringSize = phone ? CP.Ring.w : C.Ring.w;
+	const cellW = phone ? CP.Cell.w : C.Cell.w;
+	const perRow = phone ? 4 : 3;
+	const pad = panelPad(phone);
+	const panelW = (phone ? CP.Panel.w : C.Panel.w) - pad.x * 2;
 
-	const width = math.min(maxW, roomy ? 1400 : 860);
-	const innerW = width - pad * 2;
-	const contentW = innerW - Space.sm;
-
-	const eyebrow = [string.upper(MODEL.Title), MODEL.ShowVersion === true && props.version !== undefined ? `V${props.version}` : ""]
-		.filter((part) => part !== "")
-		.join(" · ");
-	const rawHeading = MODEL.Eyebrow !== undefined && MODEL.Eyebrow !== "" ? MODEL.Eyebrow : "Credits";
-	const heading = string.upper(string.sub(rawHeading, 1, 1)) + string.lower(string.sub(rawHeading, 2));
-	const titleSize = stack ? 26 : 32;
-	const headerH = 16 + titleSize + 6 + (MODEL.Tagline !== "" ? 20 : 0) + Space.sm;
-
-	// rows: the lead flanked by the first two names, then the rest in rows of perRow
+	// rows: the lead flanked by the first two names (desktop), then the rest in rows of perRow
 	const rows: Credit[][] = [];
 	if (credits.size() > 0) {
-		const lead = credits[0];
-		const first: Credit[] = [];
-		if (credits.size() > 1) first.push(credits[1]);
-		first.push(lead);
-		if (credits.size() > 2) first.push(credits[2]);
-		rows.push(first);
+		let start = 0;
+		if (!phone) {
+			const first: Credit[] = [];
+			if (credits.size() > 1) first.push(credits[1]);
+			first.push(credits[0]);
+			if (credits.size() > 2) first.push(credits[2]);
+			rows.push(first);
+			start = 3;
+		}
 		let row: Credit[] = [];
-		for (let i = 3; i < credits.size(); i++) {
+		for (let i = start; i < credits.size(); i++) {
 			row.push(credits[i]);
 			if (row.size() === perRow) {
 				rows.push(row);
@@ -466,16 +448,17 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 
 	const body: React.Element[] = [];
 	let order = 0;
-	let contentH = Space.lg;
+	let contentH = 0;
 	let index = 0;
-	const roleH = MODEL.ShowRoles !== false ? (roomy ? 18 : 16) : 0;
+	const listGap = phone ? CP.Panel.gap : C.Panel.gap;
 	for (const [r, row] of ipairs(rows)) {
 		order += 1;
-		const lead = r === 1;
-		const gap = roomy ? 70 : stack ? Space.sm : Space.lg;
-		// cells share the row after the list gaps (the old split ignored them and the row overflowed/overlapped)
-		const fitW = math.floor((contentW - gap * math.max(0, row.size() - 1)) / math.max(1, row.size()));
-		const rowH = (lead ? leadSize : ringSize) + 8 + (roomy ? (lead ? 26 : 21) : lead ? 21 : 18) + roleH;
+		const lead = !phone && r === 1;
+		// phone.html spaces the four cells around the panel (space-around)
+		const gap = phone ? math.max(8, math.floor((panelW - perRow * cellW) / perRow)) : lead ? C.LeadRow.gap : C.Row.gap;
+		const fitW = math.floor((panelW - gap * math.max(0, row.size() - 1)) / math.max(1, row.size()));
+		const fullH = phone ? CP.Cell.h : lead ? C.LeadRow.h : C.Row.h;
+		const rowH = fullH - (MODEL.ShowRoles !== false ? 0 : C.Cell.gap + C.Role.h);
 		body.push(
 			<frame key={`r${r}`} Size={new UDim2(1, 0, 0, rowH)} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
 				<uilistlayout
@@ -494,7 +477,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 							credit={credit}
 							still={STILLS[(credits.indexOf(credit) + STILLS.size()) % STILLS.size()]}
 							size={isLead ? leadSize : ringSize}
-							width={math.max(isLead ? leadSize : ringSize, math.min(cellW, fitW))}
+							width={math.max(isLead ? leadSize : ringSize, math.min(isLead ? C.LeadCell.w : cellW, fitW))}
 							lead={isLead}
 							order={i}
 							delay={MODEL.EntranceStagger !== false ? math.min(index, SurfaceMotion.staggerRows) * SurfaceMotion.stagger : 0}
@@ -504,220 +487,74 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				})}
 			</frame>,
 		);
-		contentH += rowH + Space.xs;
+		contentH += rowH + listGap;
 	}
 	if (credits.size() === 0) {
 		order += 1;
-		body.push(
-			<SurfaceText
-				key="none"
-				text={MODEL.DefaultEmptyText}
-				type="body"
-				color={Palette.muted}
-				align={Enum.TextXAlignment.Center}
-				size={new UDim2(1, 0, 0, 40)}
-				order={order}
-				zIndex={6}
-			/>,
-		);
-		contentH += 40 + Space.xs;
+		body.push(<Line key="none" text={MODEL.DefaultEmptyText} size={15} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={40} align={Enum.TextXAlignment.Center} layoutOrder={order} />);
+		contentH += 40 + listGap;
 	}
 	const smallPrint = table.clone(MODEL.Acknowledgements);
-	if (MODEL.Footer !== "") {
-		smallPrint.push(MODEL.Footer);
-	}
-	if (thanks.size() > 0 || smallPrint.size() > 0) {
+	if (MODEL.Footer !== "") smallPrint.push(MODEL.Footer);
+	// .rule + the thanks line (desktop only in phone.html)
+	if (!phone && (thanks.size() > 0 || smallPrint.size() > 0)) {
 		order += 1;
-		body.push(<Hairline key="rule" order={order} width={math.floor(contentW * 0.82)} />);
-		contentH += 14 + Space.xs;
+		body.push(<Hairline key="rule" order={order} width={C.Rule.w} />);
+		contentH += C.Rule.h + 2 + listGap;
 	}
-	if (thanks.size() > 0) {
+	if (!phone && thanks.size() > 0) {
 		order += 1;
 		const line = thanks.join(" ");
-		const lines = math.max(1, math.ceil(measureText(line, 14, Enum.Font.BuilderSans).X / math.max(1, contentW)));
+		const lines = math.max(1, math.ceil(measureText(line, C.Thanks.text.size, Enum.Font.BuilderSans).X / math.max(1, panelW)));
 		body.push(
-			<SurfaceText
-				key="thanks"
-				text={line}
-				type="body"
-				color={Palette.creamSoft}
-				wrap={true}
-				align={Enum.TextXAlignment.Center}
-				size={UDim2.fromScale(1, 0)}
-				autoHeight={true}
-				order={order}
-				zIndex={6}
-			/>,
+			<Line key="thanks" text={line} size={C.Thanks.text.size} font={BODY} color={C.Thanks.text.color} width={new UDim(1, 0)} height={C.Thanks.h * lines} align={Enum.TextXAlignment.Center} layoutOrder={order} />,
 		);
-		contentH += 20 * lines + Space.xs;
+		contentH += C.Thanks.h * lines + listGap;
 	}
-	if (smallPrint.size() > 0) {
+	if (!phone && smallPrint.size() > 0) {
 		order += 1;
+		const lineH = 16;
 		body.push(
-			<frame key="smallprint" Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
-				<uipadding PaddingBottom={new UDim(0, Space.sm)} />
-				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Space.xs)} />
+			<frame key="smallprint" Size={new UDim2(1, 0, 0, smallPrint.size() * (lineH + 4))} LayoutOrder={order} BackgroundTransparency={1} ZIndex={6}>
+				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} />
 				{smallPrint.map((line, i) => (
-					<SurfaceText
-						key={`p${i}`}
-						text={line}
-						type="small"
-						color={Palette.muted}
-						wrap={true}
-						align={Enum.TextXAlignment.Center}
-						size={UDim2.fromScale(1, 0)}
-						autoHeight={true}
-						order={i}
-						zIndex={6}
-					/>
+					<Line key={`p${i}`} text={line} size={12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={lineH} align={Enum.TextXAlignment.Center} layoutOrder={i} />
 				))}
 			</frame>,
 		);
-		for (const line of smallPrint) {
-			contentH += Space.xs + 16 * math.max(1, math.ceil(measureText(line, 13, Enum.Font.BuilderSans).X / math.max(1, contentW)));
-		}
-		contentH += Space.lg;
+		contentH += smallPrint.size() * (lineH + 4) + listGap;
 	}
-	// the panel hugs its content; only a long roll reaches maxH and scrolls
-	const height = math.min(maxH, headerH + contentH + pad * 2 + Space.sm);
-	const bodyH = math.max(1, height - pad * 2 - headerH);
+	contentH = math.max(0, contentH - listGap);
 
 	React.useEffect(() => {
 		ClientLog.debug("nav", "credits opened");
 		return () => ClientLog.debug("nav", "credits closed");
 	}, []);
-	React.useEffect(() => {
-		const connection = UserInputService.InputBegan.Connect((input, processed) => {
-			if (input.KeyCode === Enum.KeyCode.Escape && !processed) {
-				requestClose();
-			}
-		});
-		return () => connection.Disconnect();
-	}, [requestClose]);
-	useBackLayer(true, requestClose);
-
-	// gamepad: the overlay owns focus while open; the right stick scrolls the roll, B closes
-	const padFocus = useGamepadAutofocus(true, reveal);
 	const hostRef = React.useRef<Frame>();
 	useFocusOrder(hostRef, { regions: ["CreditsList", "CreditsClaimActions"], first: ["CreditsClaimActions"] }, []);
-	React.useEffect(() => {
-		GamepadNavigationService.BeginOverlayFocus();
-		return () => GamepadNavigationService.EndOverlayFocus();
-	}, []);
-	React.useEffect(() => {
-		if (!UserInputService.GamepadEnabled) {
-			return undefined;
-		}
-		const host: Instance | undefined = hostRef.current ?? padFocus.current;
-		if (host === undefined) {
-			return undefined;
-		}
-		const job = task.defer(() => {
-			if (host.Parent !== undefined) {
-				GamepadNavigationService.FocusClaim(host);
-			}
-		});
-		return () => {
-			pcall(task.cancel, job);
-		};
-	}, []);
 
-	return (
-		<OverlayPresence amount={reveal}>
-			<frame key="CreditsClaimActions" ref={hostRef} {...ModalSelectionScope} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={320}>
-				<imagebutton
-					Size={UDim2.fromScale(1, 1)}
-					BackgroundColor3={new Color3(0, 0, 0)}
-					BackgroundTransparency={reveal.map((a) => 1 - 0.55 * a)}
-					BorderSizePixel={0}
-					AutoButtonColor={false}
-					Selectable={false}
-					ZIndex={320}
-					Event={{ Activated: requestClose }}
-				/>
-				<frame
-					Size={UDim2.fromOffset(width, height)}
-					Position={reveal.map((a) => UDim2.fromOffset(viewport.width / 2, centerY + revealOffset(a)))}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundTransparency={1}
-					Active={true}
-					ZIndex={321}
-				>
-					<Surface appear={reveal} padding={pad} accent={Palette.brass} active={true} zIndex={321}>
-						<frame
-							Size={new UDim2(1, pad * 2 - 6, 1, pad * 2 - 6)}
-							Position={UDim2.fromScale(0.5, 0.5)}
-							AnchorPoint={new Vector2(0.5, 0.5)}
-							BackgroundTransparency={1}
-							ZIndex={321}
-						>
-							<uicorner CornerRadius={new UDim(0, SurfaceMetrics.radius - 3)} />
-							<uistroke Color={Palette.brass} Thickness={1} Transparency={reveal.map((a) => 1 - 0.25 * a)} />
-						</frame>
-						<textlabel
-							Size={new UDim2(1, -(TapTarget + Space.md), 0, 14)}
-							Position={UDim2.fromOffset(0, 2)}
-							BackgroundTransparency={1}
-							Text={eyebrow}
-							TextColor3={Palette.brass}
-							TextSize={11}
-							TextXAlignment={Enum.TextXAlignment.Left}
-							FontFace={Font.fromName("BuilderSans", Enum.FontWeight.Bold)}
-							ZIndex={322}
-						/>
-						<textlabel
-							Size={new UDim2(1, -(TapTarget + Space.md), 0, titleSize + 4)}
-							Position={UDim2.fromOffset(0, 16)}
-							BackgroundTransparency={1}
-							Text={heading}
-							TextColor3={Palette.cream}
-							TextSize={titleSize}
-							TextXAlignment={Enum.TextXAlignment.Left}
-							FontFace={SERIF}
-							ZIndex={322}
-						/>
-						{MODEL.Tagline !== "" && (
-							<SurfaceText
-								text={MODEL.Tagline}
-								type="small"
-								color={Palette.creamSoft}
-								size={new UDim2(1, -(TapTarget + Space.md), 0, 16)}
-								position={UDim2.fromOffset(0, 16 + titleSize + 8)}
-								zIndex={322}
-							/>
-						)}
-						<Button
-							icon="Close.24"
-							onClick={requestClose}
-							size={UDim2.fromOffset(TapTarget, TapTarget)}
-							position={new UDim2(1, -TapTarget, 0, 0)}
-							outline={true}
-							reducedMotion={reduced}
-							zIndex={323}
-						/>
-						<scrollingframe
-							{...named("CreditsList")}
-							Size={UDim2.fromOffset(innerW, bodyH)}
-							Position={UDim2.fromOffset(0, headerH)}
-							BackgroundTransparency={1}
-							BorderSizePixel={0}
-							CanvasSize={new UDim2()}
-							AutomaticCanvasSize={Enum.AutomaticSize.Y}
-							ScrollingDirection={Enum.ScrollingDirection.Y}
-							ScrollBarThickness={3}
-							ScrollBarImageColor3={Palette.brass}
-							Selectable={UserInputService.GamepadEnabled}
-							ZIndex={322}
-						>
-							<frame Size={new UDim2(0, contentW, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} ZIndex={322}>
-								<uipadding PaddingTop={new UDim(0, Space.lg)} />
-								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Space.xs)} />
-								{body}
-							</frame>
-						</scrollingframe>
-					</Surface>
+	// the panel fills the page body (.pn.f1); the roll sits centred in it and scrolls only when it is taller
+	const panelMinH = phone ? CP.Panel.h : C.Panel.h;
+	const panelH = math.max(panelMinH, contentH + pad.y * 2);
+	const sections: { id: string; height: number; element: React.Element }[] = [];
+	if (phone) {
+		sections.push({ id: "head", height: PH_HEAD_H, element: <PhoneHead line={MODEL.Tagline !== "" ? MODEL.Tagline : undefined} /> });
+	}
+	sections.push({
+		id: "roll",
+		height: panelH,
+		element: (
+			<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.brass} glow={Palette.brass} reveal={enter} reducedMotion={reduced} gap={0} name="Credits">
+				<frame {...named("CreditsList")} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={6}>
+					<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, listGap)} VerticalAlignment={Enum.VerticalAlignment.Center} />
+					{body}
 				</frame>
-			</frame>
-		</OverlayPresence>
+			</MockPanel>
+		),
+	});
+	return (
+		<frame key="CreditsClaimActions" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ref={hostRef}>
+			<PageScaffold gap={mockGap(phone)} tailPad={scrollTail(phone, props.bottomSafe ?? chrome.bottomSafe, 24)} scrollBarColor={Palette.brass} scrollBarThickness={4} sections={sections} owner="Credits" />
+		</frame>
 	);
 }

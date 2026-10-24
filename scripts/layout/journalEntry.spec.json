@@ -1,0 +1,2 @@
+{"name":"JournalEntryLayout","source":"design/20-journal-entry/desktop.html","viewport":[1920,1080],"root":".screen","origin":".main .flexr","out":"src/Client/AstralForge/pages/generated/JournalEntryLayout.ts",
+"nodes":{"Body":".main .flexr","Book":".main .flexr .pn.f1","BookBar":".pn.f1 .flexr","Back":".pn.f1 .btn","PageOf":".pn.f1 .lbl","Title":".pn.f1 \"Star map\"","Desc":".pn.f1 \"Light eight\"","Art":".pn.f1 svg:1","Column":".flexc","Progress":".flexc .pn:0","Reward":".flexc .pn:1","Nearby":".flexc .pn.f1","Row":".flexc .row","Bar":".flexc .bar","Btn":".flexc .btn"}}

@@ -9,6 +9,7 @@ import React from "@rbxts/react";
 import { TITLE_FACE } from "../titleFace";
 import ReactRoblox from "@rbxts/react-roblox";
 import { Palette } from "../../CoreKit/theme";
+import { DialogLayout as D } from "../../pages/generated/DialogLayout";
 import { revealOffset, usePresence } from "../../MotionKit/motion";
 import { KeyHint, Surface, SurfaceMetrics, SurfaceText } from "../surface";
 import { TooltipData, TooltipStat, deltaTone, formatDelta, hasText, keysFor, statValue } from "./content";
@@ -22,7 +23,8 @@ const Workspace = game.GetService("Workspace");
 
 const GAP = 8;
 const EDGE = 10;
-const BUBBLE_PAD = 12;
+// 26-dialogs tooltip .pn: 260 wide, pad 12, gap 6, Cinzel 16 title
+const BUBBLE_PAD = D.Tip.pad.left;
 const ARROW = 10;
 
 // the device safe area (notch, rounded corners, home bar), measured by the provider
@@ -143,7 +145,7 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 	}, [tip.target, props.leaving]);
 	const view = screenSize();
 	const narrow = view.X < 700;
-	const maxW = math.max(120, math.min(narrow ? 220 : 260 - BUBBLE_PAD * 2, view.X - EDGE * 2 - BUBBLE_PAD * 2));
+	const maxW = math.max(120, math.min(narrow ? 220 : D.Tip.w - BUBBLE_PAD * 2, view.X - EDGE * 2 - BUBBLE_PAD * 2));
 	const fade = React.useMemo(() => appear.map((a) => 1 - math.clamp(a, 0, 1)), [appear]);
 	const hasTitle = hasText(data.title);
 	const input = currentInput();
@@ -154,7 +156,7 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 	return (
 		<frame Position={position} Size={UDim2.fromOffset(0, 0)} AutomaticSize={Enum.AutomaticSize.XY} BackgroundTransparency={1}>
 			<Surface frameRef={bubbleRef} autoSize={true} padding={BUBBLE_PAD} appear={appear} accent={data.accent} position={UDim2.fromOffset(0, 0)} zIndex={2}>
-				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, D.Tip.gap)} />
 				{hasTitle && (
 					// 26-dialogs tooltip: Cinzel 16 title over one creamSoft line, no rule
 					<textlabel
@@ -163,7 +165,7 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 						AutomaticSize={Enum.AutomaticSize.XY}
 						BackgroundTransparency={1}
 						Text={data.title!}
-						TextSize={16}
+						TextSize={D.TipTitle.text.size}
 						FontFace={TITLE_FACE}
 						TextColor3={Palette.cream}
 						TextTransparency={fade}

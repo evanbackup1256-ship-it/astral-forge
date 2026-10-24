@@ -1,0 +1,2 @@
+{"name":"ToastLayout","source":"design/25-toasts/desktop.html","viewport":[1920,1080],"root":".screen","origin":".flexc .pn","out":"src/Client/AstralForge/pages/generated/ToastLayout.ts",
+"nodes":{"Stack":".flexc","Toast":".flexc .pn","Icon":".flexc .pn span","Text":".flexc .pn .tt","Title":".flexc .pn b","Sub":".flexc .pn small","Level":"\"Level 43\"","LevelLine":"\"Rift crates unlocked\"","Gain":"\"+48.2K\"","Combo":".chip.a","Buffs":".main .flexr","Buff":".main .flexr .chip","BuffText":".main .flexr .chip b"}}

@@ -1,0 +1,19 @@
+{
+ "name": "CreditsPhoneLayout",
+ "source": "design/21-credits/phone.html",
+ "viewport": [
+  844,
+  390
+ ],
+ "root": ".screen",
+ "origin": ".main",
+ "out": "src/Client/AstralForge/pages/generated/CreditsPhoneLayout.ts",
+ "nodes": {
+  "Head": ".ph-head",
+  "Panel": ".main .pn.f1",
+  "Cell": ".pn.f1 \"Pyre_Ash\" ..",
+  "Ring": ".pn.f1 \"Pyre_Ash\" .. div",
+  "Name": ".pn.f1 b",
+  "Role": ".pn.f1 span"
+ }
+}

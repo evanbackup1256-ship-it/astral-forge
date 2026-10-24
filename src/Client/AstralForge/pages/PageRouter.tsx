@@ -30,6 +30,7 @@ const PAGE_SUITES: Record<string, string> = {
 	ResearchView: "PagesProgress",
 	RewardsView: "PagesCore",
 	SettingsView: "PagesSystem",
+	CreditsView: "PagesSystem",
 	ShopView: "PagesShop",
 	StoreFront: "PagesShop",
 	SpecializationsView: "PagesSpecializations",
@@ -135,6 +136,7 @@ const ROUTES: Record<string, Route | undefined> = {
 	Convergence: { view: "ConvergenceView", bare: true },
 	Leaderboards: { view: "LeaderboardsView", bare: true },
 	Settings: { view: "SettingsView", bare: true },
+	Credits: { view: "CreditsView", bare: true },
 	Continuum: { view: "FoundryView", props: withNavigate },
 	Foundry: { view: "FoundryView", props: withNavigate },
 	Anomaly: { view: "FoundryView", props: withNavigate },
@@ -226,6 +228,7 @@ const PAGE_STATE_KEYS: Record<string, string[] | undefined> = {
 	// the Chat page's side column shows your newest mail
 	Chat: ["Mailbox"],
 	Settings: ["Settings", "Game", "FeatureUnlocks", "Flags"],
+	Credits: ["Game"],
 	Mail: ["Mailbox"],
 	Crew: ["CurrentZone", "Visitors"],
 	// upgrade pages: everything they read except Cash, which goes through the affordability check below

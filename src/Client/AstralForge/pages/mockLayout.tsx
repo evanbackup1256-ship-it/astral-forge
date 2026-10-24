@@ -8,7 +8,9 @@
 import React from "@rbxts/react";
 import { Palette, TapTarget } from "../CoreKit/theme";
 import { kitMember, LuauComponent } from "./luauKits";
-import { BODY_SEMI, Line } from "../UiCore/mockKit";
+import { BODY_SEMI, Line, TITLE_FACE } from "../UiCore/mockKit";
+import { MockTabs } from "./socialKit";
+import { JournalPhoneLayout } from "./generated/JournalPhoneLayout";
 
 const { SegmentedTabs } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 
@@ -213,31 +215,37 @@ export function CardBody(p: {
 }
 
 /**
- * phone.html .ph-head: 40px row, the 12px muted line on the left and the .tabs on the right. The h1 is
- * the mobile shell's own page title, so it isn't drawn twice here.
+ * phone.html .ph-head (the one PhoneHead for groups A/B/C): 40px row; optional h1 (22px title face, only when
+ * it differs from the shell's page title), the 12px muted line, and the mockup .tabs (36px tabs, 12px side
+ * pad) flush right, passed as an options list like the hero slot's tabs.
  */
-export const PHONE_HEAD_H = 40;
+export const PHONE_HEAD_H = JournalPhoneLayout.Head.h;
+export const PHONE_TAB_H = JournalPhoneLayout.Tab.h;
+export const PHONE_TAB_PAD = JournalPhoneLayout.Tab.pad.left;
 export function PhoneHead(p: {
+	title?: string;
 	line?: string;
 	options?: { id: string; label: string }[];
 	value?: string;
 	onChange?: (id: string) => void;
-	accent: Color3;
+	accent?: Color3;
+	/** @deprecated ignored: the mockup .tabs hug their labels */
 	tabsWidth?: number;
 	reducedMotion?: boolean;
 	layoutOrder?: number;
 }) {
 	const tabs = p.options !== undefined && p.options.size() > 0;
-	const w = p.tabsWidth ?? (tabs ? p.options!.size() * 78 + 8 : 0);
 	return (
-		<FlexRow height={PHONE_HEAD_H} gap={10} align={Enum.VerticalAlignment.Center} layoutOrder={p.layoutOrder} name="PhoneHead">
-			<FlexFill layoutOrder={0}>
-				{p.line !== undefined && <Line text={p.line} size={12} font={BODY_SEMI} color={Palette.muted} width={new UDim(1, 0)} height={PHONE_HEAD_H} />}
+		<FlexRow height={PHONE_HEAD_H} gap={JournalPhoneLayout.Head.gap} align={Enum.VerticalAlignment.Center} layoutOrder={p.layoutOrder} name="PhoneHead">
+			{p.title !== undefined && <Line text={p.title} size={22} font={TITLE_FACE} color={Palette.cream} layoutOrder={0} />}
+			<FlexFill layoutOrder={1}>
+				{p.line !== undefined && <Line text={p.line} size={JournalPhoneLayout.Note.text.size} font={BODY_SEMI} color={JournalPhoneLayout.Note.text.color} width={new UDim(1, 0)} height={PHONE_HEAD_H} />}
 			</FlexFill>
 			{tabs && (
-				<FlexFixed width={w} height={TapTarget} layoutOrder={1}>
-					<SegmentedTabs options={p.options} value={p.value} onChange={p.onChange} accent={p.accent} gap={4} size={UDim2.fromScale(1, 1)} reducedMotion={p.reducedMotion} />
-				</FlexFixed>
+				<frame Size={UDim2.fromOffset(0, PHONE_HEAD_H)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} />
+					<MockTabs options={p.options!} value={p.value ?? ""} onChange={p.onChange ?? (() => {})} accent={p.accent} phone={true} tabHeight={PHONE_TAB_H} padX={PHONE_TAB_PAD} reducedMotion={p.reducedMotion} />
+				</frame>
 			)}
 		</FlexRow>
 	);

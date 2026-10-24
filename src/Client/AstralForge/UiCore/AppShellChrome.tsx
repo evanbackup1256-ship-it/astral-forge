@@ -25,7 +25,6 @@ import { Session } from "../state";
 import { ComboBadge, ComboReadout } from "./ComboBadge";
 import { CrateRevealOverlay, CrateRevealProps } from "./CrateRevealOverlay";
 import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
-import { CreditsOverlay } from "./CreditsView";
 import { EffectLayer, PopEntry, StarField } from "./effects";
 import { FeedbackOverlay } from "./FeedbackOverlay";
 import { SessionPanel } from "./SessionPanel";
@@ -342,9 +341,9 @@ function AppShell(props: ShellProps) {
 	// the offline card waits for the boot card to finish leaving instead of opening underneath it
 	const bootUp = useClientSelector((client) => client.boot.visible);
 	const offlineRewardsOpen = !bootUp && offlineReceiptKey !== "" && !offlineDismissed && state.Flags.TutorialDone === true
-		&& gteFlux(state.Offline?.Reward ?? 0, 0.01) && !showRelease && page !== "Credits" && crateReveal === undefined
+		&& gteFlux(state.Offline?.Reward ?? 0, 0.01) && !showRelease && crateReveal === undefined
 		&& !playerlistOpen && !feedbackOpen && !domainOverlayActive && !bootCardVisible;
-	const modalOwnsScreen = tutorialOpen || showRelease || page === "Credits" || crateReveal !== undefined || domainOverlayActive;
+	const modalOwnsScreen = tutorialOpen || showRelease || crateReveal !== undefined || domainOverlayActive;
 	React.useEffect(() => {
 		setToastsSuppressed(modalOwnsScreen);
 		return () => setToastsSuppressed(false);
@@ -474,7 +473,6 @@ function AppShell(props: ShellProps) {
 			const sink = Enum.ContextActionResult.Sink;
 			if (inputState !== Enum.UserInputState.Begin || UserInputService.GetFocusedTextBox() !== undefined || arcadeBusy) return pass;
 			const key = input.KeyCode;
-			if (key === Enum.KeyCode.ButtonB && page === "Credits") { navigateRef.current("Overview"); return sink; }
 			if (key === Enum.KeyCode.ButtonB && playerlistOpen) { setPlayerlistOpen(false); return sink; }
 			if (key === Enum.KeyCode.ButtonB && feedbackOpen) { setFeedbackOpen(false); return sink; }
 			if (key === Enum.KeyCode.ButtonB && showRelease) { dispatch("DismissRelease"); return sink; }
@@ -482,7 +480,7 @@ function AppShell(props: ShellProps) {
 				if (tutorialStep > 1) dispatch("SetTutorialStep", { Step: tutorialStep - 1 });
 				return sink;
 			}
-			if (crateReveal !== undefined || playerlistOpen || feedbackOpen || page === "Credits" || domainOverlayActive || showRelease || tutorialOpen) return sink;
+			if (crateReveal !== undefined || playerlistOpen || feedbackOpen || domainOverlayActive || showRelease || tutorialOpen) return sink;
 			if (key === Enum.KeyCode.ButtonB) {
 				if (hidden) setHidden(false); else if (railOpen) setRailOpen(false); else setRailOpen(true);
 				return sink;
@@ -677,7 +675,6 @@ function AppShell(props: ShellProps) {
 					{showRelease && <ReleaseNotesModal version={config.Game.Version} season={config.Release.Season} announcement={config.Release.Announcement} notes={config.Release.Notes} history={config.Release.History}
 						viewportWidth={viewport.width} viewportHeight={viewport.height} reducedMotion={reducedMotion} onClose={() => { setReleaseClosedLocally(true); dispatch("DismissRelease"); }}
 						onOpenMail={() => { Audio.play("mail"); setReleaseClosedLocally(true); dispatch("DismissRelease"); setPage("Mail"); }} />}
-					{page === "Credits" && <CreditsOverlay version={state.Game.Version} reducedMotion={reducedMotion} onClose={() => navigate("Overview")} />}
 					{playerlistOpen && <PlayerlistOverlay state={state} dispatch={dispatch} reducedMotion={reducedMotion} onClose={() => setPlayerlistOpen(false)}
 						onMessage={(userId) => { setPlayerlistOpen(false); navigate("Chat"); chat.openWhisper(userId); }} notify={notify} />}
 					{!keyboardShellCompact && <SessionPanel top={topPad + topbarHeight} edgePad={edgePad} reducedMotion={reducedMotion} />}

@@ -7,21 +7,24 @@ import { Palette } from "../CoreKit/theme";
 import CrewStore = require("../CrewStore");
 import { Line, MockPanel, PanelHeading, mockGap, BODY } from "../UiCore/mockKit";
 import { MockBtn, MockRow, rowHeight } from "./mockRows";
+import { SocialLayout as S } from "./generated/SocialLayout";
 import { AvatarRing, GcRow } from "./gcKit";
-import { FitPanel, MockTabs, fitPanelHeight } from "./socialKit";
+import { FitPanel, fitPanelHeight } from "./socialKit";
+import { PHONE_HEAD_H as PH_HEAD_H, PhoneHead } from "./mockLayout";
+import { useHeroShown, useHeroSlot } from "../UiCore/heroSlot";
 
 const Players = game.GetService("Players");
 
 export const SOCIAL_PAGES = ["Chat", "Crew", "Guild", "Mail"];
 const TAB_OPTIONS = SOCIAL_PAGES.map((id) => ({ id, label: id }));
 /** .flexc style="width:520px" at the 1920 reference; narrower desktops scale it down to 30% */
-const SIDE_W = 520;
+const SIDE_W = S.Side.w;
 const SIDE_MIN = 320;
 const WIDE_MIN = 1000;
 const PHONE_MAX = 700;
 const CREW_SHOWN = 4;
 const MAIL_SHOWN = 3;
-const HEADING_H = 22;
+const HEADING_H = math.ceil(S.Heading.h);
 
 interface CrewMember {
 	UserId: number;
@@ -170,29 +173,27 @@ export function SocialShell(props: {
 		return () => conn.Disconnect();
 	}, []);
 	const phone = size.X < PHONE_MAX;
-	const gap = mockGap(phone);
+	const gap = phone ? mockGap(phone) : S.Body.gap;
 	const wide = props.page === "Chat" && size.X >= WIDE_MIN && size.Y >= 420;
 	const sideW = math.clamp(math.floor(size.X * 0.3), SIDE_MIN, SIDE_W);
+	const online = game.GetService("Players").GetPlayers().size();
+	// desktop: the shell hero's bottom-right .tabs (UiCore/heroSlot); phones: .ph-head
+	const onTab = (id: string) => {
+		if (id !== props.page) {
+			props.navigate(id);
+		}
+	};
+	useHeroSlot(props.page, { tabs: { options: TAB_OPTIONS, value: props.page, onChange: onTab, accent: Palette.mint, width: math.ceil(S.Tabs.w) } });
+	const inHero = useHeroShown();
 	return (
 		<frame ref={ref} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
 			<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-			{/* .hero .tabs: right-aligned on desktop, full width on phones (.ph-head .tabs) */}
-			<frame key="Tabs" Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Right} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<MockTabs
-					options={TAB_OPTIONS}
-					value={props.page}
-					onChange={(id) => {
-						if (id !== props.page) {
-							props.navigate(id);
-						}
-					}}
-					accent={Palette.mint}
-					phone={phone}
-					fill={phone}
-					reducedMotion={props.reducedMotion}
-				/>
-			</frame>
+			{/* .hero .tabs live in the shell hero (UiCore/heroSlot); phones put them in .ph-head with the online count */}
+			{!inHero && (
+				<frame key="Tabs" Size={new UDim2(1, 0, 0, PH_HEAD_H)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+					<PhoneHead line={`${online} online`} options={TAB_OPTIONS} value={props.page} onChange={onTab} accent={Palette.mint} reducedMotion={props.reducedMotion} />
+				</frame>
+			)}
 			<frame key="SocialBody" Size={new UDim2(1, 0, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />

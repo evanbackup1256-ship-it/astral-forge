@@ -1,5 +1,6 @@
 import React from "@rbxts/react";
 import { ModalSelectionScope } from "./overlayCore";
+import { DialogLayout as D } from "../pages/generated/DialogLayout";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, Space, TapTarget } from "../CoreKit/theme";
 
@@ -747,7 +748,7 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 		});
 	const buttons = h(
 		"frame",
-		{ Size: new UDim2(1, 0, 0, TapTarget), LayoutOrder: 7, BackgroundTransparency: 1, ZIndex: 402 },
+		{ Size: new UDim2(1, 0, 0, phone ? TapTarget : D.CoachBtns.h), LayoutOrder: 7, BackgroundTransparency: 1, ZIndex: 402 },
 		step > 1 &&
 			h(Button, {
 				text: "Back",
@@ -822,17 +823,17 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 			Active: true,
 			ZIndex: 400,
 		},
-		h("uicorner", { CornerRadius: new UDim(0, 16) }),
+		h("uicorner", { CornerRadius: new UDim(0, D.Coach.radius) }),
 		h("uistroke", { Color: Palette.brass, Thickness: 1, Transparency: 0.65 }),
 		h("uipadding", {
-			PaddingTop: new UDim(0, 16),
-			PaddingBottom: new UDim(0, 16),
-			PaddingLeft: new UDim(0, 20),
-			PaddingRight: new UDim(0, 20),
+			PaddingTop: new UDim(0, D.Coach.pad.top),
+			PaddingBottom: new UDim(0, D.Coach.pad.bottom),
+			PaddingLeft: new UDim(0, D.Coach.pad.left),
+			PaddingRight: new UDim(0, D.Coach.pad.right),
 		}),
 		h("uilistlayout", {
 			FillDirection: Enum.FillDirection.Vertical,
-			Padding: new UDim(0, 8),
+			Padding: new UDim(0, D.Coach.gap),
 			SortOrder: Enum.SortOrder.LayoutOrder,
 		}),
 		// 26-dialogs tutorial card: .pn h3 with the book glyph, Cinzel caps title and "1 of 5" on the right
@@ -878,7 +879,7 @@ export function TutorialOverlay(param: TutorialOverlayProps) {
 			h(AutoHeightText, {
 				value: copy.line,
 				width: innerW,
-				size: 13,
+				size: D.CoachLine.text.size,
 				color: Palette.creamSoft,
 				transparency: arriving(0.05),
 				layoutOrder: 2,

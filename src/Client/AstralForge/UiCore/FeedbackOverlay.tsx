@@ -6,7 +6,10 @@ import { Palette, TapTarget, chromeFor } from "../CoreKit/theme";
 import { revealOffset, usePresence, useStagger, useViewport } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
 import { Glyph, Line, spaced } from "./mockKit";
-import { Button, OverlayPresence, TITLE_FACE, SegmentedTabs, Text, segmentedHeight, pixelPosition, useGamepadAutofocus, useGuiSize } from "./ui";
+import { FeedbackLayout as F } from "../pages/generated/FeedbackLayout";
+import { FeedbackPhoneLayout as FP } from "../pages/generated/FeedbackPhoneLayout";
+import { MockTabs } from "../pages/socialKit";
+import { Button, OverlayPresence, TITLE_FACE, Text, pixelPosition, useGamepadAutofocus, useGuiSize, useTouchTargets } from "./ui";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
 
@@ -88,25 +91,33 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 	const footerReveal = useStagger(1, softMotion);
 	const [motion, closing, beginExit] = usePresence(softMotion);
 	const side = chrome.sideSafe + 16;
-	const width = math.min(viewport.width - side * 2, compact ? 600 : 700);
+	// desktop.html .pn 700x449; phone.html .pn 600x247 (no impact row)
+	const L = compact ? FP : F;
+	const touch = useTouchTargets();
+	const width = math.min(viewport.width - side * 2, L.Card.w);
 	const safeHeight = math.max(1, viewport.height - viewport.topInset - chrome.bottomSafe - 16);
-	const height = math.min(keyboardCompact ? 210 : wideShort ? 300 : compact ? 456 : 486, safeHeight);
-	const contentHeight = math.max(1, height - 28);
-	const headerH = keyboardCompact ? 46 : compact ? 30 : 34;
-	const categoryTop = headerH + (keyboardCompact ? 0 : 22);
-	const categoryColumns = narrow ? 3 : 6;
-	const categoryH = keyboardCompact ? 0 : segmentedHeight(CATEGORIES.size(), categoryColumns, viewport, 44, 8);
-	const impactTop = categoryTop + categoryH + 8;
-	// narrow screens wrap the five impact tabs onto two rows
-	const impactColumns = narrow ? 3 : IMPACT_TABS.size();
-	const impactTabsH = segmentedHeight(IMPACT_TABS.size(), impactColumns, viewport, 44, 8);
-	const impactH = keyboardCompact || sent ? 0 : 22 + impactTabsH;
-	const editorTop = keyboardCompact ? categoryTop + 6 : impactTop + impactH + (impactH > 0 ? 8 : 2);
-	const footerH = TapTarget + (keyboardCompact ? 4 : 14) + (narrow && !sent ? TapTarget + 6 : 0);
-	const editorH = math.max(44, contentHeight - editorTop - footerH - 8);
+	const height = math.min(keyboardCompact ? 210 : wideShort ? 300 : compact ? FP.Card.h + (touch ? 2 * (TapTarget - FP.Chip.h) : 0) : F.Card.h, safeHeight);
+	const padY = L.Card.pad.top;
+	const padX = L.Card.pad.left;
+	const rowGap = L.Card.gap;
+	const contentHeight = math.max(1, height - padY * 2);
+	const headerH = keyboardCompact ? 46 : math.max(L.TypeLbl.y - L.Card.pad.top, touch ? TapTarget + 4 : 0);
+	const categoryTop = headerH + (keyboardCompact ? 0 : L.Chips.y - L.TypeLbl.y);
+	// .flexr of hugging .chip (28; touch keeps the tap target); narrow screens wrap to two rows
+	const chipH = touch ? TapTarget : L.Chip.h;
+	const chipRows = narrow ? 2 : 1;
+	const categoryH = keyboardCompact ? 0 : chipRows * chipH + (chipRows - 1) * L.Chips.gap;
+	const impactTop = categoryTop + categoryH + rowGap;
+	const impactLabelH = F.Tabs.y - F.ImpactLbl.y;
+	const impactTabsH = F.Tabs.h;
+	// phone.html drops the IMPACT row (impact stays at its default)
+	const impactH = keyboardCompact || sent || compact ? 0 : impactLabelH + impactTabsH;
+	const editorTop = keyboardCompact ? categoryTop + 6 : impactTop + impactH + (impactH > 0 ? rowGap : 2);
+	const footerH = L.Footer.h + (narrow && !sent ? TapTarget + 6 : 0);
+	const editorH = math.max(44, contentHeight - editorTop - footerH - rowGap);
 	// 640x286 landscape (and any other short window) can't fit header, categories, impact, the 44px
 	// editor floor and the footer: the card body scrolls instead of clipping the Send button
-	const bodyNeededH = editorTop + editorH + 8 + footerH;
+	const bodyNeededH = editorTop + editorH + rowGap + footerH;
 	const bodyScrolls = bodyNeededH > contentHeight + 1;
 	const [trimmedStep] = string.gsub(message, "^%s+", "");
 	const [trimmed] = string.gsub(trimmedStep, "%s+$", "");
@@ -228,7 +239,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			ZIndex: 471,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 18),
+			CornerRadius: new UDim(0, L.Card.radius),
 		}),
 	);
 	const _exp_2 = h(
@@ -242,7 +253,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			ClipsDescendants: true,
 		},
 		h("uicorner", {
-			CornerRadius: new UDim(0, 18),
+			CornerRadius: new UDim(0, L.Card.radius),
 		}),
 		h(
 			"frame",
@@ -290,36 +301,46 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 		disabled: sending || closing,
 		}),
 	);
-	let _condition: unknown = !sent && !keyboardCompact;
-	if (_condition) {
-		const _attributes: Record<string, unknown> = {};
-		_attributes.options = CATEGORIES.map((choice) => ({
-			id: choice,
-			label: CATEGORY_LABELS[choice] ?? choice,
-			accent: ACCENT,
-		}));
-		_attributes.value = category;
-		_attributes.onChange = (id: string) => setCategory(id);
-		_attributes.accent = ACCENT;
-		_attributes.sound = "tabSwitch";
-		_attributes.columns = categoryColumns;
-		_attributes.gap = 6;
-		_attributes.size = UDim2.fromScale(1, 1);
-		_attributes.reducedMotion = softMotion;
-		_attributes.zIndex = 475;
-		_condition = h(
-			"frame",
+	const chips: Record<string, unknown> = {
+		layout: h("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, Wraps: true, Padding: new UDim(0, L.Chips.gap), SortOrder: Enum.SortOrder.LayoutOrder }),
+	};
+	CATEGORIES.forEach((choice, order) => {
+		const on = choice === category;
+		chips[choice] = h(
+			"textbutton",
 			{
-				Name: "FeedbackCategories",
-				Size: new UDim2(1, 0, 0, categoryH),
-				Position: UDim2.fromOffset(0, categoryTop),
-				BackgroundTransparency: 1,
+				Size: UDim2.fromOffset(0, chipH),
+				AutomaticSize: Enum.AutomaticSize.X,
+				LayoutOrder: order,
+				BackgroundColor3: on ? ACCENT : Palette.white,
+				BackgroundTransparency: on ? 0.8 : 0.95,
+				AutoButtonColor: false,
 				BorderSizePixel: 0,
-				ZIndex: 474,
+				Text: CATEGORY_LABELS[choice] ?? choice,
+				TextSize: L.Chip.text?.size ?? 12,
+				FontFace: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold),
+				TextColor3: on ? Palette.cream : Palette.creamSoft,
+				ZIndex: 475,
+				Event: {
+					Activated: () => {
+						Audio.play("tabSwitch");
+						setCategory(choice);
+					},
+				},
 			},
-			h(SegmentedTabs, _attributes),
+			h("uicorner", { CornerRadius: new UDim(0, L.Chip.radius) }),
+			h("uipadding", { PaddingLeft: new UDim(0, L.Chip.pad.left), PaddingRight: new UDim(0, L.Chip.pad.right) }),
+			h("uistroke", { ApplyStrokeMode: Enum.ApplyStrokeMode.Border, Color: on ? ACCENT : Palette.white, Transparency: on ? 0.4 : 0.9 }),
 		);
-	}
+	});
+	const _condition =
+		!sent &&
+		!keyboardCompact &&
+		h(
+			"frame",
+			{ Name: "FeedbackCategories", Size: new UDim2(1, 0, 0, categoryH), Position: UDim2.fromOffset(0, categoryTop), BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 474 },
+			chips,
+		);
 	let impactRow: unknown = undefined;
 	if (impactH > 0) {
 		impactRow = h(
@@ -328,31 +349,34 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 			h(Line, { text: spaced("IMPACT"), size: 12, font: new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold), color: Palette.muted, zIndex: 475 }),
 			h(
 				"frame",
-				{ Size: new UDim2(1, 0, 0, impactTabsH), Position: UDim2.fromOffset(0, 22), BackgroundTransparency: 1, ZIndex: 475 },
-				h(SegmentedTabs, {
-					options: IMPACT_TABS.map((level) => ({ id: tostring(level), label: IMPACT_LABELS[level - 1], accent: ACCENT })),
+				{ Size: new UDim2(1, 0, 0, impactTabsH), Position: UDim2.fromOffset(0, impactLabelH), BackgroundTransparency: 1, ZIndex: 475 },
+				h(MockTabs, {
+					options: IMPACT_TABS.map((level) => ({ id: tostring(level), label: IMPACT_LABELS[level - 1] })),
 					value: tostring(impact),
-					onChange: (id: string) => setImpact(tonumber(id) ?? 2),
+					onChange: (id: string) => {
+						Audio.play("tabSwitch");
+						setImpact(tonumber(id) ?? 2);
+					},
 					accent: ACCENT,
-					sound: "tabSwitch",
-					columns: impactColumns,
-					gap: 6,
-					size: UDim2.fromScale(1, 1),
+					phone: false,
+					wide: true,
+					tabHeight: F.TabOn.h,
+					padX: F.TabOn.pad.left,
 					reducedMotion: softMotion,
-					zIndex: 476,
 				}),
 			),
 		);
 	}
-	const deviceChipW = narrow ? width - 32 : 170;
+	const deviceChipW = narrow ? width - padX * 2 : math.ceil(L.Attach.w);
+	const attachH = touch ? TapTarget : L.Attach.h;
 	const deviceChip =
 		!sent &&
 		h(
 			"textbutton",
 			{
 				Name: "FeedbackDevice",
-				Size: UDim2.fromOffset(deviceChipW, TapTarget),
-				Position: narrow ? new UDim2(0, 0, 1, -(TapTarget * 2 + 6)) : new UDim2(0, 0, 1, -TapTarget),
+				Size: UDim2.fromOffset(deviceChipW, attachH),
+				Position: narrow ? new UDim2(0, 0, 1, -(L.Send.h + 6 + attachH)) : new UDim2(0, 0, 1, -(L.Footer.h + attachH) / 2),
 				BackgroundColor3: attachDevice ? Palette.mango : Palette.white,
 				BackgroundTransparency: attachDevice ? 0.8 : 0.95,
 				AutoButtonColor: false,
@@ -366,7 +390,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 					},
 				},
 			},
-			h("uicorner", { CornerRadius: new UDim(0, 8) }),
+			h("uicorner", { CornerRadius: new UDim(0, L.Attach.radius) }),
 			h("uistroke", { Color: attachDevice ? Palette.mango : Palette.white, Transparency: attachDevice ? 0.4 : 0.9, ApplyStrokeMode: Enum.ApplyStrokeMode.Border }),
 			h(Text, {
 				value: (attachDevice ? "✓  " : "") + "Attach device info",
@@ -376,12 +400,12 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 				align: Enum.TextXAlignment.Center,
 				fit: true,
 				minSize: 9,
-				position: UDim2.fromOffset(8, 14),
-				sizeConstraint: new UDim2(1, -16, 0, 16),
+				position: new UDim2(0, L.Attach.pad.left, 0.5, -8),
+				sizeConstraint: new UDim2(1, -(L.Attach.pad.left + L.Attach.pad.right), 0, 16),
 				zIndex: 476,
 			}),
 		);
-	const sendW = narrow ? width - 32 : 220;
+	const sendW = narrow ? width - padX * 2 : math.ceil(L.Send.w);
 	return h(
 		OverlayPresence,
 		{
@@ -426,8 +450,8 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 						bodyScrolls ? "scrollingframe" : "frame",
 						{
 							Name: "FeedbackBody",
-							Size: new UDim2(1, -32, 1, -28),
-							Position: UDim2.fromOffset(16, 14),
+							Size: new UDim2(1, -padX * 2, 1, -padY * 2),
+							Position: UDim2.fromOffset(padX, padY),
 							BackgroundTransparency: 1,
 							BorderSizePixel: 0,
 							ZIndex: 473,
@@ -459,7 +483,7 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 									ZIndex: 474,
 								},
 								h("uicorner", {
-									CornerRadius: new UDim(0, 12),
+									CornerRadius: new UDim(0, L.Editor.radius),
 								}),
 								h("uistroke", {
 									ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
@@ -532,9 +556,9 @@ export function FeedbackOverlay(_param: FeedbackOverlayProps) {
 									onClick: submit,
 									color: canSend ? ACCENT : Palette.panelSoft,
 									textColor: canSend ? Palette.ink : Palette.muted,
-									size: UDim2.fromOffset(sendW, TapTarget),
+									size: UDim2.fromOffset(sendW, L.Send.h),
 									position: footerReveal.map(
-										(amount) => new UDim2(1, -sendW, 1, -TapTarget + math.round((1 - amount) * 10)),
+										(amount) => new UDim2(1, -sendW, 1, -L.Send.h + math.round((1 - amount) * 10)),
 									),
 									disabled: !canSend,
 									reducedMotion: softMotion,

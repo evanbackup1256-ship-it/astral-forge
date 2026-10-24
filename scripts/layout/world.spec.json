@@ -1,0 +1,22 @@
+{
+ "name": "WorldLayout",
+ "source": "design/28-world/desktop.html",
+ "viewport": [
+  1920,
+  1080
+ ],
+ "root": ".screen",
+ "origin": ".main",
+ "out": "src/Client/AstralForge/pages/generated/WorldLayout.ts",
+ "nodes": {
+  "Prompt": "\"Open Rift crate\" .. ..",
+  "PromptPanel": "\"Open Rift crate\" ..",
+  "Action": "\"Open Rift crate\"",
+  "Detail": "\"2,400 Flux\"",
+  "Plate": "\"mossy\" ..",
+  "PlateName": "\"mossy\"",
+  "PlateChip": "\"R12 \u00b7 Glass Dunes\"",
+  "Loading": "\"Lighting the forge\" ..",
+  "LoadBar": ".bar"
+ }
+}

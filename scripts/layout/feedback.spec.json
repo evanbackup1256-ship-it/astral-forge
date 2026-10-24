@@ -1,0 +1,28 @@
+{
+ "name": "FeedbackLayout",
+ "source": "design/23-feedback/desktop.html",
+ "viewport": [
+  1920,
+  1080
+ ],
+ "root": ".screen",
+ "origin": ".pn",
+ "out": "src/Client/AstralForge/pages/generated/FeedbackLayout.ts",
+ "nodes": {
+  "Card": ".pn",
+  "Heading": ".pn h3",
+  "TypeLbl": ".pn .lbl",
+  "Chips": ".pn .flexr",
+  "Chip": ".pn .flexr .chip",
+  "ChipOn": ".pn .flexr .chip.a",
+  "ImpactLbl": ".pn \"Impact\"",
+  "TabOn": ".pn .tab.on",
+  "Tab": ".pn .tab",
+  "Editor": ".pn \"Rift crates\"",
+  "Footer": ".pn .flexr:1",
+  "Attach": ".pn .flexr:1 .chip",
+  "Send": ".pn .btn",
+  "ImpactTab": ".pn .tabs .tab",
+  "Tabs": ".pn .tabs"
+ }
+}
