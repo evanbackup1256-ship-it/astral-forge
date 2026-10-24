@@ -465,13 +465,14 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 	}, [rolls]);
 	const visible = phone ? 3 : 5;
 	// 29-crate-opening .pn: 20px padding, h3 heading (+N more on the right), 12px gap, 92px reel strips 12px apart
-	const slotW = phone ? 88 : L.Slot.w;
-	const inset = L.Reel.x;
+	// phone.html: 284px .pn, 14px padding, 12 gap, 84px slots (three visible), h3 18
+	const slotW = phone ? 84 : L.Slot.w;
+	const inset = phone ? 14 : L.Reel.x;
 	const panelW = math.min(viewport.width - 24, visible * slotW + inset * 2);
 	const rowH = slotW;
 	const reelGap = L.Reel2.y - L.Reel.y - L.Reel.h;
-	const headerH = L.Reel.y;
-	const panelH = headerH + reelRolls.size() * (rowH + reelGap) - reelGap + L.Panel.pad.bottom;
+	const headerH = phone ? 14 + 18 + 12 : L.Reel.y;
+	const panelH = headerH + reelRolls.size() * (rowH + reelGap) - reelGap + (phone ? 14 : L.Panel.pad.bottom);
 
 	const [phase, setPhase] = React.useState<ReelPhase>(still ? "done" : "spin");
 	const [show, , beginExit] = usePresence(still);
@@ -655,13 +656,13 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 					<textlabel
 						key="Head"
 						Text={spaced(string.upper(session.crateName ?? "crate"))}
-						TextSize={L.Head.text.size}
+						TextSize={phone ? 12 : L.Head.text.size}
 						FontFace={TITLE_FACE}
 						TextColor3={L.Head.text.color}
 						TextXAlignment={Enum.TextXAlignment.Left}
 						BackgroundTransparency={1}
-						Position={UDim2.fromOffset(inset, L.Head.y)}
-						Size={new UDim2(1, -inset * 2, 0, L.Head.h)}
+						Position={UDim2.fromOffset(inset, phone ? 14 : L.Head.y)}
+						Size={new UDim2(1, -inset * 2, 0, phone ? 18 : L.Head.h)}
 						ZIndex={511}
 					/>
 					<Text
@@ -670,8 +671,8 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 						color={L.More.text.color}
 						weight={Enum.FontWeight.SemiBold}
 						align={Enum.TextXAlignment.Right}
-						position={UDim2.fromOffset(inset, L.More.y)}
-						sizeConstraint={new UDim2(1, -inset * 2, 0, L.More.h)}
+						position={UDim2.fromOffset(inset, phone ? 14 : L.More.y)}
+						sizeConstraint={new UDim2(1, -inset * 2, 0, phone ? 18 : L.More.h)}
 						zIndex={511}
 					/>
 					{reelRolls.map((_, row) => (
