@@ -28,7 +28,7 @@ import {
 	resolvePressMotion,
 } from "./ui";
 import { GlyphWell } from "./mockKit";
-import { HERO_TABS_BOTTOM, HERO_TABS_GAP, HERO_TABS_RIGHT, HERO_TEXT_LEFT, heroTabsRoom, heroTabsWidth, heroTextWidth, reportHeroShown, useHeroFor, useHeroTabElement } from "./heroSlot";
+import { HERO_TABS_BOTTOM, HERO_TABS_GAP, HERO_TABS_MIN_SCALE, HERO_TABS_RIGHT, HERO_TEXT_LEFT, heroTabsRoom, heroTabsWidth, heroTextWidth, reportHeroShown, useHeroFor, useHeroTabElement } from "./heroSlot";
 import { MockTabs } from "../pages/socialKit";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
@@ -743,9 +743,11 @@ export function Workspace(_param: WorkspaceProps) {
 	const heroTabsW = heroTabLabels.size() > 0 ? heroTabsWidth(heroTabLabels) : 0;
 	const heroTextW = hero ? heroTextWidth(heroInfo?.kicker ?? heroKicker(page, state, entry.eyebrow), heroInfo?.title ?? entry.label, heroInfo?.line ?? heroLine(page, state)) : 0;
 	const heroTabsMax = heroTabsRoom(heroW, heroTextW);
-	const heroTabsScroll = heroW > 0 && heroTabsW > heroTabsMax;
+	// first shrink (UIScale, down to HERO_TABS_MIN_SCALE), then scroll what still doesn't fit
+	const heroTabsScale = heroW > 0 && heroTabsW > heroTabsMax ? math.max(HERO_TABS_MIN_SCALE, heroTabsMax / heroTabsW) : 1;
+	const heroTabsScroll = heroW > 0 && heroTabsW * heroTabsScale > heroTabsMax + 0.5;
 	// whatever the tabs take, the text block stops HERO_TABS_GAP short of them
-	const heroTextCap = heroTabsW > 0 && heroW > 0 ? heroW - HERO_TABS_RIGHT - math.min(heroTabsW, heroTabsMax) - HERO_TABS_GAP - HERO_TEXT_LEFT : undefined;
+	const heroTextCap = heroTabsW > 0 && heroW > 0 ? heroW - HERO_TABS_RIGHT - math.min(heroTabsW * heroTabsScale, heroTabsMax) - HERO_TABS_GAP - HERO_TEXT_LEFT : undefined;
 	const vaultPillY = math.max(8, math.floor((headerHeight - 52) / 2));
 	return h(
 		"frame",
@@ -918,11 +920,12 @@ export function Workspace(_param: WorkspaceProps) {
 					h(
 						"frame",
 						{ Name: "HeroTabs", AnchorPoint: new Vector2(1, 1), Position: new UDim2(1, -HERO_TABS_RIGHT, 1, -HERO_TABS_BOTTOM), Size: UDim2.fromOffset(0, 0), AutomaticSize: Enum.AutomaticSize.XY, BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 21 },
+						heroTabsScale < 1 && !heroTabsScroll && h("uiscale", { Scale: heroTabsScale }),
 						heroInfo?.tabs !== undefined
 							? heroTabsScroll
 								? h(
 										"scrollingframe",
-										{ Name: "HeroTabsScroll", Size: UDim2.fromOffset(heroTabsMax, 48), CanvasSize: UDim2.fromOffset(0, 0), AutomaticCanvasSize: Enum.AutomaticSize.X, ScrollingDirection: Enum.ScrollingDirection.X, ScrollBarThickness: 3, ScrollBarImageColor3: accent, BackgroundTransparency: 1, BorderSizePixel: 0, ElasticBehavior: Enum.ElasticBehavior.Never },
+										{ Name: "HeroTabsScroll", Size: UDim2.fromOffset(heroTabsMax, 52), CanvasSize: UDim2.fromOffset(0, 0), AutomaticCanvasSize: Enum.AutomaticSize.X, ScrollingDirection: Enum.ScrollingDirection.X, ScrollBarThickness: 3, ScrollBarImageColor3: accent, BackgroundTransparency: 1, BorderSizePixel: 0, ElasticBehavior: Enum.ElasticBehavior.Never },
 										h(MockTabs, { options: heroInfo.tabs.options, value: heroInfo.tabs.value, onChange: (id: string) => heroInfo.tabs?.onChange(id), accent: heroInfo.tabs.accent ?? accent, phone: false, reducedMotion: reducedMotion }),
 									)
 								: h(MockTabs, {

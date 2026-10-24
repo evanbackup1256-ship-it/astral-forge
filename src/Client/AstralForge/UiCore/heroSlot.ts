@@ -121,6 +121,8 @@ export function useHeroTabElement(): React.Element | undefined {
 const TextService = game.GetService("TextService");
 export const HERO_TEXT_LEFT = 30;
 export const HERO_TABS_GAP = 24;
+/** tabs shrink to this UIScale before they start scrolling */
+export const HERO_TABS_MIN_SCALE = 0.75;
 const textW = (text: string, size: number, font: Enum.Font) => TextService.GetTextSize(text, size, font, new Vector2(4000, 200)).X;
 /** MockTabs width: each .tab is its 14px bold label + 18px padding a side, 4px apart, in a 4px-padded well */
 export function heroTabsWidth(labels: string[]): number {
