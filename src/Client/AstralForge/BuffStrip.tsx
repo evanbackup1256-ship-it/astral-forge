@@ -667,19 +667,27 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 		),
 		// .add: opens where that currency is earned (same destinations as the expanded balance list)
 		h(
-			"textbutton",
+			"textlabel",
 			{
 				Size: UDim2.fromOffset(24, 24),
 				BackgroundColor3: cc,
 				BorderSizePixel: 0,
-				AutoButtonColor: false,
 				Text: "+",
 				TextColor3: Color3.fromRGB(20, 12, 16),
 				TextSize: 16,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				LayoutOrder: 3,
-				Event: { Activated: () => props.navigate?.(destination) },
 			},
+			// 44px catch area centred on the 24px .add square
+			h("textbutton", {
+				Size: UDim2.fromOffset(theme.TapTarget, theme.TapTarget),
+				Position: UDim2.fromScale(0.5, 0.5),
+				AnchorPoint: new Vector2(0.5, 0.5),
+				BackgroundTransparency: 1,
+				Text: "",
+				ZIndex: 2,
+				Event: { Activated: () => props.navigate?.(destination) },
+			}),
 			h("uicorner", { CornerRadius: new UDim(0, 7) }),
 			h("uigradient", {
 				Rotation: 90,
