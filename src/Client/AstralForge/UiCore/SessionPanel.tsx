@@ -10,6 +10,8 @@ import { rarityColor } from "./SpriteCard";
 import { Button, LooseComponent, TITLE_FACE } from "./ui";
 import { NUM, spaced } from "./mockKit";
 import SessionStats = require("../SessionStats");
+// generated from design/01-hud-session by scripts/gen_from_layout.js (scripts/layout/hud_session.spec.json)
+import { HudSessionLayout as L } from "../pages/generated/HudSessionLayout";
 
 const AstralForge = script.Parent!.Parent!;
 const Icon = (
@@ -87,34 +89,37 @@ interface TileProps {
 }
 
 function tileHeight(compact: boolean): number {
-	return compact ? 52 : 84;
+	return compact ? 52 : L.Tile.h;
 }
 
 function Tile(props: TileProps) {
 	// 01-hud-session .row (column): padding 14/16, .lbl with icon, .big value at 30px
 	const h = tileHeight(props.compact);
-	const px = props.compact ? 10 : 16;
-	const py = props.compact ? 8 : 14;
+	const px = props.compact ? 10 : L.Tile.pad.left;
+	const py = props.compact ? 8 : L.Tile.pad.top;
 	return (
 		<frame Size={new UDim2(0, 0, 0, h)} LayoutOrder={props.order} BackgroundColor3={Palette.panelRaised} BorderSizePixel={0} ZIndex={61}>
 			<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 			{/* .row radius and hairline; the tile's own gradient stays as it was */}
-			<uicorner CornerRadius={new UDim(0, 11)} />
+			<uicorner CornerRadius={new UDim(0, L.Tile.radius)} />
 			<uistroke Color={Palette.white} Transparency={0.95} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 			<uigradient
 				Color={new ColorSequence(Palette.panelRaised, darken(Palette.panelRaised, 0.18))}
 				Rotation={90}
 			/>
-			<Icon kind={props.icon} color={Palette.muted} accent={props.accent} size={14} position={UDim2.fromOffset(px, py + 1)} />
-			<Label text={spaced(props.label)} size={props.compact ? 10 : 11} minSize={9} color={Palette.muted} font={LABEL_FONT}
-				frame={new UDim2(1, -(px * 2 + 22), 0, 16)} position={UDim2.fromOffset(px + 22, py)} />
-			<Label text={props.value} size={props.compact ? 18 : 30} minSize={12} color={props.valueColor ?? Palette.cream}
+			<Icon kind={props.icon} color={Palette.muted} accent={props.accent} size={props.compact ? 14 : L.TileIcon.w} position={UDim2.fromOffset(px, py)} />
+			<Label text={spaced(props.label)} size={props.compact ? 10 : L.TileLabel.text.size} minSize={9} color={L.TileLabel.text.color} font={LABEL_FONT}
+				frame={new UDim2(1, -(px * 2 + L.TileLabel.text.x), 0, props.compact ? 16 : L.TileLabel.h)} position={UDim2.fromOffset(px + (props.compact ? 22 : L.TileLabel.text.x), py)} />
+			<Label text={props.value} size={props.compact ? 18 : L.TileValue.text.size} minSize={12} color={props.valueColor ?? Palette.cream}
 				font={NUMBER_FONT}
-				frame={new UDim2(1, -px * 2, 0, props.compact ? 22 : 36)} position={new UDim2(0, px, 1, -py)}
+				frame={new UDim2(1, -px * 2, 0, props.compact ? 22 : L.TileValue.h)} position={new UDim2(0, px, 1, -py)}
 				anchor={new Vector2(0, 1)} />
 		</frame>
 	);
 }
+
+/** label 14 + panel gap 12, then the 140px chart (01-hud-session svg) */
+const CHART_TOP = L.Chart.y - L.ChartLabel.y;
 
 /** 40-bar strip, one rounded Frame per bar with a brass gradient. Newest minute on the right. */
 function Chart(props: { values: number[]; height: number }) {
@@ -144,8 +149,8 @@ function Chart(props: { values: number[]; height: number }) {
 	}
 	return (
 		<frame Size={new UDim2(1, 0, 0, props.height)} BackgroundTransparency={1} LayoutOrder={3} ZIndex={61}>
-			<Label text={spaced("FLUX PER MINUTE")} size={11} color={Palette.muted} font={LABEL_FONT} frame={new UDim2(1, 0, 0, 14)} />
-			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundColor3={Palette.ink}
+			<Label text={spaced("FLUX PER MINUTE")} size={L.ChartLabel.text.size} color={L.ChartLabel.text.color} font={LABEL_FONT} frame={new UDim2(1, 0, 0, L.ChartLabel.h)} />
+			<frame Size={new UDim2(1, 0, 1, -CHART_TOP)} Position={UDim2.fromOffset(0, CHART_TOP)} BackgroundColor3={Palette.ink}
 				BackgroundTransparency={0.4} BorderSizePixel={0} ClipsDescendants={true} ZIndex={61}>
 				<uicorner CornerRadius={new UDim(0, 8)} />
 				<uipadding PaddingLeft={new UDim(0, 6)} PaddingRight={new UDim(0, 6)} PaddingTop={new UDim(0, 6)} PaddingBottom={new UDim(0, 4)} />
@@ -180,7 +185,7 @@ export function SessionPanel(props: SessionPanelProps) {
 	const data = SessionStats.read();
 	const phone = viewport.width < 700 || viewport.height < 500;
 	const sideInset = viewport.sideInset ?? 0;
-	const width = math.min(phone ? 560 : 700, viewport.width - props.edgePad * 2 - sideInset * 2 - 8);
+	const width = math.min(phone ? 560 : L.Panel.w, viewport.width - props.edgePad * 2 - sideInset * 2 - 8);
 	const maxHeight = math.max(160, viewport.height - props.top - 12 - (viewport.bottomInset ?? 0));
 	const columns = width < 420 ? 2 : 3;
 	const compact = phone;
@@ -203,12 +208,19 @@ export function SessionPanel(props: SessionPanelProps) {
 	];
 	const tileH = tileHeight(compact);
 	const rows = math.ceil(tiles.size() / columns);
-	const gridH = rows * tileH + (rows - 1) * 10;
-	const chartH = compact ? 96 : 120;
-	const headerH = compact ? 40 : 70;
-	const footerH = compact ? 36 : 44;
-	const bodyH = gridH + 12 + chartH + 12 + footerH;
-	const height = math.min(maxHeight, headerH + 14 + bodyH + 16);
+	const gridGap = compact ? 10 : L.Grid.gap;
+	const gridH = rows * tileH + (rows - 1) * gridGap;
+	// desktop: .pn padding 18/20, gap 12: head 58 / .rule 12 / grid / label+chart / footer 44 (= the 542px mockup panel)
+	const padY = compact ? 12 : L.Panel.pad.top;
+	const padX = compact ? 16 : L.Panel.pad.left;
+	const gap = compact ? 12 : L.Panel.gap;
+	const chartH = compact ? 96 : L.Chart.y + L.Chart.h - L.ChartLabel.y;
+	const headerH = compact ? 40 : L.Head.h;
+	const ruleH = compact ? 2 : L.Rule.h;
+	const footerH = compact ? 36 : L.Footer.h;
+	const bodyH = gridH + gap + chartH + gap + footerH;
+	const bodyTop = padY + headerH + gap + ruleH + gap;
+	const height = math.min(maxHeight, bodyTop + bodyH + padY);
 	const canShare = SessionStats.canShare();
 
 	const rowsEls: React.Element[] = [];
@@ -224,7 +236,7 @@ export function SessionPanel(props: SessionPanelProps) {
 		}
 		rowsEls.push(
 			<frame key={`row${r}`} Size={new UDim2(1, 0, 0, tileH)} BackgroundTransparency={1} LayoutOrder={r} ZIndex={61}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)}
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, gridGap)}
 					SortOrder={Enum.SortOrder.LayoutOrder} HorizontalFlex={Enum.UIFlexAlignment.Fill} />
 				{cells}
 			</frame>,
@@ -242,32 +254,32 @@ export function SessionPanel(props: SessionPanelProps) {
 			ZIndex={60}
 			ref={(node: Frame | undefined) => node?.SetAttribute("LayoutFloating", true)}
 		>
-			<uicorner CornerRadius={new UDim(0, 18)} />
-			<uigradient Color={new ColorSequence(Palette.panelRaised, Palette.panel)} Rotation={90} />
+			<uicorner CornerRadius={new UDim(0, L.Panel.radius)} />
+			<uigradient Color={L.Panel.gradient!.color} Rotation={L.Panel.gradient!.rotation} />
 			<RimLight color={Palette.line} inner={Palette.brass} />
-			<SoftShadow radius={18} spread={18} drop={8} zIndex={59} />
+			<SoftShadow radius={L.Panel.radius} spread={18} drop={8} zIndex={59} />
 			{/* header */}
-			<frame Size={new UDim2(1, -32, 0, headerH)} Position={UDim2.fromOffset(16, 12)} BackgroundTransparency={1} ZIndex={61}>
+			<frame Size={new UDim2(1, -padX * 2, 0, headerH)} Position={UDim2.fromOffset(padX, padY)} BackgroundTransparency={1} ZIndex={61}>
 				{!compact && (
-					<Label text={spaced("SINCE YOU JOINED")} size={11} color={Palette.mango} font={LABEL_FONT} frame={new UDim2(1, -150, 0, 12)} />
+					<Label text={spaced("SINCE YOU JOINED")} size={L.Kicker.text.size} color={L.Kicker.text.color} font={LABEL_FONT} frame={new UDim2(1, -150, 0, L.Kicker.h)} />
 				)}
-				<Label text={compact ? "THIS SESSION" : "This Session"} size={compact ? 15 : 40} minSize={13} color={Palette.cream}
-					font={TITLE_FONT} frame={new UDim2(1, -150, 0, compact ? 24 : 44)} position={UDim2.fromOffset(compact ? 22 : 0, compact ? 0 : 20)} />
+				<Label text={compact ? "THIS SESSION" : "This Session"} size={compact ? 15 : L.Title.text.size} minSize={13} color={L.Title.text.color}
+					font={TITLE_FONT} frame={new UDim2(1, -150, 0, compact ? 24 : L.Title.h)} position={UDim2.fromOffset(compact ? 22 : 0, compact ? 0 : L.Title.y - L.Head.y)} />
 				{compact && <Icon kind="Session.2" color={Palette.mango} accent={Palette.mango} size={16} position={UDim2.fromOffset(0, 4)} />}
 				{/* playtime pill + close */}
-				<frame Size={UDim2.fromOffset(80, 28)} Position={new UDim2(1, -46, 0, compact ? 0 : 30)} AnchorPoint={new Vector2(1, 0)}
-					BackgroundColor3={Palette.mango} BackgroundTransparency={0.8} BorderSizePixel={0} ZIndex={61}>
-					<uicorner CornerRadius={new UDim(0, 8)} />
-					<uistroke Color={Palette.mango} Thickness={1} Transparency={0.4} />
+				<frame Size={UDim2.fromOffset(compact ? 80 : L.Clock.w, L.Clock.h)} Position={new UDim2(1, compact ? -46 : -(L.Close.w + L.Head.gap), 0, compact ? 0 : L.Clock.y - L.Head.y)} AnchorPoint={new Vector2(1, 0)}
+					BackgroundColor3={L.Clock.fill!.color} BackgroundTransparency={L.Clock.fill!.transparency} BorderSizePixel={0} ZIndex={61}>
+					<uicorner CornerRadius={new UDim(0, L.Clock.radius)} />
+					<uistroke Color={L.Clock.stroke!.color} Thickness={L.Clock.stroke!.thickness} Transparency={L.Clock.stroke!.transparency} />
 					<Label text={SessionStats.clockText(data.playedSeconds)} size={12} minSize={10} color={Palette.cream} font={NUMBER_FONT}
 						frame={new UDim2(1, -8, 1, 0)} position={UDim2.fromOffset(4, 0)} align={Enum.TextXAlignment.Center} />
 				</frame>
-				<Button text="" icon="Close.31" onClick={() => SessionStats.setOpen(false)} size={UDim2.fromOffset(34, 34)}
-					position={new UDim2(1, 0, 0, compact ? -4 : 27)} color={SEC} textColor={Palette.cream}
+				<Button text="" icon="Close.31" onClick={() => SessionStats.setOpen(false)} size={compact ? UDim2.fromOffset(34, 34) : UDim2.fromOffset(L.Close.w, L.Close.h)}
+					position={new UDim2(1, compact ? 0 : -L.Close.w, 0, compact ? -4 : L.Close.y - L.Head.y)} color={SEC} textColor={Palette.cream}
 					reducedMotion={props.reducedMotion} zIndex={63} />
 			</frame>
 			{/* brass rule under the title */}
-			<frame Size={new UDim2(1, -32, 0, 1)} Position={UDim2.fromOffset(16, 12 + headerH + 6)} BackgroundColor3={Palette.brass}
+			<frame Size={new UDim2(1, -padX * 2, 0, 1)} Position={UDim2.fromOffset(padX, padY + headerH + gap + math.floor(ruleH / 2))} BackgroundColor3={Palette.brass}
 				BorderSizePixel={0} ZIndex={61}>
 				<uigradient Transparency={new NumberSequence([
 					new NumberSequenceKeypoint(0, 1),
@@ -277,8 +289,8 @@ export function SessionPanel(props: SessionPanelProps) {
 			</frame>
 			{/* body scrolls if the screen is too short, so nothing gets cut off */}
 			<scrollingframe
-				Size={new UDim2(1, -24, 1, -(12 + headerH + 14 + 12))}
-				Position={UDim2.fromOffset(16, 12 + headerH + 14)}
+				Size={new UDim2(1, -(padX * 2 - 8), 1, -(bodyTop + padY))}
+				Position={UDim2.fromOffset(padX, bodyTop)}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				CanvasSize={UDim2.fromOffset(0, bodyH)}
@@ -288,18 +300,18 @@ export function SessionPanel(props: SessionPanelProps) {
 				ZIndex={61}
 			>
 				<uipadding PaddingRight={new UDim(0, 8)} />
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				<frame Size={new UDim2(1, 0, 0, gridH)} BackgroundTransparency={1} LayoutOrder={1} ZIndex={61}>
-					<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 10)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gridGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					{rowsEls}
 				</frame>
 				<Chart values={data.perMinute} height={chartH} />
 				<frame Size={new UDim2(1, 0, 0, footerH)} BackgroundTransparency={1} LayoutOrder={4} ZIndex={61}>
-					<Button text="Reset" icon="Refresh.31" onClick={() => SessionStats.reset()} size={UDim2.fromOffset(110, footerH)}
+					<Button text="Reset" icon="Refresh.31" onClick={() => SessionStats.reset()} size={UDim2.fromOffset(compact ? 110 : L.Reset.w, footerH)}
 						color={SEC} textColor={Palette.cream} reducedMotion={props.reducedMotion} zIndex={62} />
 					{canShare && (
-						<Button text="Share card" onClick={() => SessionStats.share()} size={UDim2.fromOffset(150, footerH)}
-							position={new UDim2(1, -140, 0, 0)} color={Palette.brass} textColor={Palette.ink}
+						<Button text="Share card" onClick={() => SessionStats.share()} size={UDim2.fromOffset(compact ? 150 : L.Share.w, footerH)}
+							position={new UDim2(1, -(compact ? 150 : L.Share.w), 0, 0)} color={Palette.brass} textColor={Palette.ink}
 							reducedMotion={props.reducedMotion} zIndex={62} />
 					)}
 				</frame>

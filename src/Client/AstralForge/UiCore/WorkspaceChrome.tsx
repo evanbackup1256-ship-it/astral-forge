@@ -16,6 +16,7 @@ import {
 } from "../MotionKit/motion";
 import * as PageTransition from "../MotionKit/pageTransition";
 import { HeaderArt } from "./HeaderArt";
+import { HERO_TABS_BOTTOM, HERO_TABS_RIGHT, useHeroTabSlot } from "./heroTabs";
 import type { HeaderArtName } from "../ArtKit/uiArt";
 import { featureNames, openRoadmap, progressFraction, readLevelState, tierAccent } from "./levelRoadmap";
 import {
@@ -722,6 +723,7 @@ export function Workspace(_param: WorkspaceProps) {
 	});
 	// 03-forge .hero: 178px painted header, art on the right, kicker / 54px title / line bottom-left
 	const hero = !keyboardCompact && !chrome.stack && !chrome.landscape && headerHeight >= 150;
+	const heroTabs = useHeroTabSlot();
 	const heroArt: HeaderArtName = HERO_ART[page] ?? "forge";
 	const titleLeft = hero ? 30 : keyboardCompact ? 54 : chrome.stack ? 66 : 84;
 	const titleReserve = keyboardCompact
@@ -783,6 +785,14 @@ export function Workspace(_param: WorkspaceProps) {
 					BorderSizePixel: 0,
 				}),
 				hero && h(HeaderArt, { art: heroArt, inset: 0, radius: 18, fill: Palette.ink, transparency: 0 }),
+				// header tab slot (heroTabs.ts): a page's tabs sit bottom-right in the hero, as in the mockups
+				hero &&
+					heroTabs !== undefined &&
+					h(
+						"frame",
+						{ Name: "HeroTabs", AnchorPoint: new Vector2(1, 1), Position: new UDim2(1, -HERO_TABS_RIGHT, 1, -HERO_TABS_BOTTOM), Size: UDim2.fromOffset(0, 0), AutomaticSize: Enum.AutomaticSize.XY, BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 30 },
+						heroTabs,
+					),
 				// .hero::after: 2px accent rule along the bottom, fading out past the middle
 				hero &&
 					h(

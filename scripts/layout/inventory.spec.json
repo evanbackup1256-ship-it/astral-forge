@@ -1,0 +1,33 @@
+{
+	"name": "InventoryLayout",
+	"source": "design/04-inventory/desktop.html",
+	"viewport": [1920, 1080],
+	"root": ".screen",
+	"origin": ".main .flexr",
+	"out": "src/Client/AstralForge/pages/generated/InventoryLayout.ts",
+	"nodes": {
+		"Body": ".main .flexr",
+		"List": ".flexr .pn.f1",
+		"Heading": ".pn.f1 h3",
+		"Grid": ".pn.f1 .wrap",
+		"Card": ".pn.f1 .sc:0",
+		"Card2": ".pn.f1 .sc:1",
+		"CardOn": ".pn.f1 .sc.on",
+		"CardWell": ".pn.f1 .sc:0 .w",
+		"CardName": ".pn.f1 .sc:0 b",
+		"CardTag": ".pn.f1 .sc:0 .tg",
+		"Inspect": ".flexr .pn:1",
+		"InspectTitle": ".pn:1 h3",
+		"InspectArt": ".pn:1 img ..",
+		"InspectImg": ".pn:1 img",
+		"Stat": ".pn:1 .row:0",
+		"Stat2": ".pn:1 .row:1",
+		"StatWell": ".pn:1 .row:0 div",
+		"StatName": ".pn:1 .row:0 b",
+		"StatValue": ".pn:1 .row:0 .v",
+		"Actions": ".pn:1 .btn.f1 ..",
+		"Equip": ".pn:1 .btn.f1",
+		"Trade": ".pn:1 .btn.sec",
+		"Melt": ".pn:1 .btn.danger"
+	}
+}

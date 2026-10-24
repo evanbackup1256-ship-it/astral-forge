@@ -8,8 +8,10 @@ import { useFocusOrder } from "../../CoreKit/focusOrder";
 import type { Session } from "../../state";
 import { HeaderArt } from "../../UiCore/HeaderArt";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi, named } from "../luauDeps";
-import { BODY, BODY_BOLD, Bar, GlyphWell, Line, MockPanel, NUM, PanelHeading, PnSurface, ROW_RADIUS } from "../../UiCore/mockKit";
+import { BODY, BODY_BOLD, BODY_SEMI, Bar, GlyphWell, Line, MockPanel, NUM, PanelHeading, PnSurface, ROW_RADIUS } from "../../UiCore/mockKit";
 import { HEADING_SECTION_H, HeadingSection, headingBlock, MockBtn, MockRow, panelHeight, rowHeight, RowFace, SEC, TileWell } from "../mockRows";
+// generated from design/06-bazaar by scripts/gen_from_layout.js (scripts/layout/bazaar.spec.json)
+import { BazaarLayout as L } from "../generated/BazaarLayout";
 
 const Ui = loadUi();
 const Audio = loadAudio();
@@ -262,7 +264,8 @@ function darken3(c: Color3): Color3 {
 }
 
 // 06-bazaar listing .row: tile, Name over the deal line, stock, price, sm buttons
-const OFFER_ROW_H = 72;
+// desktop row = the 06-bazaar listing .row (generated BazaarLayout.Row: 64px, padding 6/12, 14px gaps)
+const OFFER_ROW_H = L.Row.h;
 const OFFER_ROW_H_PHONE = 64 + TapTarget + 8;
 function offerRowHeight(phone: boolean): number {
 	return phone ? OFFER_ROW_H_PHONE : OFFER_ROW_H;
@@ -293,37 +296,55 @@ function BazaarOfferCardImpl(props: BazaarOfferCardProps) {
 			<MockBtn text={buyText} accent={accent} sm={true} phone={phone} width={128} disabled={!canBuy} onClick={props.onBuy} reducedMotion={reducedMotion} layoutOrder={2} />
 		</>
 	);
+	if (!phone) {
+		// 06-bazaar listing .row on a horizontal list: tile / name over the deal line (fills) / stock in the
+		// 110px seller column / price / sm buttons, all centred, 14px apart
+		return (
+			<frame Size={props.size} Position={props.position} BackgroundColor3={Palette.white} BorderSizePixel={0}>
+				<RowFace outline={props.inspected ? accent : undefined} />
+				<uipadding PaddingLeft={new UDim(0, L.Row.pad.left)} PaddingRight={new UDim(0, L.Row.pad.right)} PaddingTop={new UDim(0, L.Row.pad.top)} PaddingBottom={new UDim(0, L.Row.pad.bottom)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, L.Row.gap)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<TileWell icon="Shop" accent={accent} size={L.RowTile.w} dim={offer.Left === 0} layoutOrder={0} />
+				<frame BackgroundTransparency={1} Size={new UDim2(0, 0, 0, L.RowText.h)} LayoutOrder={1}>
+					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+					<Line text={offer.Name} size={L.RowName.text.size} font={BODY_SEMI} color={L.RowName.text.color} width={new UDim(1, 0)} height={L.RowName.h} />
+					<Line
+						text={`${flag}-${math.floor(offer.Discount * 100)}% · ${Format.formatReward(offer.Reward)}`}
+						size={L.RowSub.text.size}
+						font={BODY}
+						color={accent}
+						width={new UDim(1, 0)}
+						position={UDim2.fromOffset(0, L.RowSub.y - L.RowText.y)}
+						height={L.RowSub.h}
+					/>
+				</frame>
+				<Line text={`${offer.Left}/${offer.Stock} left`} size={L.RowSeller.text.size} font={BODY} color={L.RowSeller.text.color} width={new UDim(0, L.RowSeller.w)} height={L.RowSeller.h} layoutOrder={2} />
+				<Line text={Format.compactNumber(total)} size={L.RowPrice.text.size} font={NUM} color={Palette.mango} align={Enum.TextXAlignment.Right} height={L.RowPrice.h} layoutOrder={3} />
+				<frame BackgroundTransparency={1} Size={UDim2.fromOffset(buttonsW, L.RowBuy.h)} LayoutOrder={4}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Right} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					{buttons}
+				</frame>
+			</frame>
+		);
+	}
 	return (
 		<frame Size={props.size} Position={props.position} BackgroundColor3={Palette.white} BorderSizePixel={0}>
 			<RowFace outline={props.inspected ? accent : undefined} />
 			<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 12)} PaddingTop={new UDim(0, 8)} PaddingBottom={new UDim(0, 8)} />
 			<TileWell icon="Shop" accent={accent} size={56} dim={offer.Left === 0} />
-			<frame BackgroundTransparency={1} Position={UDim2.fromOffset(68, 6)} Size={new UDim2(1, -(68 + buttonsW + (phone ? 0 : 12) + 110), 0, 44)}>
-				<Line text={offer.Name} size={phone ? 14 : 16} font={BODY_BOLD} width={new UDim(1, 0)} />
-				<Line
-					text={`${flag}-${math.floor(offer.Discount * 100)}% · ${Format.formatReward(offer.Reward)}`}
-					size={12}
-					font={BODY}
-					color={Palette.muted}
-					width={new UDim(1, 0)}
-					position={UDim2.fromOffset(0, 22)}
-					height={16}
-				/>
+			<frame BackgroundTransparency={1} Position={UDim2.fromOffset(68, 6)} Size={new UDim2(1, -(68 + 110), 0, 44)}>
+				<Line text={offer.Name} size={14} font={BODY_BOLD} width={new UDim(1, 0)} />
+				<Line text={`${flag}-${math.floor(offer.Discount * 100)}% · ${Format.formatReward(offer.Reward)}`} size={12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} position={UDim2.fromOffset(0, 22)} height={16} />
 			</frame>
-			<frame BackgroundTransparency={1} AnchorPoint={new Vector2(1, 0)} Position={new UDim2(1, -(buttonsW + (phone ? 0 : 12)), 0, 6)} Size={UDim2.fromOffset(110, 44)}>
-				<Line text={Format.compactNumber(total)} size={phone ? 14 : 17} font={NUM} color={Palette.mango} width={new UDim(1, 0)} align={Enum.TextXAlignment.Right} />
+			<frame BackgroundTransparency={1} AnchorPoint={new Vector2(1, 0)} Position={new UDim2(1, 0, 0, 6)} Size={UDim2.fromOffset(110, 44)}>
+				<Line text={Format.compactNumber(total)} size={14} font={NUM} color={Palette.mango} width={new UDim(1, 0)} align={Enum.TextXAlignment.Right} />
 				<Line text={`${offer.Left}/${offer.Stock} left`} size={12} font={BODY} color={Palette.muted} width={new UDim(1, 0)} align={Enum.TextXAlignment.Right} position={UDim2.fromOffset(0, 22)} height={16} />
 			</frame>
-			<frame
-				BackgroundTransparency={1}
-				AnchorPoint={phone ? new Vector2(0, 1) : new Vector2(1, 0.5)}
-				Position={phone ? new UDim2(0, 0, 1, 0) : new UDim2(1, 0, 0, 28)}
-				Size={phone ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(buttonsW, 36)}
-			>
+			<frame BackgroundTransparency={1} AnchorPoint={new Vector2(0, 1)} Position={new UDim2(0, 0, 1, 0)} Size={new UDim2(1, 0, 0, TapTarget)}>
 				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Right} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
 				{buttons}
 			</frame>
-			<frame BackgroundTransparency={1} Position={new UDim2(0, 68, 0, 52)} Size={new UDim2(1, -(68 + buttonsW + (phone ? 0 : 12)), 0, 4)}>
+			<frame BackgroundTransparency={1} Position={new UDim2(0, 68, 0, 52)} Size={new UDim2(1, -68, 0, 4)}>
 				<Bar fill={offer.Left / math.max(1, offer.Stock)} color={accent} thin={true} />
 			</frame>
 		</frame>
@@ -1052,7 +1073,7 @@ function BazaarView(props: BazaarProps) {
 	});
 	const phone = chrome.stack === true;
 	const cardHeight = offerRowHeight(phone);
-	const gap = 10;
+	const gap = phone ? 10 : L.Row2.y - L.Row.y - L.Row.h;
 	const shelfColumns = (_shelfW: number) => 1;
 	// the shelf's height only depends on the offer count and the column count, so it can be worked out
 	// exactly at the split width before deciding; split only when it roughly matches the inspection column

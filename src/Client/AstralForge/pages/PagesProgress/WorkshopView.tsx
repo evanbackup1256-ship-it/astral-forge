@@ -9,6 +9,8 @@ import { asFlux } from "../../CoreKit/format";
 import * as VaultCollectEligibility from "../../CoreKit/vaultCollectEligibility";
 import { BODY, BODY_SEMI, Bar, Chip, DiamondRule, ItemTile, Line, MockPanel, NUM, PanelHeading, PnSurface, RowSurface, mockGap, panelPad } from "../../UiCore/mockKit";
 import { loadUi } from "../luauDeps";
+// generated from design/03-forge by scripts/gen_from_layout.js (scripts/layout/forge.spec.json)
+import { ForgeLayout as L } from "../generated/ForgeLayout";
 import { ProgramsPanel, ProgramsState, programsPanelHeight } from "./ProgramsPanel";
 
 // header-forge.png (1024x120), already uploaded (assets/uploaded.md)
@@ -245,6 +247,9 @@ function listedFluxPerSec(machine: unknown): number {
 // Desktop: Machines panel (flex) with a Next upgrades grid under a brass rule; a 520px column with
 // the Output panel (glow top-right, 58px rate) and Auto-Forge under it. Gap 18 everywhere.
 // Phone (landscape): Machines panel and a 236px Output panel. Portrait: the two stacked.
+// .big row is bottom-aligned: a centred line this tall puts "per second" where the mockup has it
+const UNIT_H = 2 * (L.OutputRate.y + L.OutputRate.h - (L.OutputUnit.y + L.OutputUnit.h / 2));
+
 function machineGain(machine: MachineConfig, level: number): number {
 	const base = listedFluxPerSec(machine);
 	const growth = tonumber((machine as unknown as { Growth?: unknown }).Growth) ?? 0;
@@ -261,7 +266,7 @@ function MachineLine(p: {
 }) {
 	const { entry, phone } = p;
 	const machine = entry.config;
-	const rowH = phone ? 52 : 64;
+	const rowH = phone ? 52 : L.Row.h;
 	const color = machine.Accent ?? machine.Color ?? Palette.mango;
 	const name = typeIs(machine.Name, "string") ? machine.Name : machine.Id;
 	const tail = !entry.unlocked ? "Locked" : `Lv ${compactNumber(entry.level)}`;
@@ -272,25 +277,25 @@ function MachineLine(p: {
 	return (
 		<frame Size={new UDim2(1, 0, 0, rowH)} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={p.order}>
 			<RowSurface />
-			<uipadding PaddingLeft={new UDim(0, phone ? 10 : 12)} PaddingRight={new UDim(0, phone ? 10 : 12)} />
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 14)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-			<ItemTile color={color} icon={entry.unlocked ? (machine.Icon ?? "Forge") : "Lock"} width={phone ? 44 : 56} compact={true} locked={!entry.unlocked} layoutOrder={0} />
-			<frame Size={new UDim2(0, 0, 0, phone ? 30 : 32)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+			<uipadding PaddingLeft={new UDim(0, phone ? 10 : L.Row.pad.left)} PaddingRight={new UDim(0, phone ? 10 : L.Row.pad.right)} />
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 14 : L.Row.gap)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<ItemTile color={color} icon={entry.unlocked ? (machine.Icon ?? "Forge") : "Lock"} width={phone ? 44 : L.RowTile.w} compact={true} locked={!entry.unlocked} layoutOrder={0} />
+			<frame Size={new UDim2(0, 0, 0, phone ? 30 : L.RowText.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 				<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
 				<textlabel
 					BackgroundTransparency={1}
-					Size={new UDim2(1, 0, 0, phone ? 17 : 19)}
+					Size={new UDim2(1, 0, 0, phone ? 17 : L.RowName.h)}
 					RichText={true}
 					Text={`${name} <font color="#B2A0A6" weight="500">· ${tail}</font>`}
-					TextSize={phone ? 13 : 15}
+					TextSize={phone ? 13 : L.RowName.text.size}
 					FontFace={BODY_SEMI}
-					TextColor3={Palette.cream}
+					TextColor3={L.RowName.text.color}
 					TextXAlignment={Enum.TextXAlignment.Left}
 					TextTruncate={Enum.TextTruncate.AtEnd}
 				/>
-				<Bar fill={fill} thin={true} color={Palette.mango} position={new UDim2(0, 0, 1, -6)} />
+				<Bar fill={fill} thin={true} color={Palette.mango} position={new UDim2(0, 0, 1, -(phone ? 6 : L.RowBar.h))} />
 			</frame>
-			<Line text={value} size={17} font={NUM} color={Palette.mango} layoutOrder={2} />
+			<Line text={value} size={L.RowValue.text.size} font={NUM} color={L.RowValue.text.color} layoutOrder={2} />
 			<Button
 				text={phone ? undefined : label}
 				icon={entry.level < 1 ? "Forge" : "Production"}
@@ -299,7 +304,7 @@ function MachineLine(p: {
 				color={Palette.mango}
 				textColor={Color3.fromRGB(27, 15, 8)}
 				hug={!phone}
-				size={phone ? UDim2.fromOffset(44, 36) : UDim2.fromOffset(0, 36)}
+				size={phone ? UDim2.fromOffset(44, 36) : UDim2.fromOffset(0, L.RowBuy.h)}
 				reducedMotion={p.reducedMotion}
 				tooltip={!entry.unlocked ? entry.lockReason : p.ready ? undefined : `Costs ${compactNumber(entry.price)} Flux`}
 			/>
@@ -357,13 +362,14 @@ function WorkshopView(props: {
 	upgrades.sort((a, b) => compareFlux(a.price, b.price) < 0);
 	const nextThree = upgrades.filter((_, i) => i < 3);
 
-	const rowH = phone ? 52 : 64;
-	const rowGap = phone ? 8 : 12;
+	const rowH = phone ? 52 : L.Row.h;
+	const rowGap = phone ? 8 : L.Row2.y - (L.Row.y + L.Row.h);
 	const listH = near.size() * rowH + math.max(0, near.size() - 1) * rowGap;
-	const upgradeCellH = 14 + 19 + 6 + 16 + 6 + 36 + 14;
+	const upgradeCellH = L.Upgrade.h; // 14 + 19 + 6 + 16 + 6 + 36 + 14
 	const showUpgrades = !phone && nextThree.size() > 0;
-	const lowerH = showUpgrades ? 12 + 12 + 12 + 22 + 12 + upgradeCellH : 0;
-	const headH = phone ? 18 : 22;
+	// panel gap, .rule 12, gap, h3 21, gap, grid
+	const lowerH = showUpgrades ? L.Machines.gap + L.Rule.h + L.Machines.gap + L.UpgradesHeading.h + L.Machines.gap + upgradeCellH : 0;
+	const headH = phone ? 18 : L.Heading.h;
 
 	const machinesPanel = (
 		<MockPanel
@@ -410,23 +416,23 @@ function WorkshopView(props: {
 			{showUpgrades && <PanelHeading icon="Production" title="Next upgrades" phone={false} layoutOrder={3} />}
 			{showUpgrades && (
 				<frame Size={new UDim2(1, 0, 0, upgradeCellH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
-					<uigridlayout CellSize={new UDim2(1 / 3, -7, 0, upgradeCellH)} CellPadding={UDim2.fromOffset(10, 0)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<uigridlayout CellSize={new UDim2(1 / 3, -math.ceil((L.UpgradeGrid.gap * 2) / 3), 0, upgradeCellH)} CellPadding={UDim2.fromOffset(L.UpgradeGrid.gap, 0)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					{nextThree.map((entry, i) => {
 						const m = entry.config;
 						const gain = machineGain(m, entry.level);
 						return (
 							<frame key={m.Id} BackgroundColor3={Palette.white} BorderSizePixel={0} LayoutOrder={i}>
 								<RowSurface />
-								<uipadding PaddingLeft={new UDim(0, 14)} PaddingRight={new UDim(0, 14)} PaddingTop={new UDim(0, 14)} PaddingBottom={new UDim(0, 14)} />
-								<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
-								<Line text={`${typeIs(m.Name, "string") ? m.Name : m.Id} level ${compactNumber(entry.level + 1)}`} size={15} font={BODY_SEMI} width={new UDim(1, 0)} height={19} layoutOrder={0} />
+								<uipadding PaddingLeft={new UDim(0, L.Upgrade.pad.left)} PaddingRight={new UDim(0, L.Upgrade.pad.right)} PaddingTop={new UDim(0, L.Upgrade.pad.top)} PaddingBottom={new UDim(0, L.Upgrade.pad.bottom)} />
+								<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, L.Upgrade.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+								<Line text={`${typeIs(m.Name, "string") ? m.Name : m.Id} level ${compactNumber(entry.level + 1)}`} size={L.UpgradeName.text.size} font={BODY_SEMI} width={new UDim(1, 0)} height={L.UpgradeName.h} layoutOrder={0} />
 								<Line
 									text={gain > 0 ? `+${compactNumber(gain)} Flux/sec` : entry.level < 1 ? "Starts earning" : "Raises its level cap"}
-									size={13}
+									size={L.UpgradeLine.text.size}
 									font={BODY}
-									color={Palette.muted}
+									color={L.UpgradeLine.text.color}
 									width={new UDim(1, 0)}
-									height={16}
+									height={L.UpgradeLine.h}
 									layoutOrder={1}
 								/>
 								<Button
@@ -434,7 +440,7 @@ function WorkshopView(props: {
 									icon="Flux"
 									onClick={() => batch.buy(m.Id)}
 									disabled={!ready(entry)}
-									size={new UDim2(1, 0, 0, 36)}
+									size={new UDim2(1, 0, 0, L.UpgradeBuy.h)}
 									reducedMotion={reducedMotion}
 								/>
 							</frame>
@@ -473,10 +479,10 @@ function WorkshopView(props: {
 	const collect = () => {
 		if (canCollect) dispatch("CollectVault", undefined);
 	};
-	const bigSize = phone ? 34 : 58;
+	const bigSize = phone ? 34 : L.OutputBig.text.size;
 	const outputH = phone
 		? undefined
-		: pad.y * 2 + 22 + 12 + 62 + 12 + (chips.size() > 0 ? 28 + 12 : 0) + 10 + 12 + 44;
+		: L.Output.pad.top + L.Heading.h + L.Output.gap + L.OutputRate.h + L.Output.gap + (chips.size() > 0 ? L.OutputChips.h + L.Output.gap : 0) + L.OutputBar.h + L.Output.gap + L.OutputActions.h + L.Output.pad.bottom;
 	const outputPanel = (
 		<MockPanel
 			size={phone ? (portrait ? new UDim2(1, 0, 0, pad.y * 2 + 18 + 8 + 40 + 8 + 10 + 8 + 44) : new UDim2(0, 236, 1, 0)) : new UDim2(1, 0, 0, outputH!)}
@@ -488,22 +494,22 @@ function WorkshopView(props: {
 			name="ForgeOutput"
 		>
 			<PanelHeading icon="Production" title="Output" phone={phone} layoutOrder={0} />
-			<frame Size={new UDim2(1, 0, 0, phone ? 40 : 62)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 4 : 10)} VerticalAlignment={Enum.VerticalAlignment.Bottom} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<Line text={rateText} size={bigSize} font={NUM} color={Palette.mango} height={phone ? 40 : 62} layoutOrder={0} />
-				<Line text={phone ? "/s" : "per second"} size={phone ? 15 : 16} font={BODY_SEMI} color={Palette.muted} height={phone ? 30 : 46} layoutOrder={1} />
+			<frame Size={new UDim2(1, 0, 0, phone ? 40 : L.OutputRate.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 4 : L.OutputRate.gap)} VerticalAlignment={Enum.VerticalAlignment.Bottom} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<Line text={rateText} size={bigSize} font={NUM} color={L.OutputBig.text.color} height={phone ? 40 : L.OutputBig.h} layoutOrder={0} />
+				<Line text={phone ? "/s" : "per second"} size={phone ? 15 : L.OutputUnit.text.size} font={BODY_SEMI} color={L.OutputUnit.text.color} height={phone ? 30 : UNIT_H} layoutOrder={1} />
 			</frame>
 			{!phone && chips.size() > 0 && (
-				<frame Size={new UDim2(1, 0, 0, 28)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
-					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame Size={new UDim2(1, 0, 0, L.OutputChips.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, L.OutputChips.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					{chips.map((c, i) => (
 						<Chip key={c.text} text={c.text} accent={c.on ? Palette.mango : undefined} layoutOrder={i} />
 					))}
 				</frame>
 			)}
 			<Bar fill={vaultFill} layoutOrder={3} />
-			<frame Size={new UDim2(1, 0, 0, 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} HorizontalFlex={Enum.UIFlexAlignment.Fill} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<frame Size={new UDim2(1, 0, 0, L.OutputActions.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, L.OutputActions.gap)} HorizontalFlex={Enum.UIFlexAlignment.Fill} SortOrder={Enum.SortOrder.LayoutOrder} />
 				<Button
 					text={phone ? "Collect" : `Collect ${compactNumber(s.Vault ?? 0)}`}
 					icon="Collect"
@@ -551,7 +557,7 @@ function WorkshopView(props: {
 			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
 			{machinesPanel}
 			<scrollingframe
-				Size={new UDim2(0, 520, 1, 0)}
+				Size={new UDim2(0, L.Column.w, 1, 0)}
 				CanvasSize={UDim2.fromOffset(0, outputH! + gap + featureHeight + (programsHeight > 0 ? gap + programsHeight : 0))}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}

@@ -18,7 +18,7 @@ import { Dict } from "../lua";
 import * as PlayPolicy from "../../../Shared/AstralForge/Shared/PlayPolicy";
 import { usePlayPolicy } from "../CoreKit/playPolicy";
 import { loadAudio, loadBrowse, loadPageScaffold, loadUi } from "./luauDeps";
-import { Chip, GlyphWell, Label, NUM, PanelHeading, PnSurface, ROW_RADIUS, rowFace } from "../UiCore/mockKit";
+import { Chip, GlyphWell, Label, NUM, PanelHeading, PnSurface, ROW_RADIUS, rowFace, panelHeadingH } from "../UiCore/mockKit";
 import { SEC } from "./mockRows";
 
 const Players = game.GetService("Players");
@@ -1716,7 +1716,7 @@ __defs["TradeView"] = () => {
 		const paneGridColumns = phone ? 1 : 2;
 		const panePad = phone ? 10 : 18;
 		const paneGap = phone ? 8 : 12;
-		const paneHeadingH = phone ? 18 : 22;
+		const paneHeadingH = panelHeadingH(phone);
 		const paneChipH = phone ? 24 : 28;
 		const paneRowH = phone ? 52 : 48;
 		// a side's table: relic cards (yours lift out with a tap), then Flux and the other currencies as .rows

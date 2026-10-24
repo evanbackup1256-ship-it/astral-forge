@@ -13,6 +13,7 @@ import { Palette } from "../../CoreKit/theme";
 import { Text } from "../../UiCore/ui";
 import { FxTokens, RarityRim } from "../../UiCore/effectsLayer";
 import { GlyphWell } from "../../UiCore/mockKit";
+import { InventoryLayout as L } from "../generated/InventoryLayout";
 
 export interface RelicCardMetrics {
 	width: number;
@@ -28,18 +29,19 @@ export interface RelicCardMetrics {
 	radius: number;
 }
 
+// generated from design/04-inventory .sc (scripts/layout/inventory.spec.json)
 const DESKTOP: RelicCardMetrics = {
-	width: 176,
-	height: 226,
-	pad: 8,
-	padBottom: 12,
-	gap: 6,
-	well: 160,
-	nameSize: 15,
-	nameH: 19,
-	tagSize: 10,
-	tagH: 15,
-	radius: 16,
+	width: L.Card.w,
+	height: L.Card.h,
+	pad: L.Card.pad.top,
+	padBottom: L.Card.pad.bottom,
+	gap: L.Card.gap,
+	well: L.CardWell.w,
+	nameSize: L.CardName.text.size,
+	nameH: L.CardName.h,
+	tagSize: L.CardTag.text.size,
+	tagH: L.CardTag.h,
+	radius: L.Card.radius,
 };
 const PHONE: RelicCardMetrics = {
 	width: 104,

@@ -1,0 +1,31 @@
+{
+	"name": "BazaarLayout",
+	"source": "design/06-bazaar/desktop.html",
+	"viewport": [1920, 1080],
+	"root": ".screen",
+	"origin": ".main .flexr",
+	"out": "src/Client/AstralForge/pages/generated/BazaarLayout.ts",
+	"nodes": {
+		"Body": ".main .flexr",
+		"Listings": ".flexr .pn.f1",
+		"Filters": ".pn.f1 .chip ..",
+		"FilterOn": ".pn.f1 .chip.a",
+		"Filter": ".pn.f1 .chip:1",
+		"Row": ".pn.f1 .row:0",
+		"Row2": ".pn.f1 .row:1",
+		"RowTile": ".pn.f1 .row:0 div",
+		"RowText": ".pn.f1 .row:0 .tt",
+		"RowName": ".pn.f1 .row:0 b",
+		"RowSub": ".pn.f1 .row:0 small",
+		"RowSeller": ".pn.f1 .row:0 span:0",
+		"RowPrice": ".pn.f1 .row:0 .v",
+		"RowBuy": ".pn.f1 .row:0 .btn.sm",
+		"Side": ".flexr .flexc",
+		"Stall": ".flexc .pn:0",
+		"StallAdd": ".flexc .pn:0 \"List an item\"",
+		"Chart": ".flexc .pn.f1",
+		"ChartSvg": ".flexc .pn.f1 svg:1",
+		"Stat": ".flexc .pn.f1 .row:0",
+		"StatValue": ".flexc .pn.f1 .row:0 .v"
+	}
+}

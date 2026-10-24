@@ -9,7 +9,7 @@ import { clockText, formatReward, Reward } from "../../CoreKit/format";
 import { chromeFor, Palette } from "../../CoreKit/theme";
 import { useStagger, useViewport } from "../../MotionKit/motion";
 import { Button } from "../../UiCore/ui";
-import { BODY, BODY_BOLD, Glyph, Line, MockPanel, PanelHeading, RowSurface } from "../../UiCore/mockKit";
+import { BODY, BODY_BOLD, Glyph, Line, MockPanel, PanelHeading, RowSurface, panelHeadingH } from "../../UiCore/mockKit";
 import { Flex, GcRow, GcScroll, Note, rowH } from "../gcKit";
 import { CommunityDispatch, CommunityPanel, CommunityState, useCommunityRewards } from "./CommunityPanel";
 import { EventDispatch, EventPanel, eventPanelHeight, EventState } from "./EventPanel";
@@ -171,7 +171,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 		);
 	}
 	const weekGridH = gridRows * cellH + (gridRows - 1) * gap;
-	const weekPanelH = (phone ? 20 : 36) + (phone ? 18 : 22) + 12 + weekGridH;
+	const weekPanelH = (phone ? 20 : 36) + panelHeadingH(phone) + 12 + weekGridH;
 	const weekPanel = (
 		<MockPanel size={new UDim2(1, 0, 0, weekPanelH)} phone={phone} layoutOrder={0} reveal={weekReveal} reducedMotion={reducedMotion} name="RewardsWeek">
 			<PanelHeading icon="Calendar" title="This week" note={`Day ${math.min(current - weekStart + 1, 7)} of 7`} phone={phone} layoutOrder={0} />
@@ -221,7 +221,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 	const rowGap = phone ? 0 : 4;
 	const rh = rowH(phone) + rowGap;
 	const listH = (n: number) => n * rh + math.max(0, n - 1) * (phone ? 8 : 12);
-	const giftsH = (phone ? 20 : 36) + (phone ? 18 : 22) + (phone ? 8 : 12) + listH(math.max(1, timedEntries.size()));
+	const giftsH = (phone ? 20 : 36) + panelHeadingH(phone) + (phone ? 8 : 12) + listH(math.max(1, timedEntries.size()));
 
 	// --- Codes ---------------------------------------------------------------------------------
 	const [code, setCode] = React.useState("");
@@ -235,7 +235,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			setCodeNote(response.message ?? (response.ok === true ? "Code claimed." : "That code didn't work."));
 		});
 	};
-	const codesH = (phone ? 20 : 36) + (phone ? 18 : 22) + (phone ? 8 : 12) * 2 + rowH(phone) + 18;
+	const codesH = (phone ? 20 : 36) + panelHeadingH(phone) + (phone ? 8 : 12) * 2 + rowH(phone) + 18;
 	const codeField = (
 		<frame Size={new UDim2(1, 0, 0, rowH(phone))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 8 : 18)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />

@@ -18,9 +18,10 @@ function truthy<T>(value: T): value is Exclude<T, undefined | false> {
 export const AUTO_RARITIES = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"];
 
 // relic cards, design/04-inventory (.sc in af.css). Desktop at 1920x1080: 176px wide, 8px padding,
-// a square 160px art well, 6px gaps, 15px name and a 10px tag pill = 226px tall, 12px apart.
+// a square 160px art well, 6px gaps, 15px name and a 16px tag pill = 227px tall, 12px apart.
+// Kept inline (no imports here); the numbers equal pages/generated/InventoryLayout (Card, Inspect, Stat).
 // Phone (844x390): 104px wide, 5px padding, 94px well, 3px gaps, 11px name, 8px tag = 136px, 6px apart.
-export const ROW_H = 226;
+export const ROW_H = 227;
 export const ROW_H_STACK = 136;
 export const RELIC_CARD_W = 176;
 export const RELIC_CARD_W_STACK = 104;
@@ -529,17 +530,17 @@ export function OfferStock(offer: unknown): { stock: number; stockMax: number; s
 	};
 }
 
-// inspect panel (.pn 440px wide): 18px padding, 12px gaps, a 22px title row, a 260px art well
-// (140px on phone) and three 48px stat rows, then sockets, actions (44px .btn) and a footer line
+// inspect panel (.pn 440px wide): 18px padding, 12px gaps, a 21px title row, a 260px art well
+// (140px on phone) and three 48px stat rows 12px apart, then sockets, actions (44px .btn) and a footer line
 export const INSPECT_PAD = 18;
 export const INSPECT_BTN_GAP = 12;
 export const INSPECT_FOOTER_H = 18;
 export const ACTION_BTN = 44;
-export const INSPECT_TITLE_H = 22;
+export const INSPECT_TITLE_H = 21;
 export const INSPECT_ART_H = 260;
 export const INSPECT_ART_H_STACK = 140;
 export const INSPECT_STAT_H = 48;
-export const INSPECT_STAT_GAP = 8;
+export const INSPECT_STAT_GAP = 12;
 export const INSPECT_STAT_COUNT = 3;
 export function InspectHeadHeight(stack?: boolean): number {
 	return (

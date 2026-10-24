@@ -34,7 +34,6 @@ import {
 	BODY_BOLD,
 	BODY_SEMI,
 	Chip,
-	DiamondRule,
 	Glyph,
 	Line,
 	MockPanel,
@@ -50,6 +49,10 @@ import {
 import { Grid as MockGrid, headingBlock, IconWell, MockBtn, RowFace } from "./mockRows";
 // generated from design/05-shop by scripts/gen_from_layout.js (scripts/layout/shop.spec.json)
 import { ShopLayout as L } from "./generated/ShopLayout";
+// generated from design/07-crates by scripts/gen_from_layout.js (scripts/layout/crates.spec.json)
+import { CratesLayout as CL } from "./generated/CratesLayout";
+import { useHeroTabs } from "../UiCore/heroTabs";
+import { MockTabs } from "./socialKit";
 
 const MarketplaceService = game.GetService("MarketplaceService");
 const Players = game.GetService("Players");
@@ -2190,7 +2193,7 @@ function DailySection(props: SectionProps) {
 
 // .row min-height 48 (phone 36)
 function oddsRowHeight(phone: boolean): number {
-	return phone ? 36 : 48;
+	return phone ? 36 : CL.OddsRow.h;
 }
 
 interface OddsRowProps {
@@ -2213,17 +2216,17 @@ function OddsRow(props: OddsRowProps) {
 			<RowFace />
 			{ascended && h(PrismAura, { rarity: row.rarity, intensity: 0.8, rays: false, sparks: false, thickness: 1.5, corner: ROW_RADIUS })}
 			<frame key="Body" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<uipadding PaddingLeft={new UDim(0, 14)} PaddingRight={new UDim(0, 12)} />
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 12)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<uipadding PaddingLeft={new UDim(0, phone ? 14 : CL.OddsRow.pad.left + 2)} PaddingRight={new UDim(0, CL.OddsRow.pad.right)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, CL.OddsRow.gap)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
 				<frame key="Swatch" Size={UDim2.fromOffset(10, 10)} Rotation={45} BackgroundColor3={color} BorderSizePixel={0} LayoutOrder={1}>
 					<uicorner CornerRadius={new UDim(0, 2)} />
 				</frame>
 				<frame key="Name" Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
 					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
-					<Line text={row.rarity} size={phone ? 13 : 15} font={BODY_SEMI} width={new UDim(1, 0)} height={oddsRowHeight(phone)} />
+					<Line text={row.rarity} size={phone ? 13 : CL.OddsName.text.size} font={phone ? BODY_SEMI : BODY} width={new UDim(1, 0)} height={oddsRowHeight(phone)} />
 				</frame>
-				<Bar fill={fill} color={Palette.violet} thin={true} width={new UDim(0, phone ? 120 : 200)} layoutOrder={3} />
-				<Line text={RelicSystem.chanceText(row.chance)} size={phone ? 14 : 17} font={NUM} color={Palette.violet} width={new UDim(0, 64)} height={22} align={Enum.TextXAlignment.Right} layoutOrder={4} />
+				<Bar fill={fill} color={Palette.violet} thin={true} width={new UDim(0, phone ? 120 : CL.OddsBar.w)} layoutOrder={3} />
+				<Line text={RelicSystem.chanceText(row.chance)} size={phone ? 14 : CL.OddsValue.text.size} font={NUM} color={Palette.violet} width={new UDim(0, phone ? 64 : 40)} height={CL.OddsValue.h} align={Enum.TextXAlignment.Right} layoutOrder={4} />
 			</frame>
 		</frame>
 	);
@@ -2268,9 +2271,9 @@ function crateRangeLine(crate: CrateConfig): string {
 	return `${odds[0].rarity} to ${odds[odds.size() - 1].rarity}`;
 }
 
-// crate card (.row column, centred): padding 16, gap 10, 80px crate well, 17px name, 13px range, .btn.sm pill
+// crate card (.row column, centred): desktop metrics from the generated 07-crates CratesLayout.Card
 function crateCardHeight(phone: boolean): number {
-	return phone ? 12 + 64 + 8 + 20 + 8 + 16 + 8 + TapTarget + 12 : 16 + 80 + 10 + 22 + 10 + 18 + 10 + 36 + 16;
+	return phone ? 12 + 64 + 8 + 20 + 8 + 16 + 8 + TapTarget + 12 : CL.Card.h;
 }
 
 interface CrateCardProps {
@@ -2307,14 +2310,14 @@ function CrateCard(props: CrateCardProps) {
 				Event={{ Activated: pick }}
 			>
 				<RowFace outline={selected ? accent : undefined} strong={selected} />
-				<CardBody pad={phone ? 12 : 16} gap={phone ? 8 : 10} center={true}>
-					<frame key="Well" Size={UDim2.fromOffset(80, phone ? 64 : 80)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+				<CardBody pad={phone ? 12 : CL.Card.pad.top} gap={phone ? 8 : CL.Card.gap} center={true}>
+					<frame key="Well" Size={phone ? UDim2.fromOffset(80, 64) : UDim2.fromOffset(selected ? CL.CardArtOn.w : CL.CardArt.w, selected ? CL.CardArtOn.h : CL.CardArt.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 						<uilistlayout HorizontalAlignment={Enum.HorizontalAlignment.Center} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
-						<CrateGlyph accent={accent} side={phone ? 56 : 64} layoutOrder={1} />
+						<CrateGlyph accent={accent} side={phone ? 56 : selected ? CL.CardArtOn.w : CL.CardArt.w} layoutOrder={1} />
 					</frame>
-					<Line text={crate.Name} size={phone ? 15 : 17} font={BODY_BOLD} width={new UDim(1, 0)} height={phone ? 20 : 22} align={Enum.TextXAlignment.Center} layoutOrder={2} />
-					<Line text={crateRangeLine(crate)} size={phone ? 12 : 13} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={phone ? 16 : 18} align={Enum.TextXAlignment.Center} layoutOrder={3} />
-					<frame key="Keys" Size={new UDim2(1, 0, 0, phone ? TapTarget : 36)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
+					<Line text={crate.Name} size={phone ? 15 : CL.CardName.text.size} font={BODY_BOLD} width={new UDim(1, 0)} height={phone ? 20 : CL.CardName.h} align={Enum.TextXAlignment.Center} layoutOrder={2} />
+					<Line text={crateRangeLine(crate)} size={phone ? 12 : CL.CardRange.text.size} font={BODY} color={phone ? Palette.muted : CL.CardRange.text.color} width={new UDim(1, 0)} height={phone ? 16 : CL.CardRange.h} align={Enum.TextXAlignment.Center} layoutOrder={3} />
+					<frame key="Keys" Size={new UDim2(1, 0, 0, phone ? TapTarget : CL.CardBtn.h)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
 						<MockBtn
 							text={props.keys > 0 ? `${props.keys} key${props.keys === 1 ? "" : "s"}` : "No keys"}
 							accent={Palette.mango}
@@ -2351,7 +2354,7 @@ function definitionOf(config: ShopConfig, id: string | undefined): RelicDefiniti
 	return undefined;
 }
 
-const CRATE_RAIL_W = 520;
+const CRATE_RAIL_W = CL.Odds.w;
 function CratesSection(props: SectionProps) {
 	const state = props.state;
 	const config = props.config;
@@ -2371,6 +2374,24 @@ function CratesSection(props: SectionProps) {
 	const [pulls, setPulls] = React.useState<CratePull[]>([]);
 	const pullSeq = React.useRef(0);
 	const [auto, setAuto] = React.useState(false);
+	// 07-crates .hero .tabs: Crates (picker + odds) / History (this session's pulls; the server keeps no log)
+	const [view, setView] = React.useState("Crates");
+	const crateTabs = (
+		<MockTabs
+			options={[
+				{ id: "Crates", label: "Crates" },
+				{ id: "History", label: "History" },
+			]}
+			value={view}
+			onChange={setView}
+			accent={Palette.violet}
+			phone={phone}
+			reducedMotion={props.reducedMotion}
+			fill={phone}
+			layoutOrder={0}
+		/>
+	);
+	useHeroTabs(phone ? undefined : crateTabs);
 	const attempt = React.useRef(0);
 	const mounted = React.useRef(true);
 	React.useEffect(() => {
@@ -2515,7 +2536,7 @@ function CratesSection(props: SectionProps) {
 	}
 	const gridH = rowsHeight(crates.size(), columns, cardH, pad.gap);
 	const openH = phone ? TapTarget : 44;
-	const autoW = phone ? 96 : 104;
+	const autoW = phone ? 96 : math.ceil(CL.Auto.w);
 	const openButton = (count: number, order: number) => {
 		const can = crateKeys >= count && !busyNow && !auto;
 		const label =
@@ -2575,7 +2596,7 @@ function CratesSection(props: SectionProps) {
 	for (const row of odds) {
 		top = math.max(top, row.chance);
 	}
-	const oddsGap = phone ? 6 : 12;
+	const oddsGap = phone ? 6 : CL.OddsRow2.y - CL.OddsRow.y - CL.OddsRow.h;
 	const oddsRows: React.Element[] = [];
 	for (const [index, row] of ipairs(odds)) {
 		oddsRows.push(<OddsRow key={row.rarity} row={row} config={config} order={index} top={top} phone={phone} />);
@@ -2601,35 +2622,44 @@ function CratesSection(props: SectionProps) {
 			}) as React.Element,
 		);
 	}
-	const sideW = plan.split ? plan.side : props.width;
-	const perRow = math.max(1, math.floor((sideW - pad.x * 2 + pad.gap) / (pullW + pad.gap)));
+	// History tab: the pulls grid spans the full section width
+	const perRow = math.max(1, math.floor((props.width - pad.x * 2 + pad.gap) / (pullW + pad.gap)));
 	const pullRows = math.ceil(pulls.size() / perRow);
 	const pullsGridH = pulls.size() > 0 ? pullRows * pullH + (pullRows - 1) * pad.gap : 20;
 	const dropsH = headingBlock(phone) + oddsH;
 	const pullsH = headingBlock(phone) + pullsGridH;
-	const sideContent = dropsH + pad.gap + 12 + pad.gap + pullsH;
+	const sideContent = dropsH;
+	const phoneTabs = phone && (
+		<frame key="CrateTabs" Size={new UDim2(1, 0, 0, TapTarget)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0}>
+			{crateTabs}
+		</frame>
+	);
+	if (view === "History") {
+		return (
+			<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.violet}>
+				{phoneTabs}
+				<frame key="History" Size={new UDim2(1, 0, 0, pnHeight(phone, pullsH))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<MockPanel name="PullsPanel" size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reveal={props.reveal} reducedMotion={props.reducedMotion}>
+						<PanelHeading icon="Calendar" title="Pulls this session" accent={accent} phone={phone} layoutOrder={1} />
+						{pulls.size() > 0 ? (
+							<frame key="Cards" Size={new UDim2(1, 0, 0, pullsGridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+								<uigridlayout CellSize={UDim2.fromOffset(pullW, pullH)} CellPadding={UDim2.fromOffset(pad.gap, pad.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+								{pullCards}
+							</frame>
+						) : (
+							<Line text="Nothing opened yet this session." size={13} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={20} layoutOrder={2} />
+						)}
+					</MockPanel>
+				</frame>
+			</SectionPage>
+		);
+	}
 	const sidePanel = (
 		<MockPanel name="OddsPanel" size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reveal={props.reveal} reducedMotion={props.reducedMotion}>
-			<frame Size={new UDim2(1, 0, 0, dropsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1} {...{ Name: "drops" }}>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, pad.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<PanelHeading icon="Info" title={`${crate.Name} odds`} note={pityNote} accent={accent} phone={phone} layoutOrder={1} />
-				<frame key="Odds" Size={new UDim2(1, 0, 0, oddsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
-					<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, oddsGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-					{oddsRows}
-				</frame>
-			</frame>
-			<DiamondRule layoutOrder={2} />
-			<frame Size={new UDim2(1, 0, 0, pullsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3} {...{ Name: "pulls" }}>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, pad.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<PanelHeading icon="Calendar" title="Last pulls" accent={accent} phone={phone} layoutOrder={1} />
-				{pulls.size() > 0 ? (
-					<frame key="Cards" Size={new UDim2(1, 0, 0, pullsGridH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
-						<uigridlayout CellSize={UDim2.fromOffset(pullW, pullH)} CellPadding={UDim2.fromOffset(pad.gap, pad.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-						{pullCards}
-					</frame>
-				) : (
-					<Line text="Nothing opened yet this session." size={13} font={BODY} color={Palette.muted} width={new UDim(1, 0)} height={20} layoutOrder={2} />
-				)}
+			<PanelHeading icon="Info" title={`${crate.Name} odds`} note={pityNote} accent={accent} phone={phone} layoutOrder={1} />
+			<frame key="Odds" Size={new UDim2(1, 0, 0, oddsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, oddsGap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{oddsRows}
 			</frame>
 		</MockPanel>
 	);
@@ -2643,6 +2673,7 @@ function CratesSection(props: SectionProps) {
 	}
 	return (
 		<SectionPage phone={phone} tailPad={props.tailPad} bar={Palette.violet}>
+			{phoneTabs}
 			<frame key="Main" Size={new UDim2(1, 0, 0, pnHeight(phone, mainContent))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
 				{mainPanel}
 			</frame>

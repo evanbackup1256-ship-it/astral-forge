@@ -3,7 +3,7 @@
 import React from "@rbxts/react";
 import { Palette, TapTarget } from "../CoreKit/theme";
 import { Button, buttonContentWidth } from "../UiCore/ui";
-import { Bar, BODY, BODY_SEMI, Glyph, Line, NUM, PanelHeading, TITLE_FACE } from "../UiCore/mockKit";
+import { Bar, BODY, BODY_SEMI, Glyph, Line, NUM, PanelHeading, TITLE_FACE, panelHeadingH } from "../UiCore/mockKit";
 
 /** .btn.sec base #3a2e3e */
 export const SEC = Color3.fromRGB(58, 46, 62);
@@ -190,7 +190,7 @@ export function panelHeight(phone: boolean, content: number): number {
 }
 /** .pn h3 height plus its gap. */
 export function headingBlock(phone: boolean): number {
-	return (phone ? 18 : 22) + (phone ? 8 : 12);
+	return panelHeadingH(phone) + (phone ? 8 : 12);
 }
 
 /** Tracks a frame's pixel width so grids can size their art wells like CSS aspect boxes. */

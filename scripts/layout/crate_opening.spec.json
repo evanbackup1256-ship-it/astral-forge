@@ -1,0 +1,21 @@
+{
+	"name": "CrateOpeningLayout",
+	"source": "design/29-crate-opening/desktop.html",
+	"viewport": [
+		1920,
+		1080
+	],
+	"root": ".screen",
+	"origin": ".main .pn",
+	"out": "src/Client/AstralForge/pages/generated/CrateOpeningLayout.ts",
+	"nodes": {
+		"Panel": ".main .pn",
+		"Head": ".pn h3",
+		"More": ".pn h3 small",
+		"Reel": ".pn img .. .. ..",
+		"Reel2": ".pn img:5 .. .. ..",
+		"Slot": ".pn img ..",
+		"Pin": ".pn i",
+		"Art": ".pn img"
+	}
+}

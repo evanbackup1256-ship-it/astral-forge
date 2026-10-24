@@ -1,0 +1,37 @@
+{
+	"name": "CratesLayout",
+	"source": "design/07-crates/desktop.html",
+	"viewport": [
+		1920,
+		1080
+	],
+	"root": ".screen",
+	"origin": ".main .flexr",
+	"out": "src/Client/AstralForge/pages/generated/CratesLayout.ts",
+	"nodes": {
+		"Body": ".main .flexr",
+		"Picker": ".flexr .pn.f1",
+		"Grid": ".pn.f1 .row ..",
+		"Card": ".pn.f1 .row:0",
+		"Card2": ".pn.f1 .row:1",
+		"CardArt": ".pn.f1 .row:0 svg",
+		"CardName": ".pn.f1 .row:0 b",
+		"CardRange": ".pn.f1 .row:0 span",
+		"CardBtn": ".pn.f1 .row:0 .btn.sm",
+		"Actions": ".pn.f1 .flexr",
+		"OpenOne": ".pn.f1 .flexr .btn.sec.f1",
+		"OpenTen": ".pn.f1 .flexr .btn.violet",
+		"Auto": ".pn.f1 .flexr .btn.sec:1",
+		"Odds": ".flexr .pn:1",
+		"OddsRow": ".pn:1 .row:0",
+		"OddsRow2": ".pn:1 .row:1",
+		"OddsDot": ".pn:1 .row:0 span:0",
+		"OddsName": ".pn:1 .row:0 .tt",
+		"OddsBar": ".pn:1 .row:0 .bar",
+		"OddsValue": ".pn:1 .row:0 .v",
+		"CardArtOn": ".pn.f1 .row:2 svg",
+		"Tabs": ".hero .tabs",
+		"Tab": ".hero .tab:1",
+		"TabOn": ".hero .tab.on"
+	}
+}

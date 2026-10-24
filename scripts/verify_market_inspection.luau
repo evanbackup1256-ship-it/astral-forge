@@ -89,10 +89,12 @@ local function render(width, inspected, offers)
 		TapTarget = 48, SEC = roblox.Color3.fromRGB(58, 46, 62), HEADING_SECTION_H = 30,
 		MockPanel = "MockPanel", PanelHeading = "PanelHeading", MockRow = "MockRow", MockBtn = "MockBtn",
 		HeadingSection = "HeadingSection", Line = "Line", Bar = "Bar", RowFace = "RowFace", TileWell = "TileWell",
-		BODY = "BODY", BODY_BOLD = "BODY_BOLD", NUM = "NUM",
+		BODY = "BODY", BODY_BOLD = "BODY_BOLD", BODY_SEMI = "BODY_SEMI", NUM = "NUM",
+		-- generated 06-bazaar geometry (pages/generated/BazaarLayout), loaded from the compiled module
+		L = luau.load(fs.readFile("out/Client/AstralForge/pages/generated/BazaarLayout.luau"), { environment = { Color3 = roblox.Color3, ColorSequence = roblox.ColorSequence, ColorSequenceKeypoint = roblox.ColorSequenceKeypoint, NumberSequence = roblox.NumberSequence, NumberSequenceKeypoint = roblox.NumberSequenceKeypoint, Vector2 = roblox.Vector2, UDim = roblox.UDim, UDim2 = roblox.UDim2 } })().BazaarLayout,
 		rowHeight = function(phone, twoLine) return if phone then (if twoLine then 46 else 44) else (if twoLine then 56 else 48) end,
 		panelHeight = function(phone, content) return content + (if phone then 20 else 36) end,
-		headingBlock = function(phone) return if phone then 26 else 34 end,
+		headingBlock = function(phone) return if phone then 26 else 33 end,
 	}, { __index = _G })
 	local first = assert(source:find("local CATEGORIES", 1, true))
 	local last = assert(source:find("return { BazaarView = BazaarView }", first, true) or source:find("return {%s*BazaarView = BazaarView", first))
@@ -179,7 +181,7 @@ for _, width in { 260, 280, 359, 705, 1024, 1600 } do
 			local inspect = find(card, function(n) return n.props.text == "Inspect" or n.props.text == "Inspecting" end)
 			local buy = find(card, function(n) local t = n.props.text; return type(t) == "string" and (t:sub(1, 3) == "Buy" or t:find("Sold", 1, true) ~= nil) end)
 			assert(inspect and buy, "offer row keeps its inspect and buy buttons")
-			assert(section.height >= 72, "listing row is at least the 06 row height")
+			assert(section.height >= 64, "listing row is at least the 06 row height (BazaarLayout.Row.h = 64)")
 		end
 	end
 	local expired = render(width, "gone", offers)

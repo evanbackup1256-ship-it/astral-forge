@@ -93,17 +93,22 @@ export function spaced(text: string): string {
 }
 
 /** .pn h3: icon in the accent, 15px title caps, optional small note pushed right. */
+/** .pn h3 line box: 21px on desktop (af.css h3 15px title, line-height 1.4), 18px on phone */
+export function panelHeadingH(phone: boolean): number {
+	return phone ? 18 : 21;
+}
+
 export function PanelHeading(p: { icon: string; title: string; note?: string | React.Binding<string>; accent?: Color3; phone: boolean; layoutOrder?: number }) {
 	const size = p.phone ? 12 : 15;
 	return (
-		<frame Size={new UDim2(1, 0, 0, p.phone ? 18 : 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={p.layoutOrder ?? 0}>
+		<frame Size={new UDim2(1, 0, 0, panelHeadingH(p.phone))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={p.layoutOrder ?? 0}>
 			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} SortOrder={Enum.SortOrder.LayoutOrder} />
 			<Glyph kind={p.icon} size={p.phone ? 15 : 18} color={p.accent ?? Palette.mango} layoutOrder={0} />
 			<Line text={spaced(p.title.upper())} size={size} font={TITLE_FACE} layoutOrder={1} />
 			{p.note !== undefined && (
 				<frame Size={new UDim2(1, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
 					<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
-					<Line text={p.note} size={p.phone ? 11 : 12} font={BODY_SEMI} color={Palette.muted} width={new UDim(1, 0)} height={p.phone ? 18 : 22} align={Enum.TextXAlignment.Right} />
+					<Line text={p.note} size={p.phone ? 11 : 12} font={BODY_SEMI} color={Palette.muted} width={new UDim(1, 0)} height={panelHeadingH(p.phone)} align={Enum.TextXAlignment.Right} />
 				</frame>
 			)}
 		</frame>

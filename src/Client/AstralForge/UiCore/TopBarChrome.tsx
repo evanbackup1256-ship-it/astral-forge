@@ -1211,7 +1211,11 @@ function TopBarImpl(_param: TopBarProps) {
 	const stacked = barHeight > Layout.topbarHeight;
 	const chipWidthEstimate = stacked ? 172 : micro ? 172 : 170;
 	const logoCompact = tight || stacked || barHeight <= Layout.topbarHeight;
-	const logoWidth = micro ? 48 : stacked ? 156 : shortRow ? 156 : logoCompact ? 168 : 176;
+	// 02-nav-shell .top: on the full desktop bar the rail is always open (268px .nav), so the mockup has no rail
+	// toggle; the logo sits at x20 (228x34). Compact bars keep the toggle in front of the logo.
+	const mockTop = !stacked && !micro && !tight && !shortRow;
+	const logoLeft = mockTop ? 20 - edgePad : 12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap;
+	const logoWidth = mockTop ? 228 : micro ? 48 : stacked ? 156 : shortRow ? 156 : logoCompact ? 168 : 176;
 	const visitorsHere = typeIs(state.Visitors, "table") ? (state.Visitors as unknown[]).size() : 0;
 	const visitPill =
 		!stacked && visit !== undefined
@@ -1329,7 +1333,7 @@ function TopBarImpl(_param: TopBarProps) {
 			width -
 				edgePad * 2 -
 				(controlsW + controlsRight + 12) -
-				(12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14),
+				(logoLeft + logoWidth + 14),
 		);
 		const room = railRoom - (performanceW > 0 ? performanceW + 8 : 0) - (visitPillWidth > 0 ? visitPillWidth + 8 : 0);
 		const chipFitW = micro ? 172 : 170; // a rendered desktop chip is ~166px with the wider value box
@@ -1352,7 +1356,7 @@ function TopBarImpl(_param: TopBarProps) {
 	}
 	const hasRightCluster = !stacked && (chips.size() > 0 || visitPill !== undefined || performanceW > 0);
 	const row1H = stacked ? 62 : barHeight;
-	const logoMark = micro ? 40 : SHELL_CHROME.topbarControl;
+	const logoMark = mockTop ? 34 : micro ? 40 : SHELL_CHROME.topbarControl;
 	const logoH = logoMark;
 	const controlY = math.floor((row1H - SHELL_CHROME.topbarControl) / 2);
 	const logoY = controlY + math.floor((SHELL_CHROME.topbarControl - logoMark) / 2);
@@ -1373,7 +1377,7 @@ function TopBarImpl(_param: TopBarProps) {
 	});
 	const _exp_4: unknown = undefined;
 	const _exp_5: unknown = undefined;
-	const _exp_6 = h(
+	const _exp_6 = !mockTop && h(
 		"frame",
 		{
 			Size: UDim2.fromOffset(SHELL_CHROME.topbarControl, SHELL_CHROME.topbarControl),
@@ -1400,13 +1404,13 @@ function TopBarImpl(_param: TopBarProps) {
 		"frame",
 		{
 			Size: UDim2.fromOffset(logoWidth, logoH),
-			Position: UDim2.fromOffset(12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap, logoY),
+			Position: UDim2.fromOffset(logoLeft, logoY),
 			BackgroundTransparency: 1,
 			BorderSizePixel: 0,
 			ClipsDescendants: false,
 		},
 		h(LogoLockup, {
-			compact: logoCompact,
+			compact: logoCompact && !mockTop,
 			micro: micro,
 			accent: accent,
 			reducedMotion: reducedMotion,
@@ -1419,7 +1423,7 @@ function TopBarImpl(_param: TopBarProps) {
 			{
 				Size: UDim2.fromOffset(countdownW, 48),
 				Position: UDim2.fromOffset(
-					12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14,
+					logoLeft + logoWidth + 14,
 					math.floor((row1H - 48) / 2),
 				),
 				BackgroundTransparency: 1,
@@ -1435,7 +1439,7 @@ function TopBarImpl(_param: TopBarProps) {
 		);
 	// desktop: currencies, FPS/ping and buffs live in the island, centred between the logo and controls
 	const islandLeft =
-		12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14 + (countdownW > 0 ? countdownW + 10 : 0);
+		logoLeft + logoWidth + 14 + (countdownW > 0 ? countdownW + 10 : 0);
 	const islandRight = controlsW + controlsRight + 12 + (visitPillWidth > 0 ? visitPillWidth + 8 : 0);
 	const islandRoom = math.max(160, width - edgePad * 2 - islandLeft - islandRight);
 	const islandCurrencies: { target: string; name: string; value: unknown; liveKey?: string; icon?: string; color?: Color3; rate?: unknown }[] = [];
@@ -1598,7 +1602,7 @@ function TopBarImpl(_param: TopBarProps) {
 						width -
 							edgePad * 2 -
 							(controlsW + controlsRight + 12) -
-							(12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14),
+							(logoLeft + logoWidth + 14),
 					),
 					chipRowH + 4,
 				),

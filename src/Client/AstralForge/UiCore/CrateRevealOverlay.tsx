@@ -17,6 +17,8 @@ import ElementFxModule = require("../ElementFx");
 import { itemIconKind } from "../ArtKit/Icon";
 import { EffectLabel } from "../CoreKit/inventoryMath";
 import Juice = require("../JuiceFx");
+// generated from design/29-crate-opening by scripts/gen_from_layout.js (scripts/layout/crate_opening.spec.json)
+import { CrateOpeningLayout as L } from "../pages/generated/CrateOpeningLayout";
 
 // Crate and artifact reveals.
 // Crates open on a reel: relics run past a brass marker, each in its own pooled viewport, slow
@@ -462,11 +464,14 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 		return out;
 	}, [rolls]);
 	const visible = phone ? 3 : 5;
-	const slotW = phone ? 88 : 108;
-	const panelW = math.min(viewport.width - 24, visible * slotW + 40);
+	// 29-crate-opening .pn: 20px padding, h3 heading (+N more on the right), 12px gap, 92px reel strips 12px apart
+	const slotW = phone ? 88 : L.Slot.w;
+	const inset = L.Reel.x;
+	const panelW = math.min(viewport.width - 24, visible * slotW + inset * 2);
 	const rowH = slotW;
-	const headerH = 36;
-	const panelH = headerH + reelRolls.size() * (rowH + 12) + 24;
+	const reelGap = L.Reel2.y - L.Reel.y - L.Reel.h;
+	const headerH = L.Reel.y;
+	const panelH = headerH + reelRolls.size() * (rowH + reelGap) - reelGap + L.Panel.pad.bottom;
 
 	const [phase, setPhase] = React.useState<ReelPhase>(still ? "done" : "spin");
 	const [show, , beginExit] = usePresence(still);
@@ -647,14 +652,26 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 					clips={true}
 					zIndex={510}
 				>
+					<textlabel
+						key="Head"
+						Text={spaced(string.upper(session.crateName ?? "crate"))}
+						TextSize={L.Head.text.size}
+						FontFace={TITLE_FACE}
+						TextColor3={L.Head.text.color}
+						TextXAlignment={Enum.TextXAlignment.Left}
+						BackgroundTransparency={1}
+						Position={UDim2.fromOffset(inset, L.Head.y)}
+						Size={new UDim2(1, -inset * 2, 0, L.Head.h)}
+						ZIndex={511}
+					/>
 					<Text
 						value={rest > 0 ? `+${rest}` : ""}
-						size={12}
-						color={Palette.muted}
-						weight={Enum.FontWeight.Bold}
-						align={Enum.TextXAlignment.Center}
-						position={UDim2.fromOffset(0, 10)}
-						sizeConstraint={new UDim2(1, 0, 0, 16)}
+						size={L.More.text.size}
+						color={L.More.text.color}
+						weight={Enum.FontWeight.SemiBold}
+						align={Enum.TextXAlignment.Right}
+						position={UDim2.fromOffset(inset, L.More.y)}
+						sizeConstraint={new UDim2(1, -inset * 2, 0, L.More.h)}
 						zIndex={511}
 					/>
 					{reelRolls.map((_, row) => (
@@ -665,8 +682,8 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 									hosts.current[row] = frame;
 								}
 							}}
-							Size={new UDim2(1, -24, 0, rowH)}
-							Position={UDim2.fromOffset(12, headerH + row * (rowH + 12))}
+							Size={new UDim2(1, -inset * 2, 0, rowH)}
+							Position={UDim2.fromOffset(inset, headerH + row * (rowH + reelGap))}
 							BackgroundTransparency={1}
 							ClipsDescendants={true}
 							ZIndex={511}
@@ -675,8 +692,8 @@ function CrateReveal(props: CrateRevealProps & { rolls: Roll[] }) {
 							<frame Position={UDim2.fromOffset(0, 0)} Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.brass} BackgroundTransparency={phase === "spin" ? 0.75 : 1 - bestMoment.flash * 0.6} BorderSizePixel={0} ZIndex={515} />
 							<frame AnchorPoint={new Vector2(0, 1)} Position={new UDim2(0, 0, 1, 0)} Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.brass} BackgroundTransparency={phase === "spin" ? 0.75 : 1 - bestMoment.flash * 0.6} BorderSizePixel={0} ZIndex={515} />
 							{/* the marker: a brass pin above and below the centre slot */}
-							<frame AnchorPoint={new Vector2(0.5, 0)} Position={new UDim2(0.5, 0, 0, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={phase === "spin" ? Palette.brass : bestColor} BorderSizePixel={0} ZIndex={516} />
-							<frame AnchorPoint={new Vector2(0.5, 1)} Position={new UDim2(0.5, 0, 1, 0)} Size={UDim2.fromOffset(3, 10)} BackgroundColor3={phase === "spin" ? Palette.brass : bestColor} BorderSizePixel={0} ZIndex={516} />
+							<frame AnchorPoint={new Vector2(0.5, 0)} Position={new UDim2(0.5, 0, 0, 0)} Size={UDim2.fromOffset(L.Pin.w, L.Pin.h)} BackgroundColor3={phase === "spin" ? L.Pin.fill.color : bestColor} BorderSizePixel={0} ZIndex={516} />
+							<frame AnchorPoint={new Vector2(0.5, 1)} Position={new UDim2(0.5, 0, 1, 0)} Size={UDim2.fromOffset(L.Pin.w, L.Pin.h)} BackgroundColor3={phase === "spin" ? L.Pin.fill.color : bestColor} BorderSizePixel={0} ZIndex={516} />
 						</frame>
 					))}
 				</PnSurface>

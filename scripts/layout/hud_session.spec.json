@@ -1,0 +1,30 @@
+{
+	"name": "HudSessionLayout",
+	"source": "design/01-hud-session/desktop.html",
+	"viewport": [1920, 1080],
+	"root": ".screen",
+	"origin": ".main",
+	"out": "src/Client/AstralForge/pages/generated/HudSessionLayout.ts",
+	"nodes": {
+		"Panel": ".main .pn",
+		"Head": ".main .pn div:0",
+		"Kicker": ".pn .lbl:0",
+		"Title": ".pn \"This Session\"",
+		"Clock": ".pn .chip.a",
+		"Close": ".pn .btn.sec.sm",
+		"Rule": ".pn .rule",
+		"Grid": ".pn .row:0 ..",
+		"Tile": ".pn .row:0",
+		"TileLabel": ".pn .row:0 span.lbl",
+		"TileIcon": ".pn .row:0 svg",
+		"TileValue": ".pn .row:0 span.big",
+		"ChartLabel": ".pn \"CASH PER MINUTE\"",
+		"Chart": ".pn svg:8",
+		"Footer": ".pn .btn.sec:1 ..",
+		"Reset": ".pn \"Reset\"",
+		"Share": ".pn \"Share card\"",
+		"Actions": ".main \"Collect\" ..",
+		"Collect": ".main \"Collect\"",
+		"Boost": ".main .btn.flux"
+	}
+}

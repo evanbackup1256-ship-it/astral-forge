@@ -1,0 +1,30 @@
+{
+	"name": "NavShellLayout",
+	"source": "design/02-nav-shell/desktop.html",
+	"viewport": [1920, 1080],
+	"root": ".screen",
+	"out": "src/Client/AstralForge/pages/generated/NavShellLayout.ts",
+	"nodes": {
+		"Top": ".top",
+		"Logo": ".top .logo",
+		"LogoMark": ".top .logo svg",
+		"LogoText": ".top .logo b",
+		"Cur": ".top .cur:0",
+		"CurGem": ".top .cur:0 .gem",
+		"CurValue": ".top .cur:0 span",
+		"CurAdd": ".top .cur:0 .add",
+		"Level": ".top .lv",
+		"LevelBar": ".top .lv i",
+		"Session": ".top .btn.sec.sm",
+		"Rebirth": ".top .btn.pink.sm",
+		"RebirthBadge": ".top .badge",
+		"Nav": ".nav",
+		"Group": ".nav h6:0",
+		"Group2": ".nav h6:1",
+		"Row": ".nav .ni:1",
+		"RowOn": ".nav .ni.on",
+		"RowIcon": ".nav .ni:1 svg",
+		"RowBadge": ".nav em",
+		"Main": ".main"
+	}
+}
