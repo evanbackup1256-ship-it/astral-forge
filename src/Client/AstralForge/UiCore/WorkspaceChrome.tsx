@@ -28,7 +28,7 @@ import {
 	resolvePressMotion,
 } from "./ui";
 import { GlyphWell } from "./mockKit";
-import { HERO_TABS_BOTTOM, HERO_TABS_RIGHT, reportHeroShown, useHeroFor, useHeroTabElement } from "./heroSlot";
+import { HERO_TABS_BOTTOM, HERO_TABS_GAP, HERO_TABS_RIGHT, HERO_TEXT_LEFT, heroTabsRoom, heroTabsWidth, heroTextWidth, reportHeroShown, useHeroFor, useHeroTabElement } from "./heroSlot";
 import { MockTabs } from "../pages/socialKit";
 
 const h = React.createElement as unknown as (component: unknown, props?: object, ...children: unknown[]) => React.Element;
@@ -690,6 +690,7 @@ export function Workspace(_param: WorkspaceProps) {
 	// page-supplied .hero kicker / line / .tabs (UiCore/heroSlot)
 	const heroInfo = useHeroFor(page);
 	const heroTabElement = useHeroTabElement();
+	const [heroW, setHeroW] = React.useState(0);
 	const ready = VaultCollectEligibility.isEligible(asFlux(state.Vault));
 	const vaultCollectHostRef = React.useRef<GuiObject>();
 	React.useEffect(() => {
@@ -737,6 +738,14 @@ export function Workspace(_param: WorkspaceProps) {
 	const titleBlockH = hero ? 98 : keyboardCompact ? 32 : chrome.landscape ? 28 : chrome.stack ? 36 : denseHeader ? 44 : 72;
 	const headerIconSize = keyboardCompact ? 28 : chrome.landscape ? 28 : chrome.stack ? 32 : denseHeader ? 36 : 48;
 	const headerTitleY = hero ? headerHeight - 24 - titleBlockH : keyboardCompact ? 6 : chrome.landscape ? 10 : chrome.stack ? 12 : math.max(10, math.floor((headerHeight - titleBlockH) / 2));
+	// hero tabs fit guard (heroSlot heroTabsRoom): measured text vs measured tabs; overflow scrolls
+	const heroTabLabels = heroInfo?.tabs !== undefined ? heroInfo.tabs.options.map((o) => o.label) : [];
+	const heroTabsW = heroTabLabels.size() > 0 ? heroTabsWidth(heroTabLabels) : 0;
+	const heroTextW = hero ? heroTextWidth(heroInfo?.kicker ?? heroKicker(page, state, entry.eyebrow), heroInfo?.title ?? entry.label, heroInfo?.line ?? heroLine(page, state)) : 0;
+	const heroTabsMax = heroTabsRoom(heroW, heroTextW);
+	const heroTabsScroll = heroW > 0 && heroTabsW > heroTabsMax;
+	// whatever the tabs take, the text block stops HERO_TABS_GAP short of them
+	const heroTextCap = heroTabsW > 0 && heroW > 0 ? heroW - HERO_TABS_RIGHT - math.min(heroTabsW, heroTabsMax) - HERO_TABS_GAP - HERO_TEXT_LEFT : undefined;
 	const vaultPillY = math.max(8, math.floor((headerHeight - 52) / 2));
 	return h(
 		"frame",
@@ -746,6 +755,7 @@ export function Workspace(_param: WorkspaceProps) {
 			BorderSizePixel: 0,
 			ZIndex: 5,
 			ClipsDescendants: false,
+			Change: { AbsoluteSize: (rbx: Frame) => setHeroW(rbx.AbsoluteSize.X) },
 		},
 		h("uicorner", {
 			CornerRadius: new UDim(0, 18),
@@ -830,7 +840,7 @@ export function Workspace(_param: WorkspaceProps) {
 				h(
 					"frame",
 					{
-						Size: new UDim2(1, titleReserve, 0, titleBlockH),
+						Size: hero && heroTextCap !== undefined ? UDim2.fromOffset(math.max(0, heroTextCap), titleBlockH) : new UDim2(1, titleReserve, 0, titleBlockH),
 						Position: UDim2.fromOffset(titleLeft, headerTitleY),
 						BackgroundTransparency: 1,
 						BorderSizePixel: 0,
@@ -909,14 +919,20 @@ export function Workspace(_param: WorkspaceProps) {
 						"frame",
 						{ Name: "HeroTabs", AnchorPoint: new Vector2(1, 1), Position: new UDim2(1, -HERO_TABS_RIGHT, 1, -HERO_TABS_BOTTOM), Size: UDim2.fromOffset(0, 0), AutomaticSize: Enum.AutomaticSize.XY, BackgroundTransparency: 1, BorderSizePixel: 0, ZIndex: 21 },
 						heroInfo?.tabs !== undefined
-							? h(MockTabs, {
-									options: heroInfo.tabs.options,
-									value: heroInfo.tabs.value,
-									onChange: (id: string) => heroInfo.tabs?.onChange(id),
-									accent: heroInfo.tabs.accent ?? accent,
-									phone: false,
-									reducedMotion: reducedMotion,
-								})
+							? heroTabsScroll
+								? h(
+										"scrollingframe",
+										{ Name: "HeroTabsScroll", Size: UDim2.fromOffset(heroTabsMax, 48), CanvasSize: UDim2.fromOffset(0, 0), AutomaticCanvasSize: Enum.AutomaticSize.X, ScrollingDirection: Enum.ScrollingDirection.X, ScrollBarThickness: 3, ScrollBarImageColor3: accent, BackgroundTransparency: 1, BorderSizePixel: 0, ElasticBehavior: Enum.ElasticBehavior.Never },
+										h(MockTabs, { options: heroInfo.tabs.options, value: heroInfo.tabs.value, onChange: (id: string) => heroInfo.tabs?.onChange(id), accent: heroInfo.tabs.accent ?? accent, phone: false, reducedMotion: reducedMotion }),
+									)
+								: h(MockTabs, {
+										options: heroInfo.tabs.options,
+										value: heroInfo.tabs.value,
+										onChange: (id: string) => heroInfo.tabs?.onChange(id),
+										accent: heroInfo.tabs.accent ?? accent,
+										phone: false,
+										reducedMotion: reducedMotion,
+									})
 							: heroTabElement,
 					),
 				!chrome.stack &&

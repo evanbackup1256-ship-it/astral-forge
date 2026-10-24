@@ -116,3 +116,23 @@ export function useHeroTabElement(): React.Element | undefined {
 	}, []);
 	return e;
 }
+
+// --- fit guard: the .tabs never run under the kicker/title/line (checked at 1200px in DONE.md) ---
+const TextService = game.GetService("TextService");
+export const HERO_TEXT_LEFT = 30;
+export const HERO_TABS_GAP = 24;
+const textW = (text: string, size: number, font: Enum.Font) => TextService.GetTextSize(text, size, font, new Vector2(4000, 200)).X;
+/** MockTabs width: each .tab is its 14px bold label + 18px padding a side, 4px apart, in a 4px-padded well */
+export function heroTabsWidth(labels: string[]): number {
+	let w = 8 + math.max(0, labels.size() - 1) * 4;
+	for (const label of labels) w += math.ceil(textW(label, 14, Enum.Font.GothamBold)) + 36;
+	return w;
+}
+/** widest of the hero's kicker (12 bold, upper), title (54 bold) and line (15) */
+export function heroTextWidth(kicker: string, title: string, line: string): number {
+	return math.ceil(math.max(textW(kicker.upper(), 12, Enum.Font.GothamBold), textW(title, 54, Enum.Font.GothamBold), textW(line, 15, Enum.Font.Gotham)));
+}
+/** room the tabs may take in a hero `heroW` wide once the text is placed; tabs wider than this scroll sideways */
+export function heroTabsRoom(heroW: number, textWidth: number): number {
+	return math.max(160, heroW - HERO_TABS_RIGHT - HERO_TEXT_LEFT - textWidth - HERO_TABS_GAP);
+}
