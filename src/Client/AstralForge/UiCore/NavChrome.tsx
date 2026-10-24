@@ -320,6 +320,9 @@ function RailButtonImpl(_param: RailButtonProps) {
 						h(CountBadge, {
 							count: badge,
 							zIndex: 12,
+							// 02-nav-shell .ni em: inline at the row's right edge (margin-left:auto, 12 pad)
+							position: collapsed ? undefined : new UDim2(1, -12, 0.5, 0),
+							anchorPoint: collapsed ? undefined : new Vector2(1, 0.5),
 						}),
 				),
 			),
