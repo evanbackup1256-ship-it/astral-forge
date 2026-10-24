@@ -14,6 +14,8 @@ import { InspectHead, PanelTitle } from "./InventoryInspectHead";
 import { RelicGridColumns, RelicGridRows, RelicCardGap } from "../../CoreKit/inventoryMath";
 import { LuaObj, Colon, colon, luaProp, luaIndex, luaSet, luaSetIndex, luaCall, len, concat, luaTruthy, luaTypeIs, reactLoose, LuaTableOps, luaTable } from "./viewRuntime";
 import { GlyphWell, PnSurface } from "../../UiCore/mockKit";
+import { useHeroTabs } from "../../UiCore/heroTabs";
+import { MockTabs } from "../socialKit";
 function luaRequire(moduleScript: unknown): unknown {
 	return require(moduleScript as ModuleScript) as unknown;
 }
@@ -991,11 +993,13 @@ function __member(): unknown {
 			_condition_2 = 0;
 		}
 		let essence: unknown = _condition_2;
-		let heroH: unknown = (luaTruthy(stack) ? HERO_H_STACK : HERO_H);
+		// 04-inventory desktop: the shell hero carries the title and the tabs (heroTabs slot), so the page has no
+		// hero or tab row of its own; phones keep both
+		let heroH: unknown = (luaTruthy(stack) ? HERO_H_STACK : 0);
 		let pageGap: unknown = (luaTruthy(stack) ? ROW_GAP : luaProp(Layout, "panelGap"));
 		let toolPad: unknown = (luaTruthy(stack) ? 8 : 12);
 		let toolGap: unknown = (luaTruthy(stack) ? 8 : 10);
-		let tabH: unknown = (luaTruthy(touchLayout) ? 54 : 56);
+		let tabH: unknown = (luaTruthy(stack) ? (luaTruthy(touchLayout) ? 54 : 56) : 0);
 		let fieldH: unknown = (luaTruthy(stack) ? (math.max as unknown as (...a: unknown[]) => unknown)(TapTarget, 52) : TOOL_FIELD_DESK);
 		let toolsH: unknown = ((tab === "Relics") ? ((((((((((toolPad as unknown as number) * (2 as unknown as number)) as unknown as number) + (((luaTruthy(stack) ? ((26 as unknown as number) + (toolGap as unknown as number)) : 0)) as unknown as number)) as unknown as number) + (((luaTruthy(stack) ? ((((fieldH as unknown as number) * (2 as unknown as number)) as unknown as number) + (toolGap as unknown as number)) : fieldH)) as unknown as number)) as unknown as number) + (toolGap as unknown as number)) as unknown as number) + (fieldH as unknown as number)) : 0);
 		let _exp_5: unknown = function(this: void): unknown | undefined {
@@ -1011,7 +1015,7 @@ function __member(): unknown {
 		let inspectPanelH: unknown = ((((tab === "Relics") && (selected !== undefined)) && (!luaTruthy(bulkMode))) ? luaCall(luaProp(InventoryMath, "InspectPanelHeight"), luaCall(luaProp(InventoryMath, "InspectSocketBlock"), (luaProp(selected, "equippedOn") !== undefined), len(targetsForSelected), chipRows, stack, TapTarget), stack) : 0);
 		let detailH: unknown = (((inspectPanelH as unknown as number) > (0 as unknown as number)) ? ((inspectPanelH as unknown as number) + (ROW_GAP as unknown as number)) : 0);
 		let listH: unknown = (((math.max as unknown as (...a: unknown[]) => unknown)(1, len(filtered)) as unknown as number) * (relicRowStride as unknown as number));
-		let listStart: unknown = ((((((((((((heroH as unknown as number) + (pageGap as unknown as number)) as unknown as number) + (tabH as unknown as number)) as unknown as number) + (pageGap as unknown as number)) as unknown as number) + (toolsH as unknown as number)) as unknown as number) + (detailH as unknown as number)) as unknown as number) + (SCROLL_EDGE as unknown as number));
+		let listStart: unknown = ((((((((((((heroH as unknown as number) + (luaTruthy(stack) ? (pageGap as unknown as number) : 0)) as unknown as number) + (tabH as unknown as number)) as unknown as number) + (luaTruthy(stack) ? (pageGap as unknown as number) : 0)) as unknown as number) + (toolsH as unknown as number)) as unknown as number) + (detailH as unknown as number)) as unknown as number) + (SCROLL_EDGE as unknown as number));
 		let _result_8: unknown = luaProp(config, "Items");
 		if ((_result_8 !== undefined)) {
 			_result_8 = luaProp(_result_8, "Crates");
@@ -1338,7 +1342,7 @@ function __member(): unknown {
 			let gridH: unknown = (((math.ceil as unknown as (...a: unknown[]) => unknown)(((6 as unknown as number) / (cols as unknown as number))) as unknown as number) * (((luaTruthy(stack) ? 66 : 62)) as unknown as number));
 			canvasHeight = ((((((((((((listStart as unknown as number) + (54 as unknown as number)) as unknown as number) + (gridH as unknown as number)) as unknown as number) + (18 as unknown as number)) as unknown as number) + (28 as unknown as number)) as unknown as number) + ((((math.max as unknown as (...a: unknown[]) => unknown)(1, equippedCount) as unknown as number) * (32 as unknown as number)) as unknown as number)) as unknown as number) + (luaCall(scrollTail, luaProp(chrome, "stack"), luaProp(chrome, "bottomSafe"), SCROLL_PAD) as unknown as number));
 		}
-		let paneHeight: unknown = (math.max as unknown as (...a: unknown[]) => unknown)(1, ((((((canvasHeight as unknown as number) - (heroH as unknown as number)) as unknown as number) - (tabH as unknown as number)) as unknown as number) - (((pageGap as unknown as number) * (2 as unknown as number)) as unknown as number)));
+		let paneHeight: unknown = (math.max as unknown as (...a: unknown[]) => unknown)(1, ((((((canvasHeight as unknown as number) - (heroH as unknown as number)) as unknown as number) - (tabH as unknown as number)) as unknown as number) - (luaTruthy(stack) ? (((pageGap as unknown as number) * (2 as unknown as number)) as unknown as number) : 0)));
 		let openCrate: unknown = function(this: void, crate?: unknown, count?: unknown): unknown | undefined {
 			if ((luaTruthy(crateBusy) || luaTruthy(crateRevealActive))) {
 				return undefined;
@@ -1364,6 +1368,14 @@ function __member(): unknown {
 			});
 			return undefined;
 		};
+		let heroTabs = reactLoose.createElement(MockTabs, { options: (TABS as string[]).map((id) => ({ id: id, label: id })), value: tab as string, onChange: (entry: string) => {
+			luaCall(setTab, entry);
+			if ((entry !== "Relics")) {
+				luaCall(setBulkMode, false);
+				luaCall(setAutoOpen, false);
+			}
+		}, accent: luaProp(Palette, "violet") as Color3, phone: false, reducedMotion: softMotion as boolean, layoutOrder: 0 }) as React.Element;
+		useHeroTabs(luaTruthy(stack) ? undefined : heroTabs);
 		let tabsBar: unknown = reactLoose.createElement(SegmentedTabs, { options: TAB_OPTIONS, value: tab, onChange: function(this: void, entry?: unknown): unknown | undefined {
 			luaCall(setTab, entry);
 			if ((entry !== "Relics")) {
@@ -1422,7 +1434,7 @@ function __member(): unknown {
 				});
 				return reactLoose.createElement("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, BorderSizePixel: 0, ClipsDescendants: false }, reactLoose.createElement("uilistlayout", { FillDirection: Enum.FillDirection.Horizontal, Padding: new UDim(0, RelicCardGap(luaTruthy(stack))), SortOrder: Enum.SortOrder.LayoutOrder }), reactLoose.createElement("uipadding", { PaddingTop: new UDim(0, 4) }), ...(cards as React.ReactElement[]));
 			}, ListEmptyComponent: reactLoose.createElement(EmptyState, { icon: "Loadout.4", title: ((len(owned) === 0) ? "No relics yet" : "Nothing matches"), body: ((len(owned) === 0) ? ((((((luaTruthy(luaProp(config, "ClientPageGuides") ) ?  luaProp(luaProp(config, "ClientPageGuides"), "Inventory") : luaProp(config, "ClientPageGuides"))) && luaProp(luaProp(luaProp(config, "ClientPageGuides"), "Inventory"), "EmptyItems"))) || "Open crates or buy a starter coupler from the Market tab.")) : "Clear the search or set the filters back to All relics."), accent: luaProp(Palette, "violet"), layoutOrder: 0 }) })));
-			let sections: unknown = [{ id: "hero", height: heroH, element: heroPanel }, { id: "tabs", height: tabH, element: tabsBar }, { id: "tools", height: toolsH, element: toolsBar }];
+			let sections: unknown = (luaTruthy(stack) ? [{ id: "hero", height: heroH, element: heroPanel }, { id: "tabs", height: tabH, element: tabsBar }, { id: "tools", height: toolsH, element: toolsBar }] : [{ id: "tools", height: toolsH, element: toolsBar }]);
 			const bondH = companionBondHeight(items, luaTruthy(stack));
 			if (bondH > 0) {
 				luaTable.insert(sections, { id: "companion", height: bondH, element: reactLoose.createElement(CompanionBondCard, { items: items, dispatch: dispatch as never, stack: luaTruthy(stack), reducedMotion: luaTruthy(reducedMotion) }) });
@@ -1461,7 +1473,7 @@ function __member(): unknown {
 				return undefined;
 			} }) : autoOpen)));
 		}
-		let sections: unknown = [{ id: "hero", height: heroH, element: heroPanel }, { id: "tabs", height: tabH, element: tabsBar }];
+		let sections: unknown = (luaTruthy(stack) ? [{ id: "hero", height: heroH, element: heroPanel }, { id: "tabs", height: tabH, element: tabsBar }] : []);
 		if ((tab === "Crates")) {
 			let crateCardH: unknown = (luaTruthy(stack) ? 248 : 160);
 			let crateStride: unknown = ((crateCardH as unknown as number) + (pageGap as unknown as number));
