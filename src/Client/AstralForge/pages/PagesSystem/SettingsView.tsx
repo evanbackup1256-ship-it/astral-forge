@@ -67,6 +67,21 @@ type Dispatch = (action: string, payload?: object) => unknown;
 const NAV_W = 196;
 const MOBILE_DOCK_DESTINATIONS = ["Overview", "Workshop", "Inventory", "Research", "Shop", "Settings"];
 
+// design/18-settings panel names for the schema sections it draws
+const PANEL_TITLE: Record<string, string | undefined> = { sound: "Audio", display: "Display" };
+// hero tabs (General/Audio/Display/Controls) -> the schema sections each shows; General shows every section
+const TAB_SECTIONS: Record<string, string[]> = {
+	Audio: ["sound"],
+	Display: ["display", "interface", "accessibility"],
+	Controls: ["mobile"],
+};
+const HERO_TABS = [
+	{ id: "General", label: "General" },
+	{ id: "Audio", label: "Audio" },
+	{ id: "Display", label: "Display" },
+	{ id: "Controls", label: "Controls" },
+];
+
 function accentOf(section: SchemaSection): Color3 {
 	return (Palette as unknown as Record<string, Color3 | undefined>)[section.accent] ?? Palette.cyan;
 }
@@ -742,304 +757,340 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			/>
 		);
 	});
-	// design/18-settings .hero .tabs: the schema sections are the hero tabs; the nav column only stays
-	// where the shell hero isn't drawn (phone/compact gets the section chips instead)
+	// design/18-settings .hero .tabs General/Audio/Display/Controls; the nav column only stays where the
+	// shell hero isn't drawn (phone/compact gets the section chips instead)
 	const pickSection = (id: string) => {
 		setQuery("");
 		setChangedOnly(false);
 		setActiveSection(id);
 	};
+	const [heroTab, setHeroTab] = React.useState("General");
 	useHeroSlot("Settings", {
 		kicker: `v${state.Game.Version} · saves automatically`,
-		tabs: { options: sections.map((entry) => ({ id: entry.id, label: entry.label })), value: listing ? "" : activeSection, onChange: pickSection, accent },
+		tabs: {
+			options: HERO_TABS,
+			value: listing ? "" : heroTab,
+			onChange: (id: string) => {
+				setQuery("");
+				setChangedOnly(false);
+				setHeroTab(id);
+			},
+			accent: Palette.mango,
+		},
 	});
 	const heroShown = useHeroShown();
 	const navRows = stack ? math.ceil(sections.size() / navCols) : sections.size();
 	const navH = stack ? navRows * (TapTarget + 6) + 12 : sections.size() * 48 + 24;
 
-	const listChildren: Record<string, React.Element> = {
-		layout: <uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 0)} />,
-	};
-	let listH = 0;
-	let order = 0;
-	const add = (key: string, element: React.Element, height: number) => {
-		order += 1;
-		listChildren[key] = (
-			<frame Size={new UDim2(1, 0, 0, height)} LayoutOrder={order} BackgroundTransparency={1}>
-				{element}
-			</frame>
-		);
-		listH += height;
-	};
-	add(
-		"title",
-		<>
-			<Text
-				value={
-					searching
-						? `${rows.size()} result${rows.size() === 1 ? "" : "s"} for "${query}"`
-						: showChanged
-							? `${rows.size()} changed setting${rows.size() === 1 ? "" : "s"}`
-							: section.label
-				}
-				size={18}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={13}
-				sizeConstraint={new UDim2(1, -110, 0, 24)}
-			/>
-			<Text
-				value={
-					searching
-						? "From every section."
-						: showChanged
-							? changedEntries.size() > 0
-								? "What you changed from the default."
-								: "Nothing changed yet. Everything is on its default."
-							: sectionChanged > 0
-								? `${section.blurb} ${sectionChanged} changed.`
-								: section.blurb
-				}
-				size={12}
-				color={Palette.muted}
-				fit={true}
-				minSize={9}
-				position={UDim2.fromOffset(0, 26)}
-				sizeConstraint={new UDim2(1, -110, 0, 16)}
-			/>
-			{(!searching || showChanged) && (
-				<Button
-					text={showChanged ? "RESET ALL" : "RESET"}
-					icon="Refresh.5"
-					onClick={
-						showChanged
-							? () => {
-									const values: Record<string, unknown> = {};
-									for (const entry of changedEntries) {
-										values[entry.key] = entry.default;
-									}
-									dispatch("SetSetting", { Values: values, Label: "Settings back to defaults." });
-								}
-							: resetSection
+	// one settings list panel for a section (or the search/changed listing); design/18-settings draws one
+	// .pn per group, so the hero-tab layout calls this once per panel
+	const buildList = (sid: string) => {
+		const activeSection = sid;
+		const section = (SECTION_BY_ID[sid] ?? SECTION_BY_ID["interface"])!;
+		const accent = accentOf(section);
+		const rows: SchemaEntry[] = [];
+		let hiddenAdvanced = 0;
+		if (listing) {
+			for (const entry of allRows) rows.push(entry);
+		} else {
+			for (const entry of Schema.ENTRIES) {
+				if (entry.section !== sid) continue;
+				if (entry.advanced && !advancedOpen[sid]) hiddenAdvanced += 1;
+				else rows.push(entry);
+			}
+		}
+		let sectionChanged = 0;
+		for (const entry of changedEntries) if (entry.section === sid) sectionChanged += 1;
+		const resetSection = () => {
+			dispatch("SetSetting", { Values: Schema.sectionDefaults(sid), Label: `${section.label} settings reset.` });
+		};
+		const listChildren: Record<string, React.Element> = {
+			layout: <uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 0)} />,
+		};
+		let listH = 0;
+		let order = 0;
+		const add = (key: string, element: React.Element, height: number) => {
+			order += 1;
+			listChildren[key] = (
+				<frame Size={new UDim2(1, 0, 0, height)} LayoutOrder={order} BackgroundTransparency={1}>
+					{element}
+				</frame>
+			);
+			listH += height;
+		};
+		add(
+			"title",
+			<>
+				<Text
+					value={
+						searching
+							? `${rows.size()} result${rows.size() === 1 ? "" : "s"} for "${query}"`
+							: showChanged
+								? `${rows.size()} changed setting${rows.size() === 1 ? "" : "s"}`
+								: section.label
 					}
-					disabled={showChanged ? changedEntries.size() === 0 : sectionChanged === 0}
-					tooltip={{
-						title: showChanged ? "Reset all" : `Reset ${section.label}`,
-						body: (showChanged ? changedEntries.size() === 0 : sectionChanged === 0)
-							? "Already on the defaults."
-							: "Puts these back to their defaults.",
+					size={18}
+					color={Palette.cream}
+					weight={Enum.FontWeight.Heavy}
+					fit={true}
+					minSize={13}
+					sizeConstraint={new UDim2(1, -110, 0, 24)}
+				/>
+				<Text
+					value={
+						searching
+							? "From every section."
+							: showChanged
+								? changedEntries.size() > 0
+									? "What you changed from the default."
+									: "Nothing changed yet. Everything is on its default."
+								: sectionChanged > 0
+									? `${section.blurb} ${sectionChanged} changed.`
+									: section.blurb
+					}
+					size={12}
+					color={Palette.muted}
+					fit={true}
+					minSize={9}
+					position={UDim2.fromOffset(0, 26)}
+					sizeConstraint={new UDim2(1, -110, 0, 16)}
+				/>
+				{(!searching || showChanged) && (
+					<Button
+						text={showChanged ? "RESET ALL" : "RESET"}
+						icon="Refresh.5"
+						onClick={
+							showChanged
+								? () => {
+										const values: Record<string, unknown> = {};
+										for (const entry of changedEntries) {
+											values[entry.key] = entry.default;
+										}
+										dispatch("SetSetting", { Values: values, Label: "Settings back to defaults." });
+									}
+								: resetSection
+						}
+						disabled={showChanged ? changedEntries.size() === 0 : sectionChanged === 0}
+						tooltip={{
+							title: showChanged ? "Reset all" : `Reset ${section.label}`,
+							body: (showChanged ? changedEntries.size() === 0 : sectionChanged === 0)
+								? "Already on the defaults."
+								: "Puts these back to their defaults.",
+						}}
+						color={Palette.panelSoft}
+						textColor={Palette.creamSoft}
+						outline={true}
+						size={UDim2.fromOffset(100, TapTarget)}
+						position={new UDim2(1, -100, 0, 6)}
+						reducedMotion={softMotion}
+					/>
+				)}
+			</>,
+			56,
+		);
+		if (!listing && activeSection === "display") {
+			const presetCells: Record<string, React.Element> = {};
+			const presetCount = Schema.PRESETS.size();
+			Schema.PRESETS.forEach((entry, index) => {
+				presetCells[entry.id] = (
+					<Button
+						text={entry.label.upper()}
+						onClick={() => applyPreset(entry)}
+						color={preset === entry.id ? accent : Palette.panelSoft}
+						textColor={preset === entry.id ? Palette.ink : Palette.creamSoft}
+						outline={preset !== entry.id}
+						highlight={preset === entry.id}
+						size={new UDim2(1 / presetCount, -6, 1, 0)}
+						position={new UDim2(index / presetCount, 3, 0, 0)}
+						reducedMotion={softMotion}
+					/>
+				);
+			});
+			add(
+				"presets",
+				<>
+					<Text
+						value={preset === undefined ? "Preset (custom)" : "Preset"}
+						size={12}
+						color={Palette.creamSoft}
+						weight={Enum.FontWeight.SemiBold}
+						sizeConstraint={new UDim2(1, 0, 0, 14)}
+					/>
+					<frame Size={new UDim2(1, 0, 0, 38)} Position={UDim2.fromOffset(0, 18)} BackgroundTransparency={1}>
+						{presetCells}
+					</frame>
+				</>,
+				66,
+			);
+		}
+		if (!listing) {
+			// stable regroup by sub-heading so related options sit together
+			const buckets = new Map<number, SchemaEntry[]>();
+			const orders: number[] = [];
+			for (const entry of rows) {
+				const order = Schema.group(entry.key).order;
+				let bucket = buckets.get(order);
+				if (bucket === undefined) {
+					bucket = [];
+					buckets.set(order, bucket);
+					orders.push(order);
+				}
+				bucket.push(entry);
+			}
+			orders.sort((a, b) => a < b);
+			rows.clear();
+			for (const order of orders) {
+				for (const entry of buckets.get(order)!) {
+					rows.push(entry);
+				}
+			}
+		}
+		let lastGroup: string | undefined;
+		rows.forEach((entry, index) => {
+			if (!listing) {
+				const heading = Schema.group(entry.key).label;
+				if (heading !== lastGroup) {
+					lastGroup = heading;
+					add(
+						"group_" + heading,
+						<Text
+							value={heading.upper()}
+							size={11}
+							color={accent}
+							weight={Enum.FontWeight.Heavy}
+							position={UDim2.fromOffset(0, 10)}
+							sizeConstraint={new UDim2(1, 0, 0, 14)}
+						/>,
+						28,
+					);
+				}
+			}
+			add(
+				"row_" + entry.key,
+				<SettingRow
+					entry={entry}
+					value={Schema.value(settings, entry.key)}
+					accent={listing ? accentOf(SECTION_BY_ID[entry.section]!) : accent}
+					tag={listing ? SECTION_BY_ID[entry.section]!.label : isChanged(entry) ? "changed" : undefined}
+					stack={stack}
+					softMotion={softMotion}
+					dispatch={dispatch}
+					layoutOrder={index + 1}
+				/>,
+				settingRowH(entry, stack) + (stack ? 8 : 12),
+			);
+		});
+		if (listing && rows.size() === 0) {
+			add(
+				"empty",
+				<Text
+					value={showChanged ? "Everything is on its default." : 'No match. Try "music" or "text".'}
+					size={13}
+					color={Palette.muted}
+					sizeConstraint={new UDim2(1, 0, 0, 40)}
+				/>,
+				40,
+			);
+		}
+		if (!listing && (hiddenAdvanced > 0 || advancedOpen[activeSection])) {
+			add(
+				"advanced",
+				<Button
+					text={advancedOpen[activeSection] ? "HIDE ADVANCED" : `SHOW ${hiddenAdvanced} ADVANCED`}
+					icon={advancedOpen[activeSection] ? "Hide.1" : "Chevron.3"}
+					onClick={() => {
+						const nextOpen = table.clone(advancedOpen);
+						nextOpen[activeSection] = !advancedOpen[activeSection];
+						setAdvancedOpen(nextOpen);
 					}}
 					color={Palette.panelSoft}
 					textColor={Palette.creamSoft}
 					outline={true}
-					size={UDim2.fromOffset(100, TapTarget)}
-					position={new UDim2(1, -100, 0, 6)}
+					size={new UDim2(1, 0, 0, 38)}
+					position={UDim2.fromOffset(0, 12)}
 					reducedMotion={softMotion}
-				/>
-			)}
-		</>,
-		56,
-	);
-	if (!listing && activeSection === "display") {
-		const presetCells: Record<string, React.Element> = {};
-		const presetCount = Schema.PRESETS.size();
-		Schema.PRESETS.forEach((entry, index) => {
-			presetCells[entry.id] = (
-				<Button
-					text={entry.label.upper()}
-					onClick={() => applyPreset(entry)}
-					color={preset === entry.id ? accent : Palette.panelSoft}
-					textColor={preset === entry.id ? Palette.ink : Palette.creamSoft}
-					outline={preset !== entry.id}
-					highlight={preset === entry.id}
-					size={new UDim2(1 / presetCount, -6, 1, 0)}
-					position={new UDim2(index / presetCount, 3, 0, 0)}
-					reducedMotion={softMotion}
-				/>
+				/>,
+				58,
 			);
-		});
-		add(
-			"presets",
-			<>
-				<Text
-					value={preset === undefined ? "Preset (custom)" : "Preset"}
-					size={12}
-					color={Palette.creamSoft}
-					weight={Enum.FontWeight.SemiBold}
-					sizeConstraint={new UDim2(1, 0, 0, 14)}
-				/>
-				<frame Size={new UDim2(1, 0, 0, 38)} Position={UDim2.fromOffset(0, 18)} BackgroundTransparency={1}>
-					{presetCells}
-				</frame>
-			</>,
-			66,
-		);
-	}
-	if (!listing) {
-		// stable regroup by sub-heading so related options sit together
-		const buckets = new Map<number, SchemaEntry[]>();
-		const orders: number[] = [];
-		for (const entry of rows) {
-			const order = Schema.group(entry.key).order;
-			let bucket = buckets.get(order);
-			if (bucket === undefined) {
-				bucket = [];
-				buckets.set(order, bucket);
-				orders.push(order);
-			}
-			bucket.push(entry);
 		}
-		orders.sort((a, b) => a < b);
-		rows.clear();
-		for (const order of orders) {
-			for (const entry of buckets.get(order)!) {
-				rows.push(entry);
-			}
+		if (!listing && activeSection === "mobile" && mobileHudAvailable) {
+			add(
+				"hud",
+				<Button
+					text="MOVE PHONE BUTTONS"
+					icon="Settings.3"
+					onClick={() => setMobileEdit(true)}
+					color={accent}
+					textColor={Palette.ink}
+					size={new UDim2(1, 0, 0, TapTarget)}
+					position={UDim2.fromOffset(0, 10)}
+					reducedMotion={softMotion}
+				/>,
+				TapTarget + 14,
+			);
+			add(
+				"tabPins",
+				<MobileTabPinsEditor
+					savedPins={(state.Flags ?? {}).MobileTabPins}
+					dispatch={dispatch}
+					accent={accent}
+					stack={stack}
+					softMotion={softMotion === true}
+				/>,
+				mobileTabPinsEditorHeight(stack),
+			);
 		}
-	}
-	let lastGroup: string | undefined;
-	rows.forEach((entry, index) => {
-		if (!listing) {
-			const heading = Schema.group(entry.key).label;
-			if (heading !== lastGroup) {
-				lastGroup = heading;
-				add(
-					"group_" + heading,
+		if (!listing && activeSection === "interface" && !chrome.stack) {
+			add(
+				"desktopHud",
+				<Button
+					text="Customize layout"
+					icon="Settings.3"
+					onClick={() => openDesktopEditor(true)}
+					color={accent}
+					textColor={Palette.ink}
+					size={new UDim2(1, 0, 0, 40)}
+					position={UDim2.fromOffset(0, 10)}
+					reducedMotion={softMotion}
+				/>,
+				54,
+			);
+		}
+		if (!listing && activeSection === "interface" && UserInputService.GamepadEnabled) {
+			add(
+				"controller",
+				<>
 					<Text
-						value={heading.upper()}
-						size={11}
-						color={accent}
-						weight={Enum.FontWeight.Heavy}
-						position={UDim2.fromOffset(0, 10)}
-						sizeConstraint={new UDim2(1, 0, 0, 14)}
-					/>,
-					28,
-				);
-			}
+						value="LB / RB pages  ·  Y vault  ·  X overcharge  ·  LT / RT amount  ·  B back  ·  Start settings"
+						size={12}
+						color={Palette.creamSoft}
+						wrap={true}
+						position={UDim2.fromOffset(0, 18)}
+						sizeConstraint={new UDim2(1, 0, 0, 34)}
+					/>
+				</>,
+				72,
+			);
 		}
-		add(
-			"row_" + entry.key,
-			<SettingRow
-				entry={entry}
-				value={Schema.value(settings, entry.key)}
-				accent={listing ? accentOf(SECTION_BY_ID[entry.section]!) : accent}
-				tag={listing ? SECTION_BY_ID[entry.section]!.label : isChanged(entry) ? "changed" : undefined}
-				stack={stack}
-				softMotion={softMotion}
-				dispatch={dispatch}
-				layoutOrder={index + 1}
-			/>,
-			settingRowH(entry, stack) + (stack ? 8 : 12),
-		);
-	});
-	if (listing && rows.size() === 0) {
-		add(
-			"empty",
-			<Text
-				value={showChanged ? "Everything is on its default." : 'No match. Try "music" or "text".'}
-				size={13}
-				color={Palette.muted}
-				sizeConstraint={new UDim2(1, 0, 0, 40)}
-			/>,
-			40,
-		);
-	}
-	if (!listing && (hiddenAdvanced > 0 || advancedOpen[activeSection])) {
-		add(
-			"advanced",
-			<Button
-				text={advancedOpen[activeSection] ? "HIDE ADVANCED" : `SHOW ${hiddenAdvanced} ADVANCED`}
-				icon={advancedOpen[activeSection] ? "Hide.1" : "Chevron.3"}
-				onClick={() => {
-					const nextOpen = table.clone(advancedOpen);
-					nextOpen[activeSection] = !advancedOpen[activeSection];
-					setAdvancedOpen(nextOpen);
-				}}
-				color={Palette.panelSoft}
-				textColor={Palette.creamSoft}
-				outline={true}
-				size={new UDim2(1, 0, 0, 38)}
-				position={UDim2.fromOffset(0, 12)}
+		const list = (
+			<PnSurface radius={FORGE_RADIUS}
+				size={UDim2.fromScale(1, 1)}
+				accent={listing ? Palette.steel : accent}
+				background={Palette.panel}
+				padding={stack ? 18 : 28}
 				reducedMotion={softMotion}
-			/>,
-			58,
+				clips={false}
+			><BrassRule pad={stack ? 18 : 28} />
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
+					{listChildren}
+				</frame>
+			</PnSurface>
 		);
-	}
-	if (!listing && activeSection === "mobile" && mobileHudAvailable) {
-		add(
-			"hud",
-			<Button
-				text="MOVE PHONE BUTTONS"
-				icon="Settings.3"
-				onClick={() => setMobileEdit(true)}
-				color={accent}
-				textColor={Palette.ink}
-				size={new UDim2(1, 0, 0, TapTarget)}
-				position={UDim2.fromOffset(0, 10)}
-				reducedMotion={softMotion}
-			/>,
-			TapTarget + 14,
-		);
-		add(
-			"tabPins",
-			<MobileTabPinsEditor
-				savedPins={(state.Flags ?? {}).MobileTabPins}
-				dispatch={dispatch}
-				accent={accent}
-				stack={stack}
-				softMotion={softMotion === true}
-			/>,
-			mobileTabPinsEditorHeight(stack),
-		);
-	}
-	if (!listing && activeSection === "interface" && !chrome.stack) {
-		add(
-			"desktopHud",
-			<Button
-				text="Customize layout"
-				icon="Settings.3"
-				onClick={() => openDesktopEditor(true)}
-				color={accent}
-				textColor={Palette.ink}
-				size={new UDim2(1, 0, 0, 40)}
-				position={UDim2.fromOffset(0, 10)}
-				reducedMotion={softMotion}
-			/>,
-			54,
-		);
-	}
-	if (!listing && activeSection === "interface" && UserInputService.GamepadEnabled) {
-		add(
-			"controller",
-			<>
-				<Text
-					value="LB / RB pages  ·  Y vault  ·  X overcharge  ·  LT / RT amount  ·  B back  ·  Start settings"
-					size={12}
-					color={Palette.creamSoft}
-					wrap={true}
-					position={UDim2.fromOffset(0, 18)}
-					sizeConstraint={new UDim2(1, 0, 0, 34)}
-				/>
-			</>,
-			72,
-		);
-	}
-	const list = (
-		<PnSurface radius={FORGE_RADIUS}
-			size={UDim2.fromScale(1, 1)}
-			accent={listing ? Palette.steel : accent}
-			background={Palette.panel}
-			padding={stack ? 18 : 28}
-			reducedMotion={softMotion}
-			clips={false}
-		><BrassRule pad={stack ? 18 : 28} />
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-				{listChildren}
-			</frame>
-		</PnSurface>
-	);
-	const listPanelH = listH + (stack ? 36 : 56);
+		const listPanelH = listH + (stack ? 36 : 56);
+		return { list, listPanelH };
+	};
+	const allRows = rows;
+	const { list, listPanelH } = buildList(activeSection);
 	// gamepad: header (Tour/Notes, search, view chips) > section picker > the section's rows; picker <-> rows left/right
 	const pageHostRef = React.useRef<Frame>();
 	useFocusOrder(
@@ -1071,24 +1122,63 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 		const navW = showNav ? NAV_W + 24 : 0;
 		const withControls = viewport.width >= (showNav ? 1500 : 1200);
 		const controlsW = withControls ? L.Controls.w + L.Body.gap : 0;
-		const bodyH = math.max(listPanelH, showNav ? navH : 0, withControls ? controlsPanelHeight() : 0);
+		// hero layout: one .pn per section group (design/18-settings Audio, Display, + matching extra panels),
+		// Controls in the 520 column; a search / changed listing stays one panel
+		const available = new Set(sections.map((entry) => entry.id));
+		const tabIds = heroTab === "General" ? sections.map((entry) => entry.id) : (TAB_SECTIONS[heroTab] ?? []).filter((id) => available.has(id));
+		const panels: Array<{ id: string; h: number; el: React.Element }> = [];
+		if (!showNav && !listing) {
+			for (const sid of tabIds) {
+				const built = buildList(sid);
+				panels.push({ id: sid, h: built.listPanelH, el: built.list });
+			}
+		} else {
+			panels.push({ id: "list", h: listPanelH, el: list });
+		}
+		const controlsTab = !showNav && !listing && heroTab === "Controls";
+		const showControls = !showNav && !listing ? heroTab === "General" || controlsTab : withControls;
+		const controlsInColumn = showControls && withControls && !controlsTab;
+		const colGap = L.Body.gap;
+		let colH = 0;
+		const colChildren: React.Element[] = [];
+		panels.forEach((p, i) => {
+			colChildren.push(
+				<frame key={i === 0 ? "SettingsList" : `SettingsPanel_${p.id}`} Size={new UDim2(1, 0, 0, p.h)} Position={UDim2.fromOffset(0, colH)} BackgroundTransparency={1}>
+					{p.el}
+				</frame>,
+			);
+			colH += p.h + colGap;
+		});
+		if (showControls && !controlsInColumn) {
+			colChildren.push(
+				<frame key="SettingsControls" Size={controlsTab ? new UDim2(1, 0, 0, controlsPanelHeight()) : UDim2.fromOffset(CONTROLS_W, controlsPanelHeight())} Position={UDim2.fromOffset(0, colH)} BackgroundTransparency={1}>
+					<SettingsControlsPanel reducedMotion={softMotion} />
+				</frame>,
+			);
+			colH += controlsPanelHeight() + colGap;
+		}
+		colH = math.max(0, colH - colGap);
+		const sideW = controlsInColumn ? controlsW : 0;
+		const bodyH = math.max(colH, showNav ? navH : 0, controlsInColumn ? controlsPanelHeight() : 0);
 		scaffold.push({
 			id: "body",
 			height: bodyH,
 			element: (
 				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-					{showNav && <frame key="SettingsNav" Size={new UDim2(0, NAV_W, 0, bodyH)} BackgroundTransparency={1} BorderSizePixel={0}>
-						<PnSurface radius={FORGE_RADIUS} size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}>
-							{/* own list host: the panel's rule/plate siblings never take a list slot or paint over the section chips */}
-							<frame key="SectionList" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={3}>
-								{navButtons}
-							</frame>
-						</PnSurface>
-					</frame>}
-					<frame key="SettingsList" Size={new UDim2(1, -(navW + controlsW), 0, listPanelH)} Position={UDim2.fromOffset(navW, 0)} BackgroundTransparency={1}>
-						{list}
+					{showNav && (
+						<frame key="SettingsNav" Size={new UDim2(0, NAV_W, 0, bodyH)} BackgroundTransparency={1} BorderSizePixel={0}>
+							<PnSurface radius={FORGE_RADIUS} size={new UDim2(0, NAV_W, 0, bodyH)} background={Palette.panelRaised} accent={accent} padding={12} reducedMotion={softMotion} clips={false}>
+								{/* own list host: the panel's rule/plate siblings never take a list slot or paint over the section chips */}
+								<frame key="SectionList" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={3}>
+									{navButtons}
+								</frame>
+							</PnSurface>
+						</frame>
+					)}
+					<frame key="SettingsColumn" Size={new UDim2(1, -(navW + sideW), 0, colH)} Position={UDim2.fromOffset(navW, 0)} BackgroundTransparency={1}>
+						{colChildren}
 					</frame>
-					{withControls && (
+					{controlsInColumn && (
 						<frame key="SettingsControls" Size={UDim2.fromOffset(CONTROLS_W, controlsPanelHeight())} Position={new UDim2(1, -CONTROLS_W, 0, 0)} BackgroundTransparency={1}>
 							<SettingsControlsPanel reducedMotion={softMotion} />
 						</frame>
