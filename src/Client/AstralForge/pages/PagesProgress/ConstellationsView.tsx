@@ -9,8 +9,9 @@ import * as Constellations from "../../../../Shared/AstralForge/Shared/Constella
 import { Eyebrow, StarField } from "./portKit";
 import { BODY, DiamondRule, MockPanel, PanelHeading } from "../../UiCore/mockKit";
 import { MockRow, SEC } from "../mockRows";
+import { MockTabs } from "../socialKit";
 
-const { Button, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+const { Button, SegmentedTabs } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 
 type Reply = (response: { ok?: boolean; message?: string }) => void;
 export type ConstellationDispatch = (action: string, payload?: object, callback?: Reply) => unknown;
@@ -42,6 +43,8 @@ const DETAIL_FULL_H = DETAIL_PAD * 2 + L.DetailHead.h + DG + BLURB_H + DG + (L.R
 const COMPACT_PAD = 10;
 const DETAIL_COMPACT_H = COMPACT_PAD * 2 + 44 * 2 + 8 * 2 + TapTarget;
 const PHONE_BODY_H = 220;
+const INLINE_MIN = 1000;
+const INLINE_H = 48;
 
 // node positions (0..1 of the chart area) and the lines between them, per chart
 const SHAPES: Record<string, { at: Array<[number, number]>; links: Array<[number, number]> }> = {
@@ -71,20 +74,26 @@ interface Layout {
 	tabsH: number;
 	bodyH: number;
 	total: number;
+	inline: boolean;
+	headH: number;
 }
 
 function layoutFor(stack: boolean, width: number, phone: boolean): Layout {
 	const count = Constellations.CONSTELLATIONS.size();
 	const rowMode = width >= ROW_MODE_MIN;
 	const compact = phone;
+	// wide: one .hero-style strip, kicker left and the .tabs hugging on the right (design .hero .tabs);
+	// narrower: the kicker line, then the tabs as a grid
+	const inline = !phone && width >= INLINE_MIN;
 	const tabColumns = width >= 520 ? count : 3;
 	const tabRows = math.ceil(count / tabColumns);
-	const tabsH = tabRows * TapTarget + (tabRows - 1) * 6;
+	const tabsH = inline ? 0 : tabRows * TapTarget + (tabRows - 1) * 6;
 	const sideW = phone ? math.clamp(math.floor(width * 0.36), 220, 300) : math.clamp(math.floor(width * 0.4), 300, L.Detail.w);
 	const detailH = compact ? DETAIL_COMPACT_H : DETAIL_FULL_H;
 	const bodyH = rowMode ? (phone ? math.max(PHONE_BODY_H, detailH) : detailH) : GRAPH_H_COLUMN + GAP + detailH;
-	const total = HEAD_H + ROW_GAP + tabsH + GAP + bodyH;
-	return { rowMode, compact, sideW, tabColumns, tabsH, bodyH, total };
+	const headH = inline ? INLINE_H : HEAD_H + ROW_GAP + tabsH;
+	const total = headH + GAP + bodyH;
+	return { rowMode, compact, sideW, tabColumns, tabsH, bodyH, total, inline, headH };
 }
 
 /** Section height for the charts block. `width` is the room it gets; `phone` uses the compact detail. */
@@ -306,7 +315,7 @@ function ChartDetail(p: {
 			<PanelHeading
 				icon="StarGrid"
 				title={nextStar !== undefined ? nextStar.Name : chart.Name}
-				note={nextStar !== undefined ? `Next star · ${status.count + 1} of ${chart.Stars.size()}` : "Every star lit"}
+				note={nextStar !== undefined ? "Next star" : "Every star lit"}
 				accent={Palette.violet}
 				phone={false}
 				layoutOrder={0}
@@ -353,7 +362,7 @@ function ChartDetail(p: {
 				/>
 			</frame>
 			<DiamondRule layoutOrder={5} />
-			<MockRow phone={false} icon="Forge" accent={Palette.violet} title="Stars lit" value={`${status.count} of ${chart.Stars.size()}`} layoutOrder={6} />
+			<MockRow phone={false} icon="Forge" accent={Palette.violet} title="Lines lit" value={`${status.count} of ${chart.Stars.size()}`} layoutOrder={6} />
 			<MockRow phone={false} icon="Vault" accent={Palette.violet} title="Bonus now" value={`+${pct(status.current)} ${kind}`} layoutOrder={7} />
 			<MockRow phone={false} icon="Core" accent={Palette.violet} title="Star points" value={p.paused ? "Closed" : `${points}`} layoutOrder={8} />
 		</MockPanel>
@@ -398,32 +407,38 @@ export function ConstellationsView(props: {
 	};
 	const nextStar = status.next;
 	const tabsY = HEAD_H + ROW_GAP;
-	const bodyY = tabsY + layout.tabsH + GAP;
+	const bodyY = layout.headH + GAP;
 	const graphSize = layout.rowMode ? new UDim2(1, -(layout.sideW + GAP), 0, layout.bodyH) : new UDim2(1, 0, 0, GRAPH_H_COLUMN);
 	const detailPos = layout.rowMode ? new UDim2(1, -layout.sideW, 0, bodyY) : UDim2.fromOffset(0, bodyY + GRAPH_H_COLUMN + GAP);
 	const detailSize = layout.rowMode ? new UDim2(0, layout.sideW, 0, layout.bodyH) : new UDim2(1, 0, 0, layout.bodyH - GRAPH_H_COLUMN - GAP);
+	const kicker = `${chart.Name} · ${status.count} of ${chart.Stars.size()} lit · ${paused ? "Charts closed" : `${points} star point${points === 1 ? "" : "s"}`}`;
+	const options = charts.map((c) => ({ id: c.Id, label: shortName(c), accent: statusOf(c, lit).done ? Palette.mango : Palette.pink }));
 	return (
 		<frame {...{ Name: "Constellations" }} BackgroundTransparency={1} BorderSizePixel={0} Size={UDim2.fromScale(1, 1)} ClipsDescendants={false}>
-			<Eyebrow text={`${chart.Name} · ${status.count} of ${chart.Stars.size()} lit`} color={Palette.pink} position={UDim2.fromOffset(0, 4)} width={new UDim(0.6, 0)} />
-			<Text
-				value={paused ? "Charts closed" : `${points} star point${points === 1 ? "" : "s"}`}
-				size={13}
-				color={Palette.mango}
-				weight={Enum.FontWeight.Bold}
-				align={Enum.TextXAlignment.Right}
-				position={new UDim2(0.6, 0, 0, 2)}
-				sizeConstraint={new UDim2(0.4, 0, 0, 18)}
-			/>
-			<SegmentedTabs
-				options={charts.map((c) => ({ id: c.Id, label: shortName(c), accent: statusOf(c, lit).done ? Palette.mango : Palette.pink }))}
-				value={chart.Id}
-				onChange={(id: string) => setSelectedId(id)}
-				accent={Palette.pink}
-				columns={layout.tabColumns}
-				size={new UDim2(1, 0, 0, layout.tabsH)}
-				position={UDim2.fromOffset(0, tabsY)}
-				reducedMotion={props.reducedMotion}
-			/>
+			{layout.inline ? (
+				<frame Size={new UDim2(1, 0, 0, INLINE_H)} BackgroundTransparency={1} BorderSizePixel={0}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} VerticalAlignment={Enum.VerticalAlignment.Center} Padding={new UDim(0, 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					<frame Size={new UDim2(0, 0, 1, 0)} BackgroundTransparency={1} LayoutOrder={0}>
+						<uiflexitem FlexMode={Enum.UIFlexMode.Fill} />
+						<Eyebrow text={kicker} color={Palette.pink} position={new UDim2(0, 0, 0.5, -9)} width={new UDim(1, 0)} />
+					</frame>
+					<MockTabs options={options} value={chart.Id} onChange={(id: string) => setSelectedId(id)} accent={Palette.pink} phone={false} reducedMotion={props.reducedMotion} layoutOrder={1} />
+				</frame>
+			) : (
+				<>
+					<Eyebrow text={kicker} color={Palette.pink} position={UDim2.fromOffset(0, 4)} width={new UDim(1, 0)} />
+					<SegmentedTabs
+						options={options}
+						value={chart.Id}
+						onChange={(id: string) => setSelectedId(id)}
+						accent={Palette.pink}
+						columns={layout.tabColumns}
+						size={new UDim2(1, 0, 0, layout.tabsH)}
+						position={UDim2.fromOffset(0, tabsY)}
+						reducedMotion={props.reducedMotion}
+					/>
+				</>
+			)}
 			<frame BackgroundTransparency={1} BorderSizePixel={0} Position={UDim2.fromOffset(0, bodyY)} Size={graphSize}>
 				<StarGraph chart={chart} status={status} reducedMotion={props.reducedMotion} />
 			</frame>
