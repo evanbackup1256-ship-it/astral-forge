@@ -1,0 +1,20 @@
+{
+	"name": "HudSessionPhoneLayout",
+	"source": "design/01-hud-session/phone.html",
+	"viewport": [844, 390],
+	"root": ".screen",
+	"origin": ".main",
+	"out": "src/Client/AstralForge/pages/generated/HudSessionPhoneLayout.ts",
+	"nodes": {
+		"Panel": ".main .pn",
+		"Heading": ".pn h3",
+		"HeadingIcon": ".pn h3 svg",
+		"HeadingClock": ".pn h3 small",
+		"Grid": ".pn .row:0 ..",
+		"Row": ".pn .row:0",
+		"RowWell": ".pn .row:0 div:0",
+		"RowTitle": ".pn .row:0 .tt b",
+		"RowValue": ".pn .row:0 .v",
+		"Close": ".pn .btn.sec.sm"
+	}
+}

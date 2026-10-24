@@ -12,6 +12,7 @@ import { NUM, spaced } from "./mockKit";
 import SessionStats = require("../SessionStats");
 // generated from design/01-hud-session by scripts/gen_from_layout.js (scripts/layout/hud_session.spec.json)
 import { HudSessionLayout as L } from "../pages/generated/HudSessionLayout";
+import { HudSessionPhoneLayout as PL } from "../pages/generated/HudSessionPhoneLayout";
 
 const AstralForge = script.Parent!.Parent!;
 const Icon = (
@@ -223,6 +224,19 @@ export function SessionPanel(props: SessionPanelProps) {
 	const height = math.min(maxHeight, bodyTop + bodyH + padY);
 	const canShare = SessionStats.canShare();
 
+	if (phone) {
+		return (
+			<PhoneSession
+				tiles={tiles}
+				clock={SessionStats.clockText(data.playedSeconds)}
+				canShare={canShare}
+				width={math.min(PL.Panel.w, width)}
+				maxHeight={maxHeight}
+				position={new UDim2(1, -(props.edgePad + sideInset + 4), 0, props.top + 8)}
+				reducedMotion={props.reducedMotion}
+			/>
+		);
+	}
 	const rowsEls: React.Element[] = [];
 	for (let r = 0; r < rows; r++) {
 		const cells: React.Element[] = [];
@@ -318,4 +332,104 @@ export function SessionPanel(props: SessionPanelProps) {
 			</scrollingframe>
 		</frame>
 	);
+}
+
+// 01-hud-session phone.html: a 380px .pn with an h3 ("THIS SESSION" + playtime small), a 2-column
+// grid of 44px .row stats (36 well / 13px title / 17px value) and the sm buttons right-aligned.
+// The mockup only shows Close; Reset and Share card stay beside it so phones keep those actions.
+function PhoneSession(props: {
+	tiles: TileProps[];
+	clock: string;
+	canShare: boolean;
+	width: number;
+	maxHeight: number;
+	position: UDim2;
+	reducedMotion?: boolean;
+}) {
+	const pad = PL.Panel.pad;
+	const rows = math.ceil(props.tiles.size() / 2);
+	const gridH = rows * PL.Row.h + (rows - 1) * PL.Grid.gap;
+	const bodyH = PL.Heading.h + PL.Panel.gap + gridH + PL.Panel.gap + PL.Close.h;
+	const height = math.min(props.maxHeight, pad.top + bodyH + pad.bottom);
+	const accent = PL.HeadingIcon.icon!.color;
+	const closeW = math.ceil(PL.Close.w);
+	return (
+		<frame
+			Size={UDim2.fromOffset(props.width, height)}
+			Position={props.position}
+			AnchorPoint={new Vector2(1, 0)}
+			BackgroundColor3={Palette.panel}
+			BorderSizePixel={0}
+			Active={true}
+			ZIndex={60}
+			ref={(node: Frame | undefined) => node?.SetAttribute("LayoutFloating", true)}
+		>
+			<uicorner CornerRadius={new UDim(0, PL.Panel.radius)} />
+			<uigradient Color={PL.Panel.gradient!.color} Rotation={PL.Panel.gradient!.rotation} />
+			<RimLight color={Palette.line} inner={Palette.brass} />
+			<SoftShadow radius={PL.Panel.radius} spread={12} drop={6} zIndex={59} />
+			<scrollingframe
+				Size={new UDim2(1, -(pad.left + pad.right), 1, -(pad.top + pad.bottom))}
+				Position={UDim2.fromOffset(pad.left, pad.top)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				CanvasSize={UDim2.fromOffset(0, bodyH)}
+				ScrollingDirection={Enum.ScrollingDirection.Y}
+				ScrollBarThickness={bodyH > height - pad.top - pad.bottom ? 3 : 0}
+				ScrollBarImageColor3={Palette.brass}
+				ZIndex={61}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, PL.Panel.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				{/* h3 */}
+				<frame Size={new UDim2(1, 0, 0, PL.Heading.h)} BackgroundTransparency={1} LayoutOrder={1} ZIndex={61}>
+					<Icon kind="Session.2" color={accent} accent={accent} size={PL.HeadingIcon.w} position={UDim2.fromOffset(0, 0)} />
+					<Label text={spaced(PL.Heading.text!.value)} size={PL.Heading.text!.size} color={PL.Heading.text!.color} font={TITLE_FONT}
+						frame={new UDim2(1, -(PL.Heading.text!.x + 60), 1, 0)} position={UDim2.fromOffset(PL.Heading.text!.x, 0)} />
+					<Label text={props.clock} size={PL.HeadingClock.text!.size} color={PL.HeadingClock.text!.color} font={LABEL_FONT}
+						frame={UDim2.fromOffset(60, PL.Heading.h)} position={new UDim2(1, 0, 0, 0)} anchor={new Vector2(1, 0)} align={Enum.TextXAlignment.Right} />
+				</frame>
+				{/* stat grid */}
+				<frame Size={new UDim2(1, 0, 0, gridH)} BackgroundTransparency={1} LayoutOrder={2} ZIndex={61}>
+					<uigridlayout CellSize={new UDim2(0.5, -PL.Grid.gap / 2, 0, PL.Row.h)} CellPadding={UDim2.fromOffset(PL.Grid.gap, PL.Grid.gap)}
+						SortOrder={Enum.SortOrder.LayoutOrder} />
+					{props.tiles.map((tile) => (
+						<frame key={tile.label} LayoutOrder={tile.order} BackgroundColor3={Palette.white} BorderSizePixel={0} ZIndex={61}>
+							<uicorner CornerRadius={new UDim(0, PL.Row.radius)} />
+							<uigradient Color={PL.Row.gradient!.color} Transparency={PL.Row.gradient!.transparency} Rotation={PL.Row.gradient!.rotation} />
+							<uistroke Color={Palette.white} Transparency={0.95} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+							<frame Size={UDim2.fromOffset(PL.RowWell.w, PL.RowWell.h)} Position={new UDim2(0, PL.Row.pad.left, 0.5, 0)} AnchorPoint={new Vector2(0, 0.5)}
+								BackgroundColor3={PL.RowWell.fill!.color} BackgroundTransparency={PL.RowWell.fill!.transparency} BorderSizePixel={0} ZIndex={62}>
+								<uicorner CornerRadius={new UDim(0, PL.RowWell.radius)} />
+								<uistroke Color={PL.RowWell.stroke!.color} Transparency={PL.RowWell.stroke!.transparency} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+								<Icon kind={tile.icon} color={accent} accent={tile.accent} size={18} position={UDim2.fromOffset(9, 9)} />
+							</frame>
+							<Label text={sentence(tile.label)} size={PL.RowTitle.text!.size} minSize={10} color={PL.RowTitle.text!.color} font={ROW_FONT}
+								frame={new UDim2(0.55, -(PL.RowWell.w + PL.Row.gap), 0, PL.RowTitle.h)}
+								position={new UDim2(0, PL.Row.pad.left + PL.RowWell.w + PL.Row.gap, 0.5, 0)} anchor={new Vector2(0, 0.5)} />
+							<Label text={tile.value} size={PL.RowValue.text!.size} minSize={11} color={tile.valueColor ?? PL.RowValue.text!.color} font={NUMBER_FONT}
+								frame={new UDim2(0.45, -PL.Row.pad.right, 0, PL.RowValue.h)} position={new UDim2(1, -PL.Row.pad.right, 0.5, 0)}
+								anchor={new Vector2(1, 0.5)} align={Enum.TextXAlignment.Right} />
+						</frame>
+					))}
+				</frame>
+				{/* sm buttons, right-aligned like the mockup's Close */}
+				<frame Size={new UDim2(1, 0, 0, PL.Close.h)} BackgroundTransparency={1} LayoutOrder={3} ZIndex={61}>
+					<Button text="Reset" icon="Refresh.31" onClick={() => SessionStats.reset()} size={UDim2.fromOffset(96, PL.Close.h)} position={new UDim2(1, -(closeW + 6 + (props.canShare ? 116 + 6 : 0) + 96), 0, 0)}
+						color={SEC} textColor={Palette.cream} reducedMotion={props.reducedMotion} zIndex={62} />
+					{props.canShare && (
+						<Button text="Share card" onClick={() => SessionStats.share()} size={UDim2.fromOffset(116, PL.Close.h)} position={new UDim2(1, -(closeW + 6 + 116), 0, 0)}
+							color={Palette.brass} textColor={Palette.ink} reducedMotion={props.reducedMotion} zIndex={62} />
+					)}
+					<Button text="Close" icon="Close.31" onClick={() => SessionStats.setOpen(false)} size={UDim2.fromOffset(closeW, PL.Close.h)} position={new UDim2(1, -closeW, 0, 0)}
+						color={SEC} textColor={Palette.cream} reducedMotion={props.reducedMotion} zIndex={62} />
+				</frame>
+			</scrollingframe>
+		</frame>
+	);
+}
+
+const ROW_FONT = new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.SemiBold);
+function sentence(label: string): string {
+	const lower = string.lower(label);
+	return string.upper(string.sub(lower, 1, 1)) + string.sub(lower, 2);
 }
