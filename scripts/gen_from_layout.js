@@ -105,6 +105,20 @@ function face(family) {
 	if (f.startsWith("rajdhani")) return "num";
 	return "body";
 }
+// Roblox sequences must start at exactly 0, end at exactly 1, be sorted and hold at most 20 points:
+// clamp, sort, drop duplicate times, pad the edges with the edge colours (CSS stops that stop short of
+// 0%/100% hold their colour), then thin the middle to 20.
+function sequenceKeys(raw) {
+	const keys = raw
+		.map((k) => ({ t: Math.min(1, Math.max(0, r2(Number.isFinite(k.t) ? k.t : 0))), c: k.c }))
+		.sort((a, b) => a.t - b.t)
+		.filter((k, i, a) => i === 0 || k.t !== a[i - 1].t);
+	if (keys.length === 0) throw new Error("gradient with no stops");
+	if (keys[0].t !== 0) keys.unshift({ t: 0, c: keys[0].c });
+	if (keys[keys.length - 1].t !== 1) keys.push({ t: 1, c: keys[keys.length - 1].c });
+	while (keys.length > 20) keys.splice(Math.floor(keys.length / 2), 1);
+	return keys;
+}
 // CSS linear-gradient angle (0 = to top, 180 = to bottom) -> UIGradient.Rotation (0 = left->right, 90 = top->bottom)
 function gradient(g) {
 	const n = g.stops.length;
@@ -114,7 +128,7 @@ function gradient(g) {
 		while (pos[j] === null) j++;
 		for (let k = i; k < j; k++) pos[k] = pos[i - 1] + ((pos[j] - pos[i - 1]) * (k - i + 1)) / (j - i + 1);
 	}
-	const keys = g.stops.map((s, i) => ({ t: r2(pos[i]), c: s.color }));
+	const keys = sequenceKeys(g.stops.map((s, i) => ({ t: pos[i], c: s.color })));
 	return {
 		rotation: ((g.angle ?? 180) - 90 + 360) % 360,
 		color: `new ColorSequence([${keys.map((k) => `new ColorSequenceKeypoint(${k.t}, ${c3(k.c)})`).join(", ")}])`,
