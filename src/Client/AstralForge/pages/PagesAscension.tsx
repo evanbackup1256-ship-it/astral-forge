@@ -1,5 +1,6 @@
-// Ascension: the final, endless reset. One hero (rank, Aether, production), the ascend panel with a
-// hold-to-confirm button, a harmony strip, and the six sigils.
+// Ascension (design/10-ascension): shell hero kicker "Tier I → II" (heroSlot), .flexr { orbit .pn.f1 | 480 tier
+// panel with bar + hold-to-ascend .btn.violet }; phone.html .ph-head + { 360 orbit | rows + button }. Harmony,
+// the six sigils and the star charts (real data the mockup has no slot for) follow as panels.
 import React from "@rbxts/react";
 import { useFocusOrder } from "../CoreKit/focusOrder";
 import { splitColumns } from "../UiCore/ui";
@@ -9,8 +10,13 @@ import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme
 import { useClock, useFlipperSpring, useViewport } from "../MotionKit/motion";
 import { ConstellationsView, constellationsHeight, ConstellationState } from "./PagesProgress/ConstellationsView";
 import { AudioPlayer, kitMember, LuauComponent } from "./luauKits";
-import { Bar, BODY, BODY_SEMI, Chip, Line, MockPanel, mockGap, NUM, PanelHeading, panelPad, RowSurface } from "../UiCore/mockKit";
-import { Grid, headingBlock, IconWell, MockBtn, MockRow, panelHeight, rowHeight } from "./mockRows";
+import { Bar, BODY, BODY_BOLD, BODY_SEMI, Chip, Line, MockPanel, mockGap, NUM, PanelHeading, panelPad, RowSurface } from "../UiCore/mockKit";
+import { Grid, headingBlock, IconWell, MockBtn, MockRow, panelHeight, rowHeight, SEC } from "./mockRows";
+import { FlexFill, FlexFixed, FlexRow, PHONE_HEAD_H, PhoneHead } from "./mockLayout";
+import { useHeroShown, useHeroSlot } from "../UiCore/heroSlot";
+
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+const roman = (n: number) => ROMAN[n] ?? tostring(n);
 
 const RunService = game.GetService("RunService");
 const Ui = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
@@ -237,7 +243,7 @@ function HoldButton(props: HoldButtonProps) {
 		<textbutton
 			Size={props.size}
 			Position={props.position}
-			BackgroundColor3={enabled ? darken(ACCENT, 0.55) : Palette.panelSoft}
+			BackgroundColor3={enabled ? Palette.white : SEC}
 			BorderSizePixel={0}
 			AutoButtonColor={false}
 			Text=""
@@ -261,12 +267,14 @@ function HoldButton(props: HoldButtonProps) {
 				MouseLeave: stop,
 			}}
 		>
-			<uicorner CornerRadius={new UDim(0, 14)} />
-			<uistroke Color={enabled ? ACCENT : Palette.lineSoft} Transparency={0.25} Thickness={1.5} />
+			<uicorner CornerRadius={new UDim(0, L.PerksBtn.radius)} />
+			{enabled && <uigradient Rotation={L.PerksBtn.gradient.rotation} Color={L.PerksBtn.gradient.color} />}
+			<uistroke Color={enabled ? L.PerksBtn.stroke?.color ?? Palette.violet : Palette.white} Transparency={enabled ? 0 : 0.92} Thickness={1} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
 			<frame
 				key="Fill"
 				Size={fill.map((a) => UDim2.fromScale(a, 1))}
-				BackgroundColor3={ACCENT}
+				BackgroundColor3={Palette.cream}
+				BackgroundTransparency={0.55}
 				BorderSizePixel={0}
 				ZIndex={2}
 			/>
@@ -279,10 +287,10 @@ function HoldButton(props: HoldButtonProps) {
 					}
 					return a > 0 ? "Keep holding…" : props.text;
 				})}
-				TextColor3={fill.map((a) => (a > 0.5 ? Palette.ink : Palette.cream))}
-				TextSize={16}
+				TextColor3={enabled ? Palette.ink : Palette.muted}
+				TextSize={L.PerksBtn.text?.size ?? 15}
 				TextTruncate={Enum.TextTruncate.AtEnd}
-				FontFace={new Font("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy)}
+				FontFace={BODY_BOLD}
 				ZIndex={3}
 			>
 				<uipadding PaddingLeft={new UDim(0, 10)} PaddingRight={new UDim(0, 10)} />
@@ -390,6 +398,8 @@ function AscensionViewBoard(props: AscensionViewProps) {
 			}
 		});
 	};
+	const heroShown = useHeroShown();
+	useHeroSlot("Ascension", typeIs(state, "table") ? { kicker: `Tier ${roman(state.Rank)} → ${roman(state.Rank + 1)}` } : undefined);
 	const sections: Section[] = [];
 	const add = (id: string, height: number, element: React.Element) => {
 		sections.push({ id, height, element });
@@ -416,25 +426,27 @@ function AscensionViewBoard(props: AscensionViewProps) {
 		["Forge", "Next tier", "Production multiplier", `×${compact(state.NextRankProduction)}`, false],
 	];
 	const btnH = phone ? TapTarget : L.PerksBtn.h;
-	const perksContent = head + reqRows.size() * (rowH2 + pad.gap) + pad.gap + L.PerksBar.h + pad.gap + btnH;
+	const perksContent = phone ? reqRows.size() * (rowH2 + pad.gap) + btnH : head + reqRows.size() * (rowH2 + pad.gap) + pad.gap + L.PerksBar.h + pad.gap + btnH;
 	const perksH = panelHeight(phone, perksContent);
-	const diagramH = phone ? 220 : L.OrbitArt.h;
-	const statsH = L.Stats.h;
-	const orbitContent = diagramH + L.Orbit.gap + statsH;
-	const boardH = phone ? panelHeight(true, orbitContent) + gap + perksH : math.max(panelHeight(false, orbitContent), perksH);
+	const diagramH = phone ? 205 : L.OrbitArt.h;
+	const statsH = phone ? 0 : L.Stats.h;
+	const orbitContent = phone ? diagramH : diagramH + L.Orbit.gap + statsH;
+	const narrow = phone && viewport.width < 600;
+	const boardH = narrow ? panelHeight(true, orbitContent) + gap + perksH : math.max(panelHeight(phone, orbitContent), perksH);
+	const orbitLift = math.max(0, math.floor((boardH - panelHeight(phone, orbitContent)) / 2));
 	const perks = (
 		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} reducedMotion={softMotion} name="TierPerks">
-			<PanelHeading icon="StarGrid" title={`Tier ${state.Rank + 1}`} accent={Palette.violet} phone={phone} layoutOrder={0} />
+			{!phone && <PanelHeading icon="StarGrid" title={`Tier ${roman(state.Rank + 1)}`} accent={Palette.violet} phone={phone} layoutOrder={0} />}
 			{reqRows.map(([icon, label, sub, value, met], i) => (
 				<MockRow key={"r" + i} phone={phone} icon={icon} accent={Palette.violet} dim={!met} title={label} sub={sub} value={value} valueColor={met ? Palette.violet : Palette.creamSoft} layoutOrder={i + 1} />
 			))}
-			<frame Size={new UDim2(1, 0, 0, math.max(0, (phone ? perksH : boardH) - perksH))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={8} />
-			<Bar fill={progress} color={Palette.violet} layoutOrder={9} />
+			<frame Size={new UDim2(1, 0, 0, math.max(0, (narrow ? perksH : boardH) - perksH))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={8} />
+			{!phone && <Bar fill={progress} color={Palette.violet} layoutOrder={9} />}
 			<frame key="AscendConfirm" Size={new UDim2(1, 0, 0, btnH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={10}>
 				<HoldButton
 					enabled={state.CanAscend && !busy}
 					text="Hold to ascend"
-					disabledText={`Ascend at Domain ${state.RequiredDomainRank}`}
+					disabledText={phone ? `Domain ${state.RequiredDomainRank} needed` : `Ascend at Domain ${state.RequiredDomainRank}`}
 					size={UDim2.fromScale(1, 1)}
 					position={UDim2.fromOffset(0, 0)}
 					onConfirm={() => request("Ascend")}
@@ -442,30 +454,53 @@ function AscensionViewBoard(props: AscensionViewProps) {
 			</frame>
 		</MockPanel>
 	);
+	const statPair = (label: string, value: string, order: number) => (
+		<frame key={label} Size={UDim2.fromOffset(0, L.Stat.h)} AutomaticSize={Enum.AutomaticSize.X} BackgroundTransparency={1} LayoutOrder={order}>
+			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 4)} SortOrder={Enum.SortOrder.LayoutOrder} />
+			<Line text={label} size={L.Stat.text.size} font={BODY_SEMI} color={L.Stat.text.color} layoutOrder={0} />
+			<Line text={value} size={L.StatValue.text.size} font={BODY_BOLD} color={L.StatValue.text.color} layoutOrder={1} />
+		</frame>
+	);
 	const diagram = (
-		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} glow={Palette.violet} reducedMotion={softMotion} name="AscensionOrbit">
+		<MockPanel size={UDim2.fromScale(1, 1)} phone={phone} accent={Palette.violet} glow={Palette.violet} glowBox={{ w: 1000, h: 600, cx: 0.5, cy: 0.5, transparency: 0.86 }} reducedMotion={softMotion} name="AscensionOrbit">
+			<frame Size={new UDim2(1, 0, 0, orbitLift)} BackgroundTransparency={1} LayoutOrder={-1} />
 			<frame Size={new UDim2(1, 0, 0, diagramH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={0} ClipsDescendants={true}>
 				<OrbitDiagram rank={state.Rank} height={diagramH} />
 			</frame>
-			<frame Size={new UDim2(1, 0, 0, statsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, L.Stats.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				<Line text={`Domain ${state.DomainRank} / ${state.RequiredDomainRank}`} size={L.Stat.text.size} font={BODY_SEMI} color={Palette.cream} layoutOrder={0} />
-				<Line text={`Aether ${compact(state.Aether)}`} size={L.Stat.text.size} font={BODY_SEMI} color={Palette.cream} layoutOrder={1} />
-				<Line text={`Production ×${compact(state.Production)}`} size={L.Stat.text.size} font={BODY_SEMI} color={L.Stat.text.color} layoutOrder={2} />
-			</frame>
+			{!phone && (
+				<frame Size={new UDim2(1, 0, 0, statsH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} HorizontalAlignment={Enum.HorizontalAlignment.Center} Padding={new UDim(0, L.Stats.gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+					{statPair("Domain", `${state.DomainRank} / ${state.RequiredDomainRank}`, 0)}
+					{statPair("Aether", compact(state.Aether), 1)}
+					{statPair("Production", `×${compact(state.Production)}`, 2)}
+				</frame>
+			)}
 		</MockPanel>
 	);
+	if (phone && !heroShown) {
+		add("head", PHONE_HEAD_H, <PhoneHead line={`Tier ${roman(state.Rank + 1)} · needs Domain ${state.RequiredDomainRank}`} accent={Palette.violet} />);
+	}
+	// desktop .flexr { .pn.f1 orbit | 480 perks }; phone .flexr { 360 orbit | .pn.f1 rows + button }
 	add(
 		"ascend",
 		boardH,
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-			<frame Size={phone ? new UDim2(1, 0, 0, boardH - perksH - gap) : new UDim2(1, -(L.Perks.w + gap), 1, 0)} BackgroundTransparency={1}>
-				{diagram}
+		narrow ? (
+			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} Padding={new UDim(0, gap)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<frame Size={new UDim2(1, 0, 0, boardH - perksH - gap)} BackgroundTransparency={1} LayoutOrder={0}>{diagram}</frame>
+				<frame Size={new UDim2(1, 0, 0, perksH)} BackgroundTransparency={1} LayoutOrder={1}>{perks}</frame>
 			</frame>
-			<frame Size={phone ? new UDim2(1, 0, 0, perksH) : new UDim2(0, L.Perks.w, 1, 0)} Position={phone ? new UDim2(0, 0, 1, -perksH) : new UDim2(1, -L.Perks.w, 0, 0)} BackgroundTransparency={1}>
-				{perks}
-			</frame>
-		</frame>,
+		) : phone ? (
+			<FlexRow height={boardH} gap={gap} name="AscendRow">
+				<FlexFixed width={360} height={boardH} layoutOrder={0}>{diagram}</FlexFixed>
+				<FlexFill height={boardH} layoutOrder={1}>{perks}</FlexFill>
+			</FlexRow>
+		) : (
+			<FlexRow height={boardH} gap={gap} name="AscendRow">
+				<FlexFill height={boardH} layoutOrder={0}>{diagram}</FlexFill>
+				<FlexFixed width={L.Perks.w} height={boardH} layoutOrder={1}>{perks}</FlexFixed>
+			</FlexRow>
+		),
 	);
 	if (note !== "") {
 		add("note", 24, <Line text={note} size={14} font={BODY_SEMI} color={Palette.creamSoft} width={new UDim(1, 0)} />);
