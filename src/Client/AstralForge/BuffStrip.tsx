@@ -454,6 +454,9 @@ const PERF_W = 104;
 // 02-nav-shell .top .cur pill: 123x38, 19 radius, 28px gem, 18px value, 24px add square (7 radius)
 const CURRENCY_W = 123;
 const CUR_H = 38;
+// .p .cur: 5 pad + 24 gem + 7 + 38 value + 7 + 20 add + 6 pad
+const PHONE_CUR_H = 32;
+const PHONE_CURRENCY_W = 107;
 // 25-toasts .chip: glyph, value and time left in one 28px chip
 const BUFF_W = 96;
 const SEP_W = 21;
@@ -545,6 +548,8 @@ const CURRENCY_TIPS: Record<string, string> = {
 interface CurrencySegmentProps {
 	currency: CurrencyEntry;
 	order: number;
+	/** .p .cur: 32px pill, 24px gem, 15px value (min 38), 20px .add */
+	phone?: boolean;
 	reducedMotion?: boolean;
 	navigate?: (destination: string) => void;
 }
@@ -591,12 +596,17 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 	const rolling = useRollingValue(format.asFlux(currency.value as number | string), rate, props.reducedMotion);
 	const cc = currency.color ?? P.mango;
 	const destination = currency.target === "FLUX" ? "Workshop" : currency.target === "DUST" ? "StarGrid" : "Overview";
+	const phone = props.phone === true;
+	const pillH = phone ? PHONE_CUR_H : CUR_H;
+	const gemS = phone ? 24 : 28;
+	const addS = phone ? 20 : 24;
+	const valueS = phone ? 15 : 18;
 	return h(
 		"frame",
 		{
 			ref,
 			Event: tip,
-			Size: UDim2.fromOffset(CURRENCY_W, CUR_H),
+			Size: UDim2.fromOffset(phone ? PHONE_CURRENCY_W : CURRENCY_W, pillH),
 			LayoutOrder: props.order,
 			BackgroundColor3: Color3.fromRGB(255, 255, 255),
 			BorderSizePixel: 0,
@@ -604,7 +614,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 		h("uiscale", {
 			Scale: bump.map((b) => 1 + math.sin(b * math.pi) * 0.16),
 		}),
-		h("uicorner", { CornerRadius: new UDim(0, CUR_H / 2) }),
+		h("uicorner", { CornerRadius: new UDim(0, pillH / 2) }),
 		h("uigradient", {
 			Rotation: 90,
 			Color: new ColorSequence(Color3.fromRGB(45, 35, 48), Color3.fromRGB(21, 16, 23)),
@@ -626,7 +636,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 		h(
 			"frame",
 			{
-				Size: UDim2.fromOffset(28, 28),
+				Size: UDim2.fromOffset(gemS, gemS),
 				BackgroundColor3: cc,
 				BorderSizePixel: 0,
 				LayoutOrder: 1,
@@ -644,7 +654,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 				kind: currency.icon,
 				color: Color3.fromRGB(26, 16, 21),
 				accent: cc,
-				size: 16,
+				size: phone ? 14 : 16,
 				position: UDim2.fromScale(0.5, 0.5),
 				anchorPoint: new Vector2(0.5, 0.5),
 				spin: false,
@@ -658,25 +668,25 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 				LayoutOrder: 2,
 				Text: rolling.map((v) => format.compactNumber(v)),
 				TextColor3: flash.map((v) => P.cream.Lerp(theme.lighten(cc, 0.4), v)),
-				TextSize: 18,
+				TextSize: valueS,
 				TextScaled: true,
 				TextWrapped: false,
 				TextXAlignment: Enum.TextXAlignment.Left,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 			},
 			h("uiflexitem", { FlexMode: Enum.UIFlexMode.Fill }),
-			h("uitextsizeconstraint", { MaxTextSize: 18, MinTextSize: 10 }),
+			h("uitextsizeconstraint", { MaxTextSize: valueS, MinTextSize: 10 }),
 		),
 		// .add: opens where that currency is earned (same destinations as the expanded balance list)
 		h(
 			"textlabel",
 			{
-				Size: UDim2.fromOffset(24, 24),
+				Size: UDim2.fromOffset(addS, addS),
 				BackgroundColor3: cc,
 				BorderSizePixel: 0,
 				Text: "+",
 				TextColor3: Color3.fromRGB(20, 12, 16),
-				TextSize: 16,
+				TextSize: phone ? 14 : 16,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 				LayoutOrder: 3,
 			},
@@ -690,7 +700,7 @@ function CurrencySegment(props: CurrencySegmentProps): React.Element {
 				ZIndex: 2,
 				Event: { Activated: () => props.navigate?.(destination) },
 			}),
-			h("uicorner", { CornerRadius: new UDim(0, 7) }),
+			h("uicorner", { CornerRadius: new UDim(0, phone ? 6 : 7) }),
 			h("uigradient", {
 				Rotation: 90,
 				Color: new ColorSequence(cc.Lerp(Color3.fromRGB(255, 255, 255), 0.2), cc),
@@ -2431,7 +2441,11 @@ BuffStrip.MomentBanner = function (props: { reducedMotion?: boolean; position?: 
 // 02-nav-shell .top: the .cur pills sit straight after the logo in the bar's 12px flex gap
 interface CurrencyRowProps {
 	currencies: CurrencyEntry[];
-	position: UDim2;
+	/** omitted inside a list (phones place the row with layoutOrder) */
+	position?: UDim2;
+	layoutOrder?: number;
+	/** .p .top: 32px .cur pills, 6px apart */
+	phone?: boolean;
 	reducedMotion?: boolean;
 	navigate?: (destination: string) => void;
 }
@@ -2446,12 +2460,13 @@ BuffStrip.CurrencyRow = function (props: CurrencyRowProps): React.Element {
 			FillDirection: Enum.FillDirection.Horizontal,
 			SortOrder: Enum.SortOrder.LayoutOrder,
 			VerticalAlignment: Enum.VerticalAlignment.Center,
-			Padding: new UDim(0, 12),
+			Padding: new UDim(0, props.phone === true ? 6 : 12),
 		}),
 	};
 	props.currencies.forEach((currency, index) => {
 		items[`c${currency.target}`] = h(CurrencySegment, {
 			order: index,
+			phone: props.phone,
 			currency: currency.liveKey !== undefined ? { ...currency, value: liveValue } : currency,
 			reducedMotion: props.reducedMotion,
 			navigate: props.navigate,
@@ -2461,9 +2476,13 @@ BuffStrip.CurrencyRow = function (props: CurrencyRowProps): React.Element {
 		"frame",
 		{
 			Name: "TopbarCurrencies",
-			Size: UDim2.fromOffset(props.currencies.size() * (CURRENCY_W + 12) - 12, CUR_H),
+			Size:
+				props.phone === true
+					? UDim2.fromOffset(props.currencies.size() * (PHONE_CURRENCY_W + 6) - 6, PHONE_CUR_H)
+					: UDim2.fromOffset(props.currencies.size() * (CURRENCY_W + 12) - 12, CUR_H),
 			Position: props.position,
-			AnchorPoint: new Vector2(0, 0.5),
+			LayoutOrder: props.layoutOrder,
+			AnchorPoint: props.position !== undefined ? new Vector2(0, 0.5) : undefined,
 			BackgroundTransparency: 1,
 			ZIndex: 22,
 		},

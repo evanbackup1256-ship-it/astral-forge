@@ -1652,7 +1652,7 @@ function TopBarImpl(_param: TopBarProps) {
 			SortOrder: Enum.SortOrder.LayoutOrder,
 			HorizontalAlignment: Enum.HorizontalAlignment.Left,
 			VerticalAlignment: Enum.VerticalAlignment.Center,
-			Padding: new UDim(0, 10),
+			Padding: new UDim(0, 6),
 		});
 		const _newValue = chips.map((chip, index) => {
 			if (chip.event === true) {
@@ -1676,21 +1676,34 @@ function TopBarImpl(_param: TopBarProps) {
 						})
 					: undefined;
 			}
-			const _attributes: Record<string, unknown> = {
-				key: chip.label,
-				layoutOrder: index + 1,
-				label: chip.label,
-				value: chip.value,
-				liveKey: chip.liveKey,
-				icon: chip.icon,
-				accent: chip.accent,
-				reducedMotion: reducedMotion,
-				velocity: chip.label === "FLUX" ? state.Production : 0,
-				tall: true,
-			};
-			_attributes.showLabel = showLabels;
-			return h(StatChip, _attributes);
+			// currencies render as the .p .cur pills below
+			return undefined;
 		});
+		// 02/07 phone.html .p .top: 32px .cur pills (24 gem, 15px value, 20px .add with a 44px catch area)
+		const phoneCurrencies: typeof islandCurrencies = [];
+		for (const chip of chips) {
+			if (chip.event !== true && chip.companion !== true) {
+				phoneCurrencies.push({
+					target: chip.label,
+					name: chip.label === "FLUX" ? "Flux" : chip.label === "DUST" ? "Stardust" : "Cores",
+					value: chip.value,
+					liveKey: chip.liveKey,
+					icon: chip.icon,
+					color: chip.accent,
+					rate: chip.label === "FLUX" ? state.Production : undefined,
+				});
+			}
+		}
+		const phoneCurrencyRow =
+			phoneCurrencies.size() > 0
+				? h(BuffStrip.CurrencyRow, {
+						currencies: phoneCurrencies,
+						phone: true,
+						layoutOrder: 0,
+						reducedMotion: reducedMotion,
+						navigate: _param.navigate,
+					})
+				: undefined;
 		_condition_4 = h(
 			"scrollingframe",
 			{
@@ -1708,6 +1721,7 @@ function TopBarImpl(_param: TopBarProps) {
 				ClipsDescendants: true,
 			},
 			_exp_9,
+			phoneCurrencyRow,
 			_newValue,
 		);
 	}
