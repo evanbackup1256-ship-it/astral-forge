@@ -3,6 +3,8 @@
 // a Claim button), then a row of two equal panels: Playtime gifts (icon well, minutes, time left)
 // and Codes (code field + Redeem, one muted note). Phone: the strip at 4 per row, panels stacked.
 // The limited event, community rewards and the reward shortcuts follow underneath, as before.
+import { useHeroShown, useHeroSlot } from "../../UiCore/heroSlot";
+import { PhoneHead } from "../mockLayout";
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { clockText, formatReward, Reward } from "../../CoreKit/format";
@@ -270,19 +272,34 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 		</frame>
 	);
 
-	const sideBySide = !phone;
-	const pairH = sideBySide ? math.max(giftsH, codesH) : giftsH + 8 + codesH;
+	// mockup 15 .hero: streak kicker + Daily/Codes/Playtime .tabs; Daily is the mockup's full page,
+	// the other two show just their panel
+	const [tab, setTab] = React.useState("Daily");
+	const streakDays = tonumber(daily.Streak) ?? 0;
+	const dayLine = `Day ${math.min(current - weekStart + 1, 7)} of 7`;
+	const tabOptions = [
+		{ id: "Daily", label: "Daily" },
+		{ id: "Codes", label: "Codes" },
+		{ id: "Playtime", label: "Playtime" },
+	];
+	useHeroSlot("Rewards", { kicker: `Streak · ${streakDays} day${streakDays === 1 ? "" : "s"}`, tabs: { options: tabOptions, value: tab, onChange: setTab, accent: Palette.mango } });
+	const heroShown = useHeroShown();
+	const daily1 = tab === "Daily";
+	const sideBySide = !phone && daily1;
+	const showGifts = tab !== "Codes";
+	const showCodes = tab !== "Playtime";
+	const pairH = sideBySide ? math.max(giftsH, codesH) : (showGifts ? giftsH : 0) + (showGifts && showCodes ? 8 : 0) + (showCodes ? codesH : 0);
 	const pair = (
 		<Flex dir={sideBySide ? "row" : "col"} phone={phone} size={new UDim2(1, 0, 0, pairH)} layoutOrder={1}>
-			<MockPanel size={sideBySide ? new UDim2(0, 0, 1, 0) : new UDim2(1, 0, 0, giftsH)} flex={sideBySide} phone={phone} layoutOrder={0} reveal={giftsReveal} reducedMotion={reducedMotion} name="RewardsPlaytime">
+			{showGifts && <MockPanel size={sideBySide ? new UDim2(0, 0, 1, 0) : new UDim2(1, 0, 0, giftsH)} flex={sideBySide} phone={phone} layoutOrder={0} reveal={giftsReveal} reducedMotion={reducedMotion} name="RewardsPlaytime">
 				<PanelHeading icon="Timer" title="Playtime gifts" note={clockText(played)} phone={phone} layoutOrder={0} />
 				{giftRows.size() > 0 ? giftRows : <Note text="No playtime gifts right now." phone={phone} layoutOrder={1} />}
-			</MockPanel>
-			<MockPanel size={sideBySide ? new UDim2(0, 0, 1, 0) : new UDim2(1, 0, 0, codesH)} flex={sideBySide} phone={phone} layoutOrder={1} reveal={codesReveal} reducedMotion={reducedMotion} name="RewardsCodes">
+			</MockPanel>}
+			{showCodes && <MockPanel size={sideBySide ? new UDim2(0, 0, 1, 0) : new UDim2(1, 0, 0, codesH)} flex={sideBySide} phone={phone} layoutOrder={1} reveal={codesReveal} reducedMotion={reducedMotion} name="RewardsCodes">
 				<PanelHeading icon="Code" title="Codes" phone={phone} layoutOrder={0} />
 				{codeField}
 				<Note text={codeNote} phone={phone} layoutOrder={2} />
-			</MockPanel>
+			</MockPanel>}
 		</Flex>
 	);
 
@@ -301,14 +318,15 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 
 	return (
 		<GcScroll phone={phone} name="RewardsPage" tail={chrome.bottomSafe + (phone ? 10 : 24)}>
-			{weekPanel}
+			{!heroShown && <PhoneHead line={dayLine} options={tabOptions} value={tab} onChange={setTab} accent={Palette.mango} reducedMotion={reducedMotion} layoutOrder={-1} />}
+			{daily1 && weekPanel}
 			{pair}
-			{state.LimitedEvent !== undefined && eventH > 0 && (
+			{daily1 && state.LimitedEvent !== undefined && eventH > 0 && (
 				<frame Size={new UDim2(1, 0, 0, eventH)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
 					<EventPanel state={state.LimitedEvent} dispatch={dispatch as unknown as EventDispatch} stack={phone} reducedMotion={reducedMotion} />
 				</frame>
 			)}
-			{state.Community !== undefined && community.height > 0 && (
+			{daily1 && state.Community !== undefined && community.height > 0 && (
 				<frame Size={new UDim2(1, 0, 0, community.height)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
 					<CommunityPanel
 						state={state.Community}
@@ -320,7 +338,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 					/>
 				</frame>
 			)}
-			{navigate !== undefined && (
+			{daily1 && navigate !== undefined && (
 				<frame Size={new UDim2(1, 0, 0, 44)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={4}>
 					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, phone ? 8 : 12)} SortOrder={Enum.SortOrder.LayoutOrder} />
 					{shortcuts.map((s, i) => (
