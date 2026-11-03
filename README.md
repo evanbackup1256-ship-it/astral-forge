@@ -1,6 +1,6 @@
 # Astral Forge v2
 
-Argon-synced project for Astral Forge 7.0.0. Argon reads the existing
+Argon-synced project for Astral Forge 8.0.0. Argon reads the existing
 `default.project.json` mapping (its Rojo-compatible project format). The game version is **not** the save-schema
 version: live saves currently use `GameConfig.Game.DataVersion = 21`. Do not bump
 that value or delete the `DataService` legacy transfer without save fixtures.
@@ -9,7 +9,7 @@ that value or delete the `DataService` legacy transfer without save fixtures.
 
 | What | Version |
 |------|---------|
-| Game (GameConfig.Game.Version, package.json) | 7.0.0 |
+| Game (GameConfig.Game.Version, package.json) | 8.0.0 |
 | Save schema (GameConfig.Game.DataVersion) | 21 (do not bump without save fixtures) |
 | Lune (tests) | 0.10.5 |
 | Argon (Studio sync) | 2.0.29 |
@@ -17,7 +17,32 @@ that value or delete the `DataService` legacy transfer without save fixtures.
 | Python (asset tools) | 3.14 |
 
 The verification suite is the scripts/verify_*.luau guards run by `lune run scripts/verify_project.luau` against the compiled `out/` tree.
-Last updated 2026-10-09.
+Last updated 2026-11-03.
+
+## Repository layout
+
+| Path | What lives there |
+|------|------------------|
+| `src/` | Game source (roblox-ts): `Client/`, `Server/`, `Shared/`, `Stories/` |
+| `include/`, `vendor/` | roblox-ts runtime and vendored runtime packages (mapped by `default.project.json`) |
+| `build/` | Luau generators and Studio recovery scripts |
+| `scripts/` | `verify_*.luau` checks, CI and sync helpers |
+| `tools/assetgen/` | Art, icon, logo and audio pipelines (Python) |
+| `assets/` | Generated art and the asset id manifest |
+| `docs/` | Design system, QA records and past reports ([index](docs/README.md)) |
+
+## Release 8.0
+
+- **Performance mode** (Settings): Auto, Good, Bad, Potato, stored in the existing `PerformanceBias`.
+  Auto runs a ~1 s device profile on the loading screen (frame times and p95, ping, memory, the Roblox
+  graphics level, touch) and seeds the antilag governor (`Shared/AntilagGovernor.ts`, `MotionKit/antilag.tsx`).
+- **Dynamic island** closes reliably on pointer leave and on window blur; mouse clicks no longer pin it.
+- **Restore chip** (`UiCore/RestoreChip.tsx`) replaces the old Show UI button; it fades as one
+  CanvasGroup when idle. The hidden interface stops rendering and the focus ring skips hidden controls.
+- **Motion**: no pixel rounding on small icon moves; exits advance in capped frame steps; lazy Flipper
+  motors, driven springs, the gamepad `FocusGlider`, section glides and panel lean.
+- **Currency pops** land with a damped punch, drift, hold and fade.
+- Every page view is typed TSX; compiled output ships without comments (`removeComments`).
 
 ## Release 7.0
 
@@ -160,7 +185,7 @@ rather than being assembled from frames.
 Artifact visuals reject unfinished builds after departures, respawns, unequips
 or a newer refresh, preventing stale nameplates and partial visual leaks.
 Existing non-retired progression remains intact; full visual and multiplayer
-review is tracked in `NOT_TESTED.md`.
+review is tracked in [`docs/qa/NOT_TESTED.md`](docs/qa/NOT_TESTED.md).
 
 The Premium shop loads its four developer products and four game passes from
 the same `SharedData("MonetizationConfig")` bundle used by the server, rather
@@ -300,7 +325,7 @@ data adapters. Gamepad focus now lives in the active dashboard. Regression
 checks exercise that dashboard and its adapters rather than the retired code.
 The latest authorized Studio Edit inspection confirms the character, authored
 wheel and Black Market sources are synchronized through Argon. This does not
-constitute Roblox publication; see `SIGNOFF.md`.
+constitute Roblox publication; see [`docs/qa/SIGNOFF.md`](docs/qa/SIGNOFF.md).
 
 ### Black Market and 2D wheel follow-up
 
