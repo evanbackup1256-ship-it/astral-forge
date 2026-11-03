@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><script src="common.js"></script></head>
+<body>
+<script>
+// The loading screen's astrolabe, one layer per image so each can turn at its own speed:
+//   outer  the limb: rim, degree scale, hour numerals (turns slowly)
+//   orbit  the plate: almucantars and azimuth lines engraved underneath (turns the other way)
+//   arc    the rete: the pointer and its star flames, the part that actually spins while loading
+//   glow   a faint warm pool of lamplight under the centre (not a glow effect)
+//   shock  a thin engraved double ring the outro sends outward
+const ring = query("ring", "outer");
+const C = 512;
+const R = rng(1847);
+let svg = `<defs>${grainDefs("worn", 0.85, 7)}${hatchDefs("hatch", PAL.brassDark, 4, 35, 1)}</defs>`;
+
+if (ring === "outer") {
+	let g = "";
+	g += `<circle cx="${C}" cy="${C}" r="497" fill="none" stroke="${PAL.brass}" stroke-width="4"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="489" fill="none" stroke="${PAL.brassDark}" stroke-width="1.2"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="441" fill="none" stroke="${PAL.brass}" stroke-width="1.8"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="433" fill="none" stroke="${PAL.brassDark}" stroke-width="1"/>`;
+	// the degree scale: every degree, longer every five, longest every ten
+	for (let d = 0; d < 360; d++) {
+		const major = d % 10 === 0, mid = d % 5 === 0;
+		const inner = 441, outer = major ? 474 : mid ? 462 : 452;
+		const [x1, y1] = polar(C, C, inner, d), [x2, y2] = polar(C, C, outer, d);
+		g += `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="${major ? PAL.brassLight : mid ? PAL.brass : PAL.brassDark}" stroke-width="${major ? 1.8 : mid ? 1.3 : 0.9}"/>`;
+	}
+	// hour numerals, set along the inside of the scale like an engraved dial
+	const hours = ["XII", "I", "II", "III", "IIII", "V", "VI", "VII", "VIII", "IX", "X", "XI"];
+	hours.forEach((h, i) => {
+		const deg = i * 30;
+		const [x, y] = polar(C, C, 408, deg);
+		g += `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" fill="${PAL.brassLight}" font-family="Georgia, 'Times New Roman', serif" font-size="25" letter-spacing="1.5" text-anchor="middle" dominant-baseline="middle" transform="rotate(${deg} ${x.toFixed(2)} ${y.toFixed(2)})">${h}</text>`;
+		// a small lozenge between hours
+		const [dx, dy] = polar(C, C, 410, deg + 15);
+		g += `<path d="M ${dx} ${dy - 4} L ${dx + 3} ${dy} L ${dx} ${dy + 4} L ${dx - 3} ${dy} Z" fill="${PAL.brass}" transform="rotate(${deg + 15} ${dx} ${dy})"/>`;
+	});
+	g += `<circle cx="${C}" cy="${C}" r="384" fill="none" stroke="${PAL.brassDark}" stroke-width="1"/>`;
+	svg += `<g filter="url(#worn)">${g}</g>`;
+	mount(svg, 1024, 1024);
+} else if (ring === "orbit") {
+	let g = "";
+	// almucantars: circles of equal altitude, their centres climbing toward the zenith
+	for (let i = 0; i < 10; i++) {
+		const cy = C - i * 19, r = 372 - i * 35;
+		g += `<circle cx="${C}" cy="${cy}" r="${r}" fill="none" stroke="${PAL.parchmentDim}" stroke-width="${i % 3 === 0 ? 1.1 : 0.7}" opacity="${i % 3 === 0 ? 0.55 : 0.35}"/>`;
+	}
+	// azimuth lines from the zenith
+	const zx = C, zy = C - 9 * 19;
+	for (let a = 0; a < 360; a += 15) {
+		const [x, y] = polar(C, C, 372, a);
+		g += `<line x1="${zx}" y1="${zy}" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}" stroke="${PAL.parchmentDim}" stroke-width="0.6" opacity="0.28"/>`;
+	}
+	g += `<circle cx="${C}" cy="${C}" r="372" fill="none" stroke="${PAL.brassDark}" stroke-width="1.4"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="250" fill="none" stroke="${PAL.brassDark}" stroke-width="1" stroke-dasharray="2 5"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="150" fill="none" stroke="${PAL.brassDark}" stroke-width="1"/>`;
+	g += `<line x1="${C - 372}" y1="${C}" x2="${C + 372}" y2="${C}" stroke="${PAL.parchmentDim}" stroke-width="0.8" opacity="0.5"/>`;
+	g += `<line x1="${C}" y1="${C - 372}" x2="${C}" y2="${C + 372}" stroke="${PAL.parchmentDim}" stroke-width="0.8" opacity="0.5"/>`;
+	svg += `<g filter="url(#worn)">${g}</g>`;
+	mount(svg, 1024, 1024);
+} else if (ring === "arc") {
+	let g = "";
+	// the ecliptic ring of the rete sits off-centre, as it does on a real astrolabe
+	const ex = C, ey = C - 64, er = 262;
+	g += `<circle cx="${ex}" cy="${ey}" r="${er}" fill="none" stroke="${PAL.brass}" stroke-width="9"/>`;
+	g += `<circle cx="${ex}" cy="${ey}" r="${er}" fill="none" stroke="url(#hatch)" stroke-width="9"/>`;
+	g += `<circle cx="${ex}" cy="${ey}" r="${er + 5}" fill="none" stroke="${PAL.brassLight}" stroke-width="1"/>`;
+	g += `<circle cx="${ex}" cy="${ey}" r="${er - 5}" fill="none" stroke="${PAL.brassDark}" stroke-width="1"/>`;
+	// zodiac divisions on the ecliptic
+	for (let d = 0; d < 360; d += 30) {
+		const [x1, y1] = polar(ex, ey, er - 4.5, d), [x2, y2] = polar(ex, ey, er + 4.5, d);
+		g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${PAL.ink}" stroke-width="1.6"/>`;
+	}
+	// star pointers: flame-shaped tongues reaching off the rete, each ending at its star
+	const stars = [[20, 330], [74, 300], [128, 352], [196, 318], [248, 344], [302, 296], [338, 360]];
+	stars.forEach(([deg, reach], i) => {
+		const [bx, by] = polar(C, C, 300, deg);
+		const [tx, ty] = polar(C, C, reach + 30, deg + (i % 2 ? 6 : -6));
+		const [l1x, l1y] = polar(C, C, 290, deg - 4), [l2x, l2y] = polar(C, C, 290, deg + 4);
+		g += `<path d="M ${l1x} ${l1y} Q ${bx} ${by} ${tx} ${ty} Q ${bx} ${by} ${l2x} ${l2y} Z" fill="${PAL.brass}" stroke="${PAL.brassDark}" stroke-width="1"/>`;
+		g += `<circle cx="${tx}" cy="${ty}" r="3.2" fill="${PAL.parchment}"/>`;
+	});
+	// the rule: a tapered pointer to the rim, with an openwork counterweight behind
+	const tip = polar(C, C, 452, 0), base1 = polar(C, C, 22, -90), base2 = polar(C, C, 22, 90);
+	g += `<path d="M ${base1[0]} ${base1[1]} L ${tip[0]} ${tip[1]} L ${base2[0]} ${base2[1]} Z" fill="${PAL.brassLight}" stroke="${PAL.brassDark}" stroke-width="1.2"/>`;
+	g += `<path d="M ${C} ${C} L ${tip[0]} ${tip[1]} L ${base2[0]} ${base2[1]} Z" fill="url(#hatch)" opacity="0.8"/>`;
+	const tail = polar(C, C, 168, 180);
+	g += `<path d="M ${base1[0]} ${base1[1]} L ${tail[0] - 10} ${tail[1] - 30} L ${tail[0] + 10} ${tail[1] - 30} L ${base2[0]} ${base2[1]} Z" fill="${PAL.brass}" stroke="${PAL.brassDark}" stroke-width="1"/>`;
+	g += `<circle cx="${tail[0]}" cy="${tail[1]}" r="30" fill="none" stroke="${PAL.brass}" stroke-width="8"/>`;
+	g += `<circle cx="${tail[0]}" cy="${tail[1]}" r="30" fill="none" stroke="url(#hatch)" stroke-width="8"/>`;
+	g += `<circle cx="${tail[0]}" cy="${tail[1]}" r="12" fill="none" stroke="${PAL.brassDark}" stroke-width="1.5"/>`;
+	// the centre pin
+	g += `<circle cx="${C}" cy="${C}" r="30" fill="${PAL.brass}" stroke="${PAL.brassDark}" stroke-width="1.5"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="17" fill="none" stroke="${PAL.brassDark}" stroke-width="1.5"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="6" fill="${PAL.brassLight}"/>`;
+	svg += `<g filter="url(#worn)">${g}</g>`;
+	mount(svg, 1024, 1024);
+} else if (ring === "glow") {
+	svg = `<defs><radialGradient id="lamp" cx="50%" cy="50%" r="50%">
+		<stop offset="0" stop-color="${PAL.brassLight}" stop-opacity="0.16"/>
+		<stop offset="0.55" stop-color="${PAL.brass}" stop-opacity="0.06"/>
+		<stop offset="1" stop-color="${PAL.brass}" stop-opacity="0"/>
+	</radialGradient></defs><rect width="512" height="512" fill="url(#lamp)"/>`;
+	mount(svg, 512, 512);
+} else if (ring === "shock") {
+	let g = `<circle cx="256" cy="256" r="246" fill="none" stroke="${PAL.parchment}" stroke-width="2.4"/>`;
+	g += `<circle cx="256" cy="256" r="236" fill="none" stroke="${PAL.parchment}" stroke-width="1" opacity="0.6"/>`;
+	for (let d = 0; d < 360; d += 6) {
+		const [x1, y1] = polar(256, 256, 236, d), [x2, y2] = polar(256, 256, 228, d);
+		g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${PAL.parchment}" stroke-width="1" opacity="0.6"/>`;
+	}
+	svg = `<defs>${grainDefs("worn", 0.9, 3)}</defs><g filter="url(#worn)">${g}</g>`;
+	mount(svg, 512, 512);
+}
+</script>
+</body>
+</html>

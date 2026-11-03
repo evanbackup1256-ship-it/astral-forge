@@ -4,6 +4,7 @@
 // crosses your brightest Anvil for Shards; ten on the beat in a row light a surge.
 // The board you see runs the same FoundryMath the server does, so the flow drawn is the flow you get.
 import React from "@rbxts/react";
+import { ART } from "../ArtKit/ArtAssets";
 import * as Format from "../CoreKit/format";
 import { chromeFor, darken, lighten, Palette, TapTarget } from "../CoreKit/theme";
 import { useClock, useViewport } from "../MotionKit/motion";
@@ -75,83 +76,84 @@ function directionAngle(direction: number) {
 	return math.deg(math.atan2(p.Y, p.X));
 }
 
-const ROUND = <uicorner CornerRadius={new UDim(1, 0)} />;
-
-// A flat-top hexagon from plain frames: three rectangles (R wide, sqrt(3)R tall) at 0, 60 and 120
-// degrees overlap into exactly the hexagon with circumradius R.
-function Hexagon(props: {
-	radius: number;
-	color: Color3;
-	transparency?: number;
-	zIndex?: number;
-	position?: UDim2;
-	gradient?: { Rotation?: number; Color?: ColorSequence };
-}) {
-	const r = props.radius;
-	const bars: Record<string, React.Element> = {};
-	[0, 60, 120].forEach((angle, i) => {
-		bars["bar" + (i + 1)] = (
-			<frame
-				Size={UDim2.fromOffset(r, r * math.sqrt(3))}
-				Position={UDim2.fromScale(0.5, 0.5)}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				Rotation={angle}
-				BackgroundColor3={props.color}
-				BackgroundTransparency={props.transparency ?? 0}
-				BorderSizePixel={0}
-				ZIndex={props.zIndex ?? 1}
-			>
-				{props.gradient && <uigradient Rotation={props.gradient.Rotation} Color={props.gradient.Color} />}
-			</frame>
-		);
-	});
-	return (
-		<frame
-			Size={UDim2.fromOffset(r * 2, r * 2)}
-			Position={props.position ?? UDim2.fromScale(0.5, 0.5)}
-			AnchorPoint={new Vector2(0.5, 0.5)}
-			BackgroundTransparency={1}
-			ZIndex={props.zIndex ?? 1}
-		>
-			{bars}
-		</frame>
-	);
+// ---- the optimizer: what is the single best rotation on this board, and how much does the board waste?
+//
+// FoundryMath.flow runs here the same way it runs on the server, so every rotation can be tried against it
+// before you spend a tap. A suggestion is the one rotation that sends the most extra energy into Anvils.
+interface Suggestion {
+	key: string;
+	facing: number;
+	/** taps needed, and which way (the shortest way round) */
+	taps: number;
+	left: boolean;
+	/** extra energy delivered to Anvils, as a share of what is delivered now */
+	gain: number;
+	kind: string;
 }
 
-// a soft round glow: concentric discs, each faint, so the middle builds up and the edge fades out
-function Halo(props: { size: number; color: Color3; transparency?: number; zIndex?: number; position?: UDim2 }) {
-	const d = props.size;
-	const strength = 1 - (props.transparency ?? 0.2);
-	const discs: Record<string, React.Element> = {};
-	const steps = 6;
-	for (let index = 1; index <= steps; index++) {
-		const share = index / steps;
-		discs["disc" + index] = (
-			<frame
-				Size={UDim2.fromScale(share, share)}
-				Position={UDim2.fromScale(0.5, 0.5)}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				BackgroundColor3={props.color}
-				BackgroundTransparency={1 - (strength / steps) * 1.6}
-				BorderSizePixel={0}
-				ZIndex={props.zIndex ?? 1}
-			>
-				{ROUND}
-			</frame>
-		);
+const FACED_KINDS: Record<string, true | undefined> = { Ember: true, Conduit: true, Lens: true, Prism: true };
+const SEARCH_BUDGET_SECONDS = 0.045;
+let lastSignature = "";
+let lastSuggestion: Suggestion | undefined;
+
+function boardSignature(foundry: Foundry): string {
+	const parts: string[] = [tostring(foundry.Radius)];
+	for (const key of FoundryMath.cells(foundry.Radius)) {
+		const piece = foundry.Pieces[key] as Piece | undefined;
+		if (piece !== undefined) {
+			parts.push(`${key}:${piece.Kind}:${piece.Tier}:${piece.Facing}`);
+		}
 	}
-	return (
-		<frame
-			Size={UDim2.fromOffset(d, d)}
-			Position={props.position ?? UDim2.fromScale(0.5, 0.5)}
-			AnchorPoint={new Vector2(0.5, 0.5)}
-			BackgroundTransparency={1}
-			ZIndex={props.zIndex ?? 1}
-		>
-			{discs}
-		</frame>
-	);
+	return parts.join("|");
 }
+
+function bestRotation(foundry: Foundry): Suggestion | undefined {
+	const signature = boardSignature(foundry);
+	if (signature === lastSignature) {
+		return lastSuggestion;
+	}
+	const started = os.clock();
+	const base = FoundryMath.flow({ Radius: foundry.Radius, Pieces: foundry.Pieces }).Delivered;
+	let best: Suggestion | undefined;
+	let bestGain = math.max(base * 0.004, 0.0001);
+	for (const key of FoundryMath.cells(foundry.Radius)) {
+		const piece = foundry.Pieces[key] as Piece | undefined;
+		if (piece === undefined || FACED_KINDS[piece.Kind] !== true) {
+			continue;
+		}
+		for (let facing = 0; facing < 6; facing++) {
+			if (facing === piece.Facing) {
+				continue;
+			}
+			const trial: Record<string, Piece> = {};
+			for (const [other, value] of pairs(foundry.Pieces)) {
+				trial[other as string] = value as Piece;
+			}
+			trial[key] = { Kind: piece.Kind, Tier: piece.Tier, Facing: facing };
+			const delivered = FoundryMath.flow({ Radius: foundry.Radius, Pieces: trial }).Delivered;
+			if (delivered - base > bestGain) {
+				bestGain = delivered - base;
+				const right = (facing - piece.Facing + 6) % 6;
+				best = {
+					key,
+					facing,
+					taps: right <= 3 ? right : 6 - right,
+					left: right > 3,
+					gain: base > 0 ? (delivered - base) / base : 1,
+					kind: piece.Kind,
+				};
+			}
+		}
+		if (os.clock() - started > SEARCH_BUDGET_SECONDS) {
+			break;
+		}
+	}
+	lastSignature = signature;
+	lastSuggestion = best;
+	return best;
+}
+
+const ROUND = <uicorner CornerRadius={new UDim(1, 0)} />;
 
 // tier shown as pips under the piece (a compact corner badge when cells are small or tier > 5)
 function TierMark(props: { tier: number; color: Color3; cellSize?: number; zIndex?: number }) {
@@ -193,8 +195,19 @@ function TierMark(props: { tier: number; color: Color3; cellSize?: number; zInde
 	return <>{pips}</>;
 }
 
-// Each kind has its own silhouette: an Ember is a burning four-point star, a Conduit a diamond,
-// a Lens a ring with a bright core, a Prism a triangle, an Anvil a solid hexagon plate.
+// The pieces are engraved plates (tools/assetgen/art/foundry.html): directional ones are drawn facing east and
+// turned to their facing here, so the art itself shows where energy goes.
+const KIND_ART: Record<string, string | undefined> = {
+	Ember: ART.FoundryEmber,
+	Conduit: ART.FoundryConduit,
+	Lens: ART.FoundryLens,
+	Prism: ART.FoundryPrism,
+	ForgeAnvil: ART.FoundryForgeAnvil,
+	StrikeAnvil: ART.FoundryStrikeAnvil,
+	VaultAnvil: ART.FoundryVaultAnvil,
+	EchoAnvil: ART.FoundryEchoAnvil,
+};
+
 function PieceFace(props: {
 	piece: Piece;
 	size: number;
@@ -209,144 +222,12 @@ function PieceFace(props: {
 	const look = KIND_LOOK[piece.Kind] ?? CONDUIT;
 	const d = props.size;
 	const z = props.zIndex ?? 4;
-	const color = look.color;
 	const lit = props.lit ?? 0;
 	const clock = props.clock;
-	let body: React.Element;
-	if (piece.Kind === "Ember") {
-		const rays: Record<string, React.Element> = {};
-		[0, 90].forEach((angle, i) => {
-			rays["ray" + (i + 1)] = (
-				<frame
-					Size={new UDim2(1.15, 0, 0, math.max(2, math.floor(d * 0.1)))}
-					Position={UDim2.fromScale(0.5, 0.5)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					Rotation={clock ? clock.map((t) => angle + t * 18) : angle}
-					BackgroundColor3={lighten(color, 0.45)}
-					BorderSizePixel={0}
-					ZIndex={z + 1}
-				>
-					<uigradient
-						Transparency={
-							new NumberSequence([
-								new NumberSequenceKeypoint(0, 1),
-								new NumberSequenceKeypoint(0.5, 0),
-								new NumberSequenceKeypoint(1, 1),
-							])
-						}
-					/>
-				</frame>
-			);
-		});
-		body = (
-			<>
-				<Halo size={d * 1.5} color={color} transparency={0.1} zIndex={z} />
-				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={z + 1}>
-					{rays}
-				</frame>
-				<frame
-					Size={UDim2.fromScale(0.42, 0.42)}
-					Position={UDim2.fromScale(0.5, 0.5)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundColor3={Palette.white}
-					BorderSizePixel={0}
-					ZIndex={z + 2}
-				>
-					{ROUND}
-					<uistroke Color={color} Thickness={3} />
-				</frame>
-			</>
-		);
-	} else if (piece.Kind === "Conduit") {
-		body = (
-			<frame
-				Size={UDim2.fromScale(0.5, 0.5)}
-				Position={UDim2.fromScale(0.5, 0.5)}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				Rotation={45}
-				BackgroundColor3={darken(color, 0.35)}
-				BorderSizePixel={0}
-				ZIndex={z + 1}
-			>
-				<uicorner CornerRadius={new UDim(0, 6)} />
-				<uistroke Color={lighten(color, 0.3)} Thickness={2} />
-			</frame>
-		);
-	} else if (piece.Kind === "Lens") {
-		body = (
-			<>
-				<frame
-					Size={UDim2.fromScale(0.7, 0.7)}
-					Position={UDim2.fromScale(0.5, 0.5)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundTransparency={1}
-					ZIndex={z + 1}
-				>
-					{ROUND}
-					<uistroke Color={color} Thickness={math.max(2, d * 0.07)} />
-				</frame>
-				<frame
-					Size={UDim2.fromScale(0.22, 0.22)}
-					Position={UDim2.fromScale(0.5, 0.5)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundColor3={lighten(color, 0.6)}
-					BorderSizePixel={0}
-					ZIndex={z + 2}
-				>
-					{ROUND}
-				</frame>
-			</>
-		);
-	} else if (piece.Kind === "Prism") {
-		// a square with a hard diagonal mask, turned: an upward triangle
-		body = (
-			<frame
-				Size={UDim2.fromScale(0.62, 0.62)}
-				Position={UDim2.fromScale(0.5, 0.6)}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				Rotation={45}
-				BackgroundColor3={color}
-				BorderSizePixel={0}
-				ZIndex={z + 1}
-			>
-				<uigradient
-					Rotation={-135}
-					Color={new ColorSequence(lighten(color, 0.4), darken(color, 0.2))}
-					Transparency={
-						new NumberSequence([
-							new NumberSequenceKeypoint(0, 1),
-							new NumberSequenceKeypoint(0.495, 1),
-							new NumberSequenceKeypoint(0.505, 0),
-							new NumberSequenceKeypoint(1, 0),
-						])
-					}
-				/>
-			</frame>
-		);
-	} else {
-		// anvils: a solid hexagon plate in the colour of what they make, the stat icon inset
-		body = (
-			<>
-				<Hexagon radius={d * 0.42} color={darken(color, 0.45)} zIndex={z + 1} />
-				<Hexagon
-					radius={d * 0.34}
-					color={color}
-					transparency={0.15}
-					zIndex={z + 1}
-					gradient={{ Rotation: 90, Color: new ColorSequence(lighten(color, 0.35), darken(color, 0.25)) }}
-				/>
-				<Icon
-					kind={look.icon}
-					color={Palette.ink}
-					accent={Palette.ink}
-					size={math.floor(d * 0.36)}
-					position={UDim2.fromScale(0.5, 0.5)}
-					anchorPoint={new Vector2(0.5, 0.5)}
-					spin={false}
-				/>
-			</>
-		);
-	}
+	const source = FoundryMath.KINDS[piece.Kind].role === "source";
+	const turned = FACED_KINDS[piece.Kind] === true ? directionAngle(piece.Facing) : 0;
+	// a source always burns; anything else carries a halo while energy runs through it
+	const halo = source ? 0.7 : lit;
 	return (
 		<frame
 			Size={UDim2.fromOffset(d, d)}
@@ -355,40 +236,41 @@ function PieceFace(props: {
 			BackgroundTransparency={1}
 			ZIndex={z}
 		>
-			{/* energy passing through makes a piece glow */}
-			{lit > 0.05 && FoundryMath.KINDS[piece.Kind].role !== "source" && (
-				<Halo size={d * (1 + lit * 0.5)} color={color} transparency={0.55 - lit * 0.35} zIndex={z} />
-			)}
-			{props.selected && (
-				<frame
-					Size={UDim2.fromScale(1.2, 1.2)}
+			{halo > 0.05 && (
+				<imagelabel
+					Size={UDim2.fromScale(1.2 + halo * 0.25, 1.2 + halo * 0.25)}
 					Position={UDim2.fromScale(0.5, 0.5)}
 					AnchorPoint={new Vector2(0.5, 0.5)}
 					BackgroundTransparency={1}
-					ZIndex={z + 3}
-				>
-					{ROUND}
-					<uistroke Color={Palette.white} Thickness={2} Transparency={0.1} />
-				</frame>
-			)}
-			{body}
-			{props.showFacing && FoundryMath.KINDS[piece.Kind].role !== "sink" && (
-				// a stub of beam out of the side it faces
-				<frame
-					Size={UDim2.fromOffset(math.floor(d * 0.62), 3)}
-					Position={UDim2.fromScale(0.5, 0.5)}
-					AnchorPoint={new Vector2(0, 0.5)}
-					Rotation={directionAngle(piece.Facing)}
-					BackgroundColor3={lighten(color, 0.4)}
-					BorderSizePixel={0}
+					Image={ART.FoundryLit}
+					ImageColor3={look.color}
+					ImageTransparency={math.clamp(0.7 - halo * 0.5, 0.1, 0.9)}
+					Rotation={clock ? clock.map((t) => t * (source ? -10 : 14)) : 0}
 					ZIndex={z}
-				>
-					<uigradient
-						Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0.1), new NumberSequenceKeypoint(1, 1)])}
-					/>
-				</frame>
+				/>
 			)}
-			<TierMark tier={piece.Tier} color={color} cellSize={d} zIndex={z + 3} />
+			{props.selected && (
+				<imagelabel
+					Size={UDim2.fromScale(1.45, 1.45)}
+					Position={UDim2.fromScale(0.5, 0.5)}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					BackgroundTransparency={1}
+					Image={ART.BootShockwave}
+					ImageTransparency={0.05}
+					ZIndex={z + 3}
+				/>
+			)}
+			<imagelabel
+				Size={UDim2.fromScale(1.3, 1.3)}
+				Position={UDim2.fromScale(0.5, 0.5)}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				BackgroundTransparency={1}
+				Image={KIND_ART[piece.Kind] ?? ""}
+				ScaleType={Enum.ScaleType.Fit}
+				Rotation={turned}
+				ZIndex={z + 1}
+			/>
+			<TierMark tier={piece.Tier} color={look.color} cellSize={d} zIndex={z + 3} />
 		</frame>
 	);
 }
@@ -402,68 +284,40 @@ function Board(props: {
 	selected?: string;
 	onCell: (key: string) => void;
 	softMotion?: boolean;
+	hint?: Suggestion;
 }) {
 	const foundry = props.foundry;
 	const flow = props.flow;
 	const size = props.cellSize;
 	const clock = useClock(!props.softMotion, 1, 3600, true);
 	const centre = new Vector2(props.width / 2, props.height / 2);
+	const span = math.min(props.width, props.height);
 	const children: Record<string, React.Element> = {};
-	// deep space: a warm nebula behind the board and a slow, faint drift of stars
-	children.nebula = (
-		<Halo
-			size={math.min(props.width, props.height) * 1.25}
-			color={Color3.fromRGB(120, 60, 30)}
-			transparency={0.55}
-			position={UDim2.fromOffset(centre.X, centre.Y)}
-			zIndex={0}
-		/>
-	);
-	for (let index = 1; index <= 28; index++) {
-		const x = ((index * 0.6180339) % 1) * props.width;
-		const y = ((index * 0.7548776) % 1) * props.height;
-		children["star" + index] = (
-			<frame
-				Size={UDim2.fromOffset(index % 5 === 0 ? 3 : 2, index % 5 === 0 ? 3 : 2)}
-				Position={UDim2.fromOffset(x, y)}
-				BackgroundColor3={Palette.white}
-				BackgroundTransparency={props.softMotion ? 0.6 : clock.map((t) => 0.45 + 0.4 * math.sin(t * 0.8 + index))}
-				BorderSizePixel={0}
-				ZIndex={0}
-			>
-				{ROUND}
-			</frame>
-		);
-	}
-	// the orbit ring the ignite comet runs on, with a notch at the target
-	const orbit = math.min(props.width, props.height) * 0.47;
-	const target = FoundryMath.targetPhase({ Radius: foundry.Radius, Pieces: foundry.Pieces });
-	children.orbit = (
-		<frame
-			Size={UDim2.fromOffset(orbit * 2, orbit * 2)}
+	// the plate: an atlas margin of faint stars and the engraved orbit ring (radius 0.47 of the plate) the comet rides
+	children.plate = (
+		<imagelabel
+			Size={UDim2.fromOffset(span, span)}
 			Position={UDim2.fromOffset(centre.X, centre.Y)}
 			AnchorPoint={new Vector2(0.5, 0.5)}
 			BackgroundTransparency={1}
-			ZIndex={1}
-		>
-			{ROUND}
-			<uistroke Color={ACCENT} Thickness={1} Transparency={0.75} />
-		</frame>
+			Image={ART.FoundryBoard}
+			ZIndex={0}
+		/>
 	);
+	const orbit = span * 0.47;
+	const target = FoundryMath.targetPhase({ Radius: foundry.Radius, Pieces: foundry.Pieces });
 	const tx = math.cos(target * 2 * math.pi);
 	const ty = math.sin(target * 2 * math.pi);
 	children.notch = (
-		<frame
-			Size={UDim2.fromOffset(18, 4)}
+		<imagelabel
+			Size={UDim2.fromOffset(26, 26)}
 			Position={UDim2.fromOffset(centre.X + tx * orbit, centre.Y + ty * orbit)}
 			AnchorPoint={new Vector2(0.5, 0.5)}
-			Rotation={math.deg(target * 2 * math.pi)}
-			BackgroundColor3={ACCENT}
-			BorderSizePixel={0}
+			BackgroundTransparency={1}
+			Image={ART.FoundrySpark}
+			ImageColor3={ACCENT}
 			ZIndex={7}
-		>
-			{ROUND}
-		</frame>
+		/>
 	);
 	const cometPoint = (lag: number) => () => {
 		const phase = FoundryMath.wavePhase(foundry.IgniteAt ?? 0, Workspace.GetServerTimeNow()) - lag;
@@ -473,24 +327,23 @@ function Board(props: {
 	for (let index = 0; index <= 5; index++) {
 		const lag = index * 0.012;
 		children["comet" + index] = (
-			<frame
-				Size={UDim2.fromOffset(10 - index * 1.4, 10 - index * 1.4)}
+			<imagelabel
+				Size={UDim2.fromOffset(20 - index * 2.6, 20 - index * 2.6)}
 				AnchorPoint={new Vector2(0.5, 0.5)}
 				Position={clock.map(cometPoint(lag))}
-				BackgroundColor3={index === 0 ? Palette.white : ACCENT}
-				BackgroundTransparency={clock.map(() => {
+				BackgroundTransparency={1}
+				Image={ART.FoundrySpark}
+				ImageColor3={index === 0 ? Palette.white : ACCENT}
+				ImageTransparency={clock.map(() => {
 					const phase = FoundryMath.wavePhase(foundry.IgniteAt ?? 0, Workspace.GetServerTimeNow());
 					const hot = FoundryMath.onBeat(phase, target);
 					return math.clamp((hot ? 0 : 0.15) + index * 0.15, 0, 1);
 				})}
-				BorderSizePixel={0}
 				ZIndex={8}
-			>
-				{ROUND}
-			</frame>
+			/>
 		);
 	}
-	// energy beams: a wide soft glow under a thin bright core, shading from source to target colour
+	// energy beams: the etched channel stretched along each link, shading from source to target colour
 	let drawn = 0;
 	for (let i = 0; i < flow.Links.size(); i++) {
 		const index = i + 1;
@@ -510,63 +363,61 @@ function Board(props: {
 			const toPiece = foundry.Pieces[link.to] as Piece | undefined;
 			const c1 = ((fromPiece && KIND_LOOK[fromPiece.Kind]) || EMBER).color;
 			const c2 = ((toPiece && KIND_LOOK[toPiece.Kind]) || EMBER).color;
-			const beam = (name: string, thickness: number, transparency: number, z: number) => {
-				children[name + index] = (
-					<frame
-						Size={UDim2.fromOffset(delta.Magnitude, thickness)}
-						Position={UDim2.fromOffset((a.X + b.X) / 2, (a.Y + b.Y) / 2)}
-						AnchorPoint={new Vector2(0.5, 0.5)}
-						Rotation={math.deg(math.atan2(delta.Y, delta.X))}
-						BackgroundColor3={Palette.white}
-						BackgroundTransparency={transparency}
-						BorderSizePixel={0}
-						ZIndex={z}
-					>
-						{ROUND}
-						<uigradient Color={new ColorSequence(c1, c2)} />
-					</frame>
-				);
-			};
-			beam("glow", 6 + strength * 10, 0.82 - strength * 0.12, 2);
-			beam("core", 1.5 + strength * 2, 0.15, 3);
+			children["beam" + index] = (
+				<imagelabel
+					Size={UDim2.fromOffset(delta.Magnitude, 8 + strength * 10)}
+					Position={UDim2.fromOffset((a.X + b.X) / 2, (a.Y + b.Y) / 2)}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					Rotation={math.deg(math.atan2(delta.Y, delta.X))}
+					BackgroundTransparency={1}
+					Image={ART.FoundryBeam}
+					ScaleType={Enum.ScaleType.Stretch}
+					ImageTransparency={0.4 - strength * 0.3}
+					ZIndex={2}
+				>
+					<uigradient Color={new ColorSequence(c1, c2)} />
+				</imagelabel>
+			);
 			if (!props.softMotion) {
 				const speed = 0.7 + strength * 1.4;
 				const offset = (index * 0.37) % 1;
 				for (let tail = 0; tail <= 2; tail++) {
 					children["pulse" + index + "_" + tail] = (
-						<frame
-							Size={UDim2.fromOffset(7 - tail * 2, 7 - tail * 2)}
+						<imagelabel
+							Size={UDim2.fromOffset(14 - tail * 3, 14 - tail * 3)}
 							AnchorPoint={new Vector2(0.5, 0.5)}
 							Position={clock.map((t) => {
 								const u = (t * speed + offset - tail * 0.04) % 1;
 								const p = a.add(delta.mul(u));
 								return UDim2.fromOffset(p.X, p.Y);
 							})}
-							BackgroundColor3={tail === 0 ? Palette.white : c2}
-							BackgroundTransparency={tail * 0.3}
-							BorderSizePixel={0}
+							BackgroundTransparency={1}
+							Image={ART.FoundrySpark}
+							ImageColor3={tail === 0 ? Palette.white : c2}
+							ImageTransparency={tail * 0.3}
 							ZIndex={4}
-						>
-							{ROUND}
-						</frame>
+						/>
 					);
 				}
 			}
 		}
 	}
-	// the lattice: a faint hexagon socket for every cell, pieces sitting in them
+	// the lattice: an engraved hex socket for every cell (brass-rimmed where a moved piece could go), pieces in them
+	const socket = size * 0.94 * 2 * (128 / 118);
 	for (const key of FoundryMath.cells(foundry.Radius)) {
 		const [q, r] = FoundryMath.parse(key);
 		const p = centre.add(hexPixel(q!, r!, size));
 		const piece = foundry.Pieces[key] as Piece | undefined;
 		const targeted = props.selected !== undefined && props.selected !== key;
 		children["socket" + key] = (
-			<Hexagon
-				radius={size * 0.94}
-				color={targeted && piece === undefined ? darken(ACCENT, 0.55) : Color3.fromRGB(28, 26, 38)}
-				transparency={piece ? 0.6 : 0.2}
-				position={UDim2.fromOffset(p.X, p.Y)}
-				zIndex={1}
+			<imagelabel
+				Size={UDim2.fromOffset(socket, socket)}
+				Position={UDim2.fromOffset(p.X, p.Y)}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				BackgroundTransparency={1}
+				Image={targeted && piece === undefined ? ART.FoundrySocketTarget : ART.FoundrySocket}
+				ImageTransparency={piece ? 0.35 : 0}
+				ZIndex={1}
 			/>
 		);
 		children["cell" + key] = (
@@ -585,7 +436,6 @@ function Board(props: {
 						size={math.floor(size * 1.25)}
 						selected={props.selected === key}
 						lit={math.clamp(math.log10(1 + (flow.Lit[key] ?? 0)) / 3, 0, 1)}
-						showFacing={true}
 						clock={props.softMotion ? undefined : clock}
 						zIndex={5}
 					/>
@@ -593,8 +443,43 @@ function Board(props: {
 			</textbutton>
 		);
 	}
+	// the hint: an engraved ring pulsing on the piece worth turning, and a drawn arrow toward the way to face
+	if (props.hint !== undefined) {
+		const [hq, hr] = FoundryMath.parse(props.hint.key);
+		if (hq !== undefined && hr !== undefined) {
+			const p = centre.add(hexPixel(hq, hr, size));
+			const reach = size * 1.45;
+			children.hintRing = (
+				<imagelabel
+					Size={clock.map((t) => {
+						const d = size * (2 + 0.25 * math.sin(t * 4));
+						return UDim2.fromOffset(d, d);
+					})}
+					Position={UDim2.fromOffset(p.X, p.Y)}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					BackgroundTransparency={1}
+					Image={ART.BootShockwave}
+					ImageTransparency={clock.map((t) => 0.1 + 0.3 * (0.5 + 0.5 * math.sin(t * 4)))}
+					ZIndex={9}
+				/>
+			);
+			const angle = directionAngle(props.hint.facing);
+			children.hintArrow = (
+				<imagelabel
+					Size={UDim2.fromOffset(reach, reach * 0.25)}
+					Position={UDim2.fromOffset(p.X + math.cos(math.rad(angle)) * reach * 0.62, p.Y + math.sin(math.rad(angle)) * reach * 0.62)}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					Rotation={angle}
+					BackgroundTransparency={1}
+					Image={ART.FoundryArrow}
+					ImageColor3={ACCENT}
+					ZIndex={10}
+				/>
+			);
+		}
+	}
 	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Color3.fromRGB(8, 7, 14)} BorderSizePixel={0} ClipsDescendants={true}>
+		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Color3.fromRGB(15, 16, 22)} BorderSizePixel={0} ClipsDescendants={true}>
 			<uicorner CornerRadius={new UDim(0, 14)} />
 			{children}
 		</frame>
@@ -656,6 +541,8 @@ function FoundryView(props: {
 	const [busy, setBusy] = React.useState(false);
 	const [note, setNote] = React.useState("");
 	const [combo, setCombo] = React.useState(0);
+	const [hintOn, setHintOn] = React.useState(false);
+	const busyRef = React.useRef(false);
 	const [boardWidth, setBoardWidth] = React.useState(stack ? viewport.width - 24 : math.max(320, viewport.width - 440));
 	const sections: Array<{ id: string; height: number; element: React.Element }> = [];
 	const add = (id: string, height: number, element: React.Element) => {
@@ -762,7 +649,7 @@ function FoundryView(props: {
 	});
 	add(
 		"hero",
-		stack ? 186 : 128,
+		stack ? 214 : 150,
 		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={16} accent={ACCENT} background={darken(ACCENT, 0.9)}>
 			<Ui.Text
 				value={
@@ -779,6 +666,85 @@ function FoundryView(props: {
 			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
 				{chipEls}
 			</frame>
+		</Ui.Panel>,
+	);
+
+	// insight: how much of the energy your Embers make actually reaches an Anvil, and the one rotation that
+	// would improve it most. Hint draws it on the board; Apply taps it for you.
+	busyRef.current = busy;
+	const suggestion = bestRotation(foundry);
+	const emitted = flow.Delivered + flow.Wasted;
+	const efficiency = emitted > 0 ? flow.Delivered / emitted : 0;
+	const applySuggestion = () => {
+		if (suggestion === undefined) {
+			return;
+		}
+		const move = suggestion;
+		task.spawn(() => {
+			for (let tap = 0; tap < move.taps; tap++) {
+				let waited = 0;
+				while (busyRef.current && waited < 2) {
+					task.wait(0.05);
+					waited += 0.05;
+				}
+				act({ Op: "rotate", At: move.key, Back: move.left }, true);
+				task.wait(0.45);
+			}
+		});
+	};
+	const gainText =
+		suggestion === undefined
+			? flow.Delivered <= 0
+				? "Nothing reaches an Anvil yet. Aim an Ember at an Anvil, or chain Conduits between them."
+				: "Every rotation is already at its best."
+			: `Turn the ${(KIND_LOOK[suggestion.kind] ?? CONDUIT).name} ${suggestion.taps === 1 ? "once" : suggestion.taps + " taps"} ${suggestion.left ? "left" : "right"}: +${math.floor(suggestion.gain * 100 + 0.5)}% energy to Anvils`;
+	add(
+		"insight",
+		stack ? 138 : 92,
+		<Ui.Panel size={UDim2.fromScale(1, 1)} padding={14} accent={Palette.lineSoft} background={Palette.panel}>
+			<Ui.Text
+				value={`ENERGY REACHING ANVILS   ${math.floor(efficiency * 100 + 0.5)}%`}
+				size={12}
+				weight={Enum.FontWeight.Heavy}
+				color={efficiency >= 0.85 ? Palette.mint : efficiency >= 0.5 ? ACCENT : Palette.coral}
+				sizeConstraint={new UDim2(1, stack ? 0 : -300, 0, 16)}
+			/>
+			<Ui.Meter
+				value={efficiency}
+				color={efficiency >= 0.85 ? Palette.mint : efficiency >= 0.5 ? ACCENT : Palette.coral}
+				reducedMotion={softMotion}
+				position={UDim2.fromOffset(0, 22)}
+				size={new UDim2(1, stack ? 0 : -300, 0, 6)}
+			/>
+			<Ui.Text
+				value={gainText}
+				size={13}
+				color={suggestion !== undefined ? Palette.cream : Palette.muted}
+				wrap={true}
+				fit={true}
+				minSize={10}
+				position={UDim2.fromOffset(0, 36)}
+				sizeConstraint={new UDim2(1, stack ? 0 : -300, 0, stack ? 34 : 38)}
+			/>
+			<Ui.Button
+				text={hintOn ? "HINT ON" : "SHOW HINT"}
+				onClick={() => setHintOn(!hintOn)}
+				color={hintOn ? ACCENT : Palette.panelSoft}
+				textColor={hintOn ? Palette.ink : Palette.cream}
+				size={stack ? new UDim2(0.5, -4, 0, 36) : UDim2.fromOffset(140, TapTarget)}
+				position={stack ? new UDim2(0, 0, 1, -36) : new UDim2(1, -290, 0.5, -TapTarget / 2)}
+				reducedMotion={softMotion}
+			/>
+			<Ui.Button
+				text="APPLY"
+				onClick={applySuggestion}
+				color={suggestion !== undefined ? Palette.mint : Palette.panelSoft}
+				textColor={suggestion !== undefined ? Palette.ink : Palette.muted}
+				disabled={suggestion === undefined || busy}
+				size={stack ? new UDim2(0.5, -4, 0, 36) : UDim2.fromOffset(140, TapTarget)}
+				position={stack ? new UDim2(0.5, 4, 1, -36) : new UDim2(1, -140, 0.5, -TapTarget / 2)}
+				reducedMotion={softMotion}
+			/>
 		</Ui.Panel>,
 	);
 
@@ -811,6 +777,7 @@ function FoundryView(props: {
 				height={boardH}
 				selected={selected}
 				onCell={onCell}
+				hint={hintOn ? suggestion : undefined}
 				softMotion={softMotion}
 			/>
 		</frame>,

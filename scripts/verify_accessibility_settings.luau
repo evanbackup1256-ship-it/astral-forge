@@ -54,7 +54,11 @@ local regionsSrc = fs.readFile("src/Client/AstralForge/CoreKit/selectionRegions.
 check(string.find(regionsSrc, "SelectionGroup = true", 1, true) ~= nil and string.find(regionsSrc, "NextSelectionRight", 1, true) ~= nil, "selection regions lost SelectionGroup/NextSelection wiring")
 local ui = fs.readFile("src/Client/AstralForge/UiCore/ui.tsx")
 check(string.find(ui, "button.SelectionImageObject = hiddenSelectionImage()", 1, true) ~= nil, "kit Button shows the default Roblox selection box again")
-check(string.find(ui, "transparency={focusRingTransparency}", 1, true) ~= nil, "kit Button lost its focus ring")
+-- one shared FocusGlider draws the focus ring for every control (it springs between them)
+local glider = fs.readFile("src/Client/AstralForge/UiCore/FocusGlider.tsx")
+check(string.find(shell, "<FocusGlider", 1, true) ~= nil, "shell doesn't mount the FocusGlider, so gamepad focus has no ring")
+check(string.find(glider, "GuiService.SelectedObject", 1, true) ~= nil and string.find(glider, "<uistroke", 1, true) ~= nil, "FocusGlider no longer draws a ring around the selected control")
+check(string.find(glider, "SelectionImageObject = hiddenSelectionImage()", 1, true) ~= nil, "FocusGlider stopped hiding Roblox's default selection box (two rings would show)")
 
 if #fails > 0 then
 	error("Accessibility settings failed:\n  " .. table.concat(fails, "\n  "))

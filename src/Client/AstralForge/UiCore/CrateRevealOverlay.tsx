@@ -1,3 +1,4 @@
+import { easeOut } from "../CoreKit/easing";
 import React from "@rbxts/react";
 import { Audio } from "../AudioKit/audio";
 import { ScreenFx } from "./screenFx";
@@ -119,10 +120,6 @@ function useStageClock(key: string, stopAfter: number): React.Binding<number> {
 	return t;
 }
 
-function easeOut(x: number): number {
-	const c = math.clamp(x, 0, 1);
-	return 1 - (1 - c) ** 3;
-}
 // slight overshoot for things that land
 function easeBack(x: number): number {
 	const c = math.clamp(x, 0, 1) - 1;

@@ -6,7 +6,6 @@ import ReactRoblox from "@rbxts/react-roblox";
 import { compactNumber } from "../CoreKit/format";
 import { InteractionFeedback } from "../CoreKit/interaction";
 import {
-	Bevel,
 	Chrome,
 	Layout,
 	Elevation,
@@ -16,15 +15,16 @@ import {
 	TapTarget,
 	chromeFor,
 	contrastOn,
+	contrastRatio,
 	darken,
 	ensureContrast,
 	lighten,
 	strokeGradient,
 	surfaceGradient,
 } from "../CoreKit/theme";
-import { RainbowGradient } from "./rainbowFx";
 import * as TouchGestureService from "../CoreKit/TouchGestureService";
 import * as MotionTokens from "../MotionKit/motionTokens";
+import { live as liveAntilag } from "../MotionKit/antilagState";
 import { Bindable, joinTuple } from "../lua";
 import {
 	ExitPresenceContext,
@@ -35,6 +35,7 @@ import {
 	revealOffset,
 	useChangePop,
 	useClock,
+	useDrivenSpring,
 	useEntrance,
 	useIdleGlint,
 	useExitPresence,
@@ -68,7 +69,20 @@ export function useTouchTargets(): boolean {
 const AstralForge = script.Parent!.Parent!;
 type LuaKit = (name: string) => unknown;
 function kitMember<T>(kit: string, member: string): T {
-	return (require(AstralForge.WaitForChild(kit) as ModuleScript) as LuaKit)(member) as T;
+	const target = AstralForge.WaitForChild(kit);
+	if (target.IsA("ModuleScript")) {
+		const loader = require(target) as LuaKit | Record<string, unknown>;
+		if (typeIs(loader, "function")) {
+			return (loader as LuaKit)(member) as T;
+		} else if (typeIs(loader, "table") && member in loader) {
+			return (loader as Record<string, unknown>)[member] as T;
+		}
+	}
+	const child = target.WaitForChild(member);
+	if (child.IsA("ModuleScript")) {
+		return require(child) as T;
+	}
+	return child as unknown as T;
 }
 
 // Props for components that live in unconverted kits: loosely typed until those kits are ported.
@@ -78,6 +92,9 @@ export type LooseComponent = (props: LooseProps) => React.ReactNode;
 interface ArtIcon {
 	WORDMARK_ASSET: string;
 	COMPACT_MARK_ASSET: string;
+	MARK_BASE_ASSET: string;
+	MARK_STAR_ASSET: string;
+	MARK_GLOW_ASSET: string;
 	Icon: LooseComponent;
 }
 interface AudioApi {
@@ -92,6 +109,9 @@ interface RainbowApi {
 const _Icon = kitMember<ArtIcon>("ArtKit", "Icon");
 const WORDMARK_ASSET = _Icon.WORDMARK_ASSET;
 const COMPACT_MARK_ASSET = _Icon.COMPACT_MARK_ASSET;
+const MARK_BASE_ASSET = _Icon.MARK_BASE_ASSET;
+const MARK_STAR_ASSET = _Icon.MARK_STAR_ASSET;
+const MARK_GLOW_ASSET = _Icon.MARK_GLOW_ASSET;
 const Icon = _Icon.Icon;
 const _audio = kitMember<AudioApi>("AudioKit", "audio");
 const Audio = _audio.Audio;
@@ -161,9 +181,9 @@ export function Stroke({ color, thickness = 1, transparency = 0 }: StrokeProps) 
 // the readability floor every Text owns; callers asking for 8-10 px get this instead
 const MIN_UI_TEXT_SIZE = 11;
 
-// one shared invisible selection image: kit Buttons draw their own focus ring
+// one shared invisible selection image: the FocusGlider draws the focus ring for every control
 let hiddenSelection: Frame | undefined;
-function hiddenSelectionImage(): Frame {
+export function hiddenSelectionImage(): Frame {
 	if (hiddenSelection === undefined) {
 		const frame = new Instance("Frame");
 		frame.Name = "HiddenSelection";
@@ -324,7 +344,8 @@ function fontFaceFor(font: Enum.Font): Font {
 
 // ---------- Text ----------
 export interface TextProps {
-	value?: string;
+	// a binding works too (countdowns): it goes straight to the label
+	value?: Bindable<string>;
 	size?: number;
 	color?: Bindable<Color3>;
 	surface?: Color3;
@@ -343,7 +364,8 @@ export interface TextProps {
 }
 export function Text(props: TextProps) {
 	const {
-		value,
+		// a missing value is empty, never the TextLabel's own placeholder ("Label")
+		value = "",
 		size = 16,
 		color = Palette.cream,
 		surface,
@@ -387,9 +409,15 @@ export function Text(props: TextProps) {
 	}
 	// autoWidth: the box is as wide as its text (for a title with a badge right after it in a row)
 	const autoWidth = props.autoWidth === true && !wrap;
-	const faceSize = autoWidth ? UDim2.fromScale(0, 1) : UDim2.fromScale(1, 1);
-	const faceAutomaticSize = autoWidth ? Enum.AutomaticSize.X : undefined;
 	const faceScaled = autoWidth ? false : fit;
+	// shrink-to-fit text is TextScaled, and a TextScaled label wraps whenever two lines would let it draw larger than one
+	// shrunken line, so a tall box made values like "Any rarity" break in two; a box one line tall keeps it on one line
+	const singleLineFit = faceScaled && !wrap;
+	const faceSize = autoWidth ? UDim2.fromScale(0, 1) : singleLineFit ? new UDim2(1, 0, 0, scaledSize + 4) : UDim2.fromScale(1, 1);
+	const facePosition = singleLineFit ? new UDim2(0, 0, 0.5, 0) : undefined;
+	const shadowPosition = singleLineFit ? new UDim2(0, 0, 0.5, 1) : UDim2.fromOffset(0, 1);
+	const faceAnchor = singleLineFit ? new Vector2(0, 0.5) : undefined;
+	const faceAutomaticSize = autoWidth ? Enum.AutomaticSize.X : undefined;
 	const fontFace = fontFaceFor(font);
 	// a single-line label in a bounded box ends with an ellipsis instead of spilling past it
 	// (every viewport: long locale strings overflow desktop boxes too). Viewport read kept for hook order.
@@ -418,12 +446,13 @@ export function Text(props: TextProps) {
 			ZIndex={zIndex}
 			LayoutOrder={layoutOrder}
 		>
-			{props.shadow !== false && (
+			{props.shadow !== false && liveAntilag.textShadows && (
 				<textlabel
 					{...{ Name: "TextShadow" }}
 					Size={faceSize}
 					AutomaticSize={faceAutomaticSize}
-					Position={UDim2.fromOffset(0, 1)}
+					Position={shadowPosition}
+					AnchorPoint={faceAnchor}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					AutoLocalize={true}
@@ -451,6 +480,8 @@ export function Text(props: TextProps) {
 			<textlabel
 				Size={faceSize}
 				AutomaticSize={faceAutomaticSize}
+				Position={facePosition}
+				AnchorPoint={faceAnchor}
 				BackgroundTransparency={1}
 				BorderSizePixel={0}
 				AutoLocalize={true}
@@ -509,13 +540,33 @@ function fontForWeight(weight: Enum.FontWeight): Enum.Font {
 			: Enum.Font.BuilderSansMedium;
 }
 const WRAPPED_LINE_HEIGHT = 1.12;
+// GetTextSize is an engine call per string; pages measure the same paragraphs on every redraw, so
+// heights are remembered by (text, size, font, width). Cleared whole when it grows past the cap.
+const measuredHeights = new Map<string, number>();
+let measuredCount = 0;
+const MEASURE_CACHE_CAP = 1024;
+
 export function measureWrappedTextHeight(text: unknown, width: unknown, size = 16, weight: Enum.FontWeight = Enum.FontWeight.Medium): number {
 	if (!typeIs(text, "string") || text === "" || !typeIs(width, "number") || width <= 0) {
 		return 0;
 	}
 	const font = fontForWeight(weight);
-	const bounds = TextService.GetTextSize(text, math.max(1, math.floor(size)), font, new Vector2(math.max(1, math.floor(width)), 4000));
-	return math.ceil(bounds.Y * WRAPPED_LINE_HEIGHT);
+	const textSize = math.max(1, math.floor(size));
+	const boxWidth = math.max(1, math.floor(width));
+	const key = `${textSize}|${font.Name}|${boxWidth}|${text}`;
+	const known = measuredHeights.get(key);
+	if (known !== undefined) {
+		return known;
+	}
+	const bounds = TextService.GetTextSize(text, textSize, font, new Vector2(boxWidth, 4000));
+	const height = math.ceil(bounds.Y * WRAPPED_LINE_HEIGHT);
+	if (measuredCount >= MEASURE_CACHE_CAP) {
+		measuredHeights.clear();
+		measuredCount = 0;
+	}
+	measuredHeights.set(key, height);
+	measuredCount += 1;
+	return height;
 }
 
 export interface AutoHeightTextProps {
@@ -988,6 +1039,18 @@ export function IconTile({
 	);
 }
 
+// A filled badge is a dark chip with cream text. Deepen the accent until cream reads on it (4.5:1),
+// so a mid-tone accent never ends up with dark text on a dark-looking pill.
+function filledBadgeFill(accent: Color3): Color3 {
+	let amount = 0.28;
+	let fill = darken(accent, amount);
+	while (amount < 0.8 && contrastRatio(fill, Palette.cream) < 4.5) {
+		amount += 0.08;
+		fill = darken(accent, amount);
+	}
+	return fill;
+}
+
 export function Badge(props: {
 	value?: unknown;
 	accent?: Color3;
@@ -995,6 +1058,7 @@ export function Badge(props: {
 	position?: Bindable<UDim2>;
 	size?: UDim2;
 	zIndex?: number;
+	layoutOrder?: number;
 }) {
 	let value = props.value;
 	if (!typeIs(value, "string")) {
@@ -1002,7 +1066,7 @@ export function Badge(props: {
 	}
 	const text = value as string;
 	const { accent = Palette.cyan, filled = false, position, size = UDim2.fromOffset(78, 26), zIndex = 3 } = props;
-	const fill = filled ? darken(accent, 0.28) : Palette.panelRaised;
+	const fill = filled ? filledBadgeFill(accent) : Palette.panelRaised;
 	const label = ensureContrast(fill, filled ? Palette.cream : lighten(accent, 0.18));
 	const compressLabel = text.size() > 7;
 	// the badge hops when its label changes; a filled badge catches a glint now and then
@@ -1017,6 +1081,7 @@ export function Badge(props: {
 			BackgroundTransparency={filled ? 0 : 0.04}
 			BorderSizePixel={0}
 			ZIndex={zIndex}
+			LayoutOrder={props.layoutOrder}
 			ClipsDescendants={false}
 		>
 			<uiscale Scale={pop} />
@@ -1172,7 +1237,12 @@ export interface PanelProps {
 	shimmer?: boolean;
 	highlight?: boolean;
 	reducedMotion?: boolean;
+	/** size the panel's height to its content (the content must size itself: a list layout or an automatic-size frame) */
+	autoHeight?: boolean;
 }
+// how far an interactive card leans toward the cursor, in px at full hover strength
+const PANEL_LEAN_X = 3;
+const PANEL_LEAN_Y = 2;
 export function Panel(props: PanelProps) {
 	const {
 		children,
@@ -1190,6 +1260,7 @@ export function Panel(props: PanelProps) {
 		shimmer = false,
 		highlight = false,
 		reducedMotion = false,
+		autoHeight = false,
 	} = props;
 	let padding = props.padding;
 	if (padding === undefined) {
@@ -1201,6 +1272,9 @@ export function Panel(props: PanelProps) {
 	const [hoverArmed, setHoverArmed] = React.useState(false);
 	const panelRef = React.useRef<Frame>();
 	const panelSize = useGuiSize(panelRef);
+	// autoHeight: the content frame sizes itself to what is inside, and the panel grows to wrap it
+	const contentRef = React.useRef<Frame>();
+	const contentSize = useGuiSize(contentRef);
 	const effectsPaused = React.useContext(UiEffectsPausedContext);
 	const settings = useMotionSettings();
 	const panelHoverScale = settings.panelHoverScale ?? 1;
@@ -1238,25 +1312,57 @@ export function Panel(props: PanelProps) {
 	const glowWanted = interactive && accent !== undefined && !interactionMotion;
 
 	const hoverGlow = useOptionalFlipperSpring(glowWanted && hovered ? 1 : 0, interactive && hoverArmed, interactionMotion, 460, 38);
+	// pointer depth: an interactive card leans a few px toward the cursor and its shadow slides the
+	// other way, as if lit from above; it springs home when the cursor leaves (mouse only, not touch)
+	const depthWanted = interactive && panelHoverScale > 0.02 && UserInputService.MouseEnabled;
+	const [leanX, leanerX] = useDrivenSpring(6, 0.72, 0, interactionMotion);
+	const [leanY, leanerY] = useDrivenSpring(6, 0.72, 0, interactionMotion);
+	const lean = (rbx: GuiObject, x: number, y: number) => {
+		const at = rbx.AbsolutePosition;
+		const size = rbx.AbsoluteSize;
+		if (size.X < 1 || size.Y < 1) return;
+		const inset = GuiService.GetGuiInset()[0];
+		leanerX.set(math.clamp(((x - at.X) / size.X) * 2 - 1, -1, 1) * PANEL_LEAN_X * panelHoverScale);
+		leanerY.set(math.clamp(((y - inset.Y - at.Y) / size.Y) * 2 - 1, -1, 1) * PANEL_LEAN_Y * panelHoverScale);
+	};
 	const revealFade = React.useMemo(() => activeReveal.map((amount) => 1 - math.clamp(amount, 0, 1)), [activeReveal]);
+	// Strike and cool: a panel is struck into place, so its edge arrives hot and cools as it settles.
+	// The heat is a hump of the entrance (0 -> 1 -> 0), so it costs nothing beyond these maps and a
+	// panel that is already in place (or with Reduced Motion, which makes the entrance instant) has none.
+	const heat = React.useMemo(
+		() =>
+			activeReveal.map((amount) => {
+				const t = math.clamp(amount, 0, 1);
+				return math.sin(t * math.pi) ** 1.4;
+			}),
+		[activeReveal],
+	);
 	const strokeTransparency = React.useMemo(() => {
 		const live = joinTuple<[number, number]>(lift, highlightOn).map((values) => {
 			const hover = values[0];
 			const lit = values[1];
 			return math.clamp(Chrome.panelStrokeIdle - hover * 0.33 - lit * 0.4, Chrome.panelStrokeHover * 0.5, 0.9);
 		});
-		return joinTuple<[number, number]>(live, revealFade).map((values) => math.clamp(values[0] + values[1], 0, 1));
-	}, [highlightOn, lift, revealFade]);
+		// the fade-in is overtaken by the flare mid-entrance, so the edge brightens past its rest value, then cools
+		return joinTuple<[number, number, number]>(live, revealFade, heat).map((values) => math.clamp(values[0] + values[1] - values[2] * 0.75, 0, 1));
+	}, [highlightOn, lift, revealFade, heat]);
 	const surfaceTransparency = reducedTransparency ? 0 : revealFade;
 	const paintChrome = true;
 	const derived = React.useMemo(() => {
 		const liftPx = lift.map((amount) => -amount);
-		const revealY = activeReveal.map(revealOffset);
+		// mass: a taller panel is heavier, so it travels farther into place (8px for a chip-sized card,
+		// up to 22px for a hero panel) instead of every panel rising the same distance
+		const revealY = joinTuple<[number, Vector2]>(activeReveal, panelSize).map((values) => {
+			const rise = math.clamp(values[1].Y * 0.035, 8, 22);
+			return (1 - math.clamp(values[0], 0, 1)) * rise;
+		});
 		const surfaceY = joinTuple<[number, number]>(liftPx, revealY).map((values) => values[0] + values[1]);
 		return {
-			strokeColor: highlightOn.map((amount) => {
+			strokeColor: joinTuple<[number, number]>(highlightOn, heat).map((values) => {
 				const base = accent !== undefined ? accent.Lerp(Palette.lineSoft, 0.55) : Palette.lineSoft;
-				return amount >= 0.45 ? accentColor : base;
+				const rest = values[0] >= 0.45 ? accentColor : base;
+				// the hot edge: toward cream while the panel is arriving
+				return values[1] > 0.02 ? rest.Lerp(Palette.cream, values[1] * 0.7) : rest;
 			}),
 			shadowPosition: joinTuple<[number, Vector2]>(surfaceY, panelSize).map((values) => pixelPosition(values[1], 0, -4, 0, 7 + values[0])),
 			surfacePosition: joinTuple<[number, Vector2]>(surfaceY, panelSize).map((values) => pixelPosition(values[1], 0, 0, 0, values[0])),
@@ -1273,11 +1379,28 @@ export function Panel(props: PanelProps) {
 			glowThickness: hoverGlow.map((amount) => 1 + amount * 0.5),
 			glowTransparency: hoverGlow.map((amount) => 1 - amount * 0.4),
 		};
-	}, [lift, highlightOn, activeReveal, revealFade, accentColor, hoverGlow, panelSize]);
+	}, [lift, highlightOn, activeReveal, revealFade, heat, accentColor, hoverGlow, panelSize]);
+	// the lean moves the card toward the cursor and its shadow half as far away from it
+	const leanedSurface = React.useMemo(
+		() => joinTuple<[UDim2, number, number]>(derived.surfacePosition, leanX, leanY).map(([at, x, y]) => at.add(UDim2.fromOffset(x, y))),
+		[derived, leanX, leanY],
+	);
+	const leanedShadow = React.useMemo(
+		() => joinTuple<[UDim2, number, number]>(derived.shadowPosition, leanX, leanY).map(([at, x, y]) => at.add(UDim2.fromOffset(-x * 0.5, -y * 0.5))),
+		[derived, leanX, leanY],
+	);
 	return (
 		<frame
 			ref={panelRef}
-			Size={size}
+			Size={
+				autoHeight
+					? contentSize.map((measured) => {
+							// the width stays whatever the caller asked for (full width when it gave a binding or nothing)
+							const width = typeOf(size) === "UDim2" ? (size as UDim2).X : new UDim(1, 0);
+							return new UDim2(width.Scale, width.Offset, 0, math.ceil(measured.Y) + padding * 2);
+						})
+					: size
+			}
 			Position={position}
 			BackgroundTransparency={1}
 			BorderSizePixel={0}
@@ -1299,7 +1422,10 @@ export function Panel(props: PanelProps) {
 								},
 								MouseLeave: () => {
 									setHovered(false);
+									leanerX.set(0);
+									leanerY.set(0);
 								},
+								MouseMoved: depthWanted ? lean : undefined,
 							}
 						: {}
 				}
@@ -1321,7 +1447,7 @@ export function Panel(props: PanelProps) {
 				{paintChrome && (
 					<frame
 						Size={new UDim2(1, 8, 1, -1)}
-						Position={derived.shadowPosition}
+						Position={leanedShadow}
 						BackgroundColor3={Palette.shadow}
 						BackgroundTransparency={derived.shadowTransparency}
 						BorderSizePixel={0}
@@ -1332,7 +1458,7 @@ export function Panel(props: PanelProps) {
 				)}
 				<frame
 					Size={UDim2.fromScale(1, 1)}
-					Position={paintChrome ? derived.surfacePosition : UDim2.fromScale(0, 0)}
+					Position={paintChrome ? leanedSurface : UDim2.fromScale(0, 0)}
 					BackgroundColor3={background}
 					BackgroundTransparency={surfaceTransparency}
 					BorderSizePixel={0}
@@ -1341,51 +1467,20 @@ export function Panel(props: PanelProps) {
 				>
 					<uicorner CornerRadius={new UDim(0, radius)} />
 					<uigradient Color={surfaceGradient(background, 0.92)} Rotation={90} />
-					{
-						// forged-plate bevel: a cool 1px light along the top edge that warms on hover/highlight
-						<frame
-							Size={new UDim2(1, -radius * 2, 0, StrokeWidth.hairline)}
-							Position={UDim2.fromOffset(radius, 0)}
-							BackgroundColor3={Palette.steel}
-							BackgroundTransparency={joinTuple<[number, number, number]>(lift, highlightOn, revealFade).map((values) =>
-								math.clamp(Bevel.topLight - (values[0] + values[1]) * (Bevel.topLight - Bevel.topLightHot) + values[2] * (1 - Bevel.topLight), 0, 1),
-							)}
-							BorderSizePixel={0}
-							Active={false}
-							ZIndex={zIndex}
-						/>
-					}
-					{accent !== undefined && Chrome.accentHairline < 1 && (
-						// faint accent hairline across the top edge ties each panel to its section colour
-						<frame
-							Size={new UDim2(1, -radius * 2, 0, StrokeWidth.hairline)}
-							Position={UDim2.fromOffset(radius, 1)}
-							BackgroundColor3={Palette.white}
-							BackgroundTransparency={revealFade.map((amount) => math.clamp(Chrome.accentHairline + amount * (1 - Chrome.accentHairline), 0, 1))}
-							BorderSizePixel={0}
-							Active={false}
-							ZIndex={zIndex}
-						>
-							<RainbowGradient
-								base={accent}
-								state={{ hover: interactive && hovered && !effectsPaused, selected: highlight }}
-								transparency={new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.5, 0), new NumberSequenceKeypoint(1, 1)])}
-							/>
-						</frame>
-					)}
 					{stroke && (
 						<frame Size={new UDim2(1, -2, 1, -2)} Position={UDim2.fromOffset(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex}>
 							<uicorner CornerRadius={new UDim(0, math.max(1, radius - 1))} />
 							<Stroke color={derived.strokeColor} thickness={1} transparency={strokeTransparency} />
 						</frame>
 					)}
-					{glowWanted && (
+					{/* the hover glow and wash only move once the panel has been hovered (their springs wait for it too) */}
+					{glowWanted && hoverArmed && (
 						<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex} Visible={derived.glowVisible}>
 							<uicorner CornerRadius={new UDim(0, radius)} />
 							<Stroke color={accentColor} thickness={derived.glowThickness} transparency={derived.glowTransparency} />
 						</frame>
 					)}
-					{interactive && (
+					{interactive && hoverArmed && (
 						<frame
 							Size={UDim2.fromScale(1, 1)}
 							BackgroundColor3={Palette.cream}
@@ -1418,7 +1513,9 @@ export function Panel(props: PanelProps) {
 						</frame>
 					)}
 					<frame
-						Size={new UDim2(1, -padding * 2, 1, -padding * 2)}
+						ref={contentRef}
+						Size={autoHeight ? new UDim2(1, -padding * 2, 0, 0) : new UDim2(1, -padding * 2, 1, -padding * 2)}
+						AutomaticSize={autoHeight ? Enum.AutomaticSize.Y : Enum.AutomaticSize.None}
 						Position={UDim2.fromOffset(padding, padding)}
 						BackgroundTransparency={1}
 						BorderSizePixel={0}
@@ -1507,6 +1604,8 @@ export interface PressMotionSpec {
 	hover?: number;
 	press?: number;
 	tilt?: number;
+	// how far past rest the button pops when it is activated (a fraction of its size)
+	pop?: number;
 	pressStiffness?: number;
 	pressDamping?: number;
 	hoverStiffness?: number;
@@ -1518,6 +1617,7 @@ export interface PressMotion {
 	hover: number;
 	press: number;
 	tilt: number;
+	pop?: number;
 	pressStiffness: number;
 	pressDamping: number;
 	hoverStiffness: number;
@@ -1572,8 +1672,11 @@ export function resolvePressMotion(input?: string | PressMotionSpec): PressMotio
 	let pressDamping = 52;
 	let hoverStiffness = 900;
 	let hoverDamping = 44;
+	// mass: the smaller the button, the harder it pops when struck; a wide row barely moves
+	let pop = kind === "icon" ? 0.045 : kind === "row" ? 0.016 : 0.03;
 	if (role === "dangerButton") {
 		hoverGain *= 0.5;
+		pop *= 0.5;
 		pressDrop = 0.025;
 		tilt = 0;
 		pressStiffness = 1700;
@@ -1582,6 +1685,7 @@ export function resolvePressMotion(input?: string | PressMotionSpec): PressMotio
 		hoverDamping = 52;
 	} else if (role === "primaryButton" || role === "reward" || role === "reveal" || role === "ceremony") {
 		pressDrop = 0.035;
+		pop += 0.012;
 		pressStiffness = 1400;
 		pressDamping = 46;
 		hoverStiffness = 820;
@@ -1592,6 +1696,7 @@ export function resolvePressMotion(input?: string | PressMotionSpec): PressMotio
 		role,
 		hover: hoverGain,
 		press: pressDrop,
+		pop,
 		tilt: math.clamp(tilt, -1.5, 1.5),
 		pressStiffness,
 		pressDamping,
@@ -1703,10 +1808,13 @@ export function useButtonChrome(
 			// reduced motion: keep the brightness feedback, drop the scale tween
 			return 1;
 		}
+		// activating pops the button a few percent past rest, then it settles back as the flash fades:
+		// the press dips, the release springs through, the tap lands
+		const pop = values[1] * (pressMotion.pop ?? 0.03);
 		if (value >= 0) {
-			return 1 + math.clamp(value, 0, 1) * hoverGain;
+			return 1 + math.clamp(value, 0, 1) * hoverGain + pop;
 		}
-		return 1 - math.clamp(-value, 0, 1) * pressDrop;
+		return 1 - math.clamp(-value, 0, 1) * pressDrop + pop;
 	});
 	const tilt = pose.map((value) => math.clamp(value, 0, 1) * tiltDegrees);
 	React.useEffect(() => {
@@ -2019,11 +2127,14 @@ export interface ButtonProps {
 	children?: React.ReactNode;
 	motion?: string | PressMotionSpec;
 	tooltip?: unknown;
+	layoutOrder?: number;
 }
 let nextAssistId = 0;
 export function Button(props: ButtonProps) {
 	const {
-		text,
+		// no text means an icon-only button; an undefined text used to fall through to the TextLabel's own
+		// default ("Label"), which showed as a stray "L" beside close buttons
+		text = "",
 		onClick,
 		size = UDim2.fromOffset(160, TapTarget),
 		position,
@@ -2057,7 +2168,10 @@ export function Button(props: ButtonProps) {
 		size,
 	};
 	const chrome = useButtonChrome(onClick, reducedMotion, effectivelyDisabled, resolvedSound, true, highlight, motion);
-	const { active, hovered, offsetY, hoverAmount, pressAmount, impact, shimmer, shimmerLive, focusRing, touchScale, tilt, events } = chrome;
+	const { active, engaged, hovered, offsetY, hoverAmount, pressAmount, impact, shimmer, shimmerLive, focusRing, touchScale, tilt, events } = chrome;
+	// the hover tint, press flash, focus ring and refusal shake only ever show once the button has been
+	// hovered, pressed, focused or refused, so they mount then: an untouched button is ~18 instances, not 30
+	const shaken = shakeToken !== 0;
 	const spinnerTurn = useRotation(loading, 260);
 	const labelHiddenByLoading = useFlipperSpring(loading ? 1 : 0, reducedMotion, 520, 40);
 	const shake = useFlash(shakeToken, reducedMotion, 0.42);
@@ -2175,10 +2289,6 @@ export function Button(props: ButtonProps) {
 		() => fadedBy(breatheStroke.map((amount) => math.clamp(0.55 + amount * 0.9, 0.55, 1)), surfaceFade),
 		[surfaceFade, breatheStroke],
 	);
-	const focusRingTransparency = React.useMemo(
-		() => fadedBy(focusRing.map((amount) => 1 - amount * 0.98), surfaceFade),
-		[surfaceFade, focusRing],
-	);
 	const iconAccent = joinTuple<[Color3, number]>(labelColor, disabledAmount).map(([label, amount]) =>
 		label.Lerp(Palette.lineSoft, math.clamp(amount, 0, 1)),
 	);
@@ -2195,7 +2305,7 @@ export function Button(props: ButtonProps) {
 	const hitExtra =
 		touchShell && resolvedSize.Y.Scale === 0 ? math.max(0, TapTarget - resolvedSize.Y.Offset) : 0;
 	return (
-		<frame Size={resolvedSize} Position={position} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex} ClipsDescendants={false}>
+		<frame Size={resolvedSize} Position={position} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex} LayoutOrder={props.layoutOrder} ClipsDescendants={false}>
 			<imagebutton
 				ref={buttonRef}
 				Size={new UDim2(1, 0, 1, hitExtra)}
@@ -2251,7 +2361,7 @@ export function Button(props: ButtonProps) {
 								ZIndex={zIndex + 2}
 							/>
 						)}
-						{!compactRipple && (
+						{!compactRipple && engaged && (
 							<frame
 								Size={UDim2.fromScale(1, 1)}
 								BackgroundColor3={Palette.white}
@@ -2275,7 +2385,7 @@ export function Button(props: ButtonProps) {
 								radius={Layout.buttonRadius}
 							/>
 						)}
-						{active && (
+						{active && engaged && (
 							<frame
 								Size={UDim2.fromScale(1, 1)}
 								BackgroundColor3={Palette.white}
@@ -2288,7 +2398,7 @@ export function Button(props: ButtonProps) {
 								{corner}
 							</frame>
 						)}
-						{active && (
+						{active && engaged && (
 							<frame
 								Size={UDim2.fromScale(1, 1)}
 								BackgroundTransparency={1}
@@ -2306,17 +2416,19 @@ export function Button(props: ButtonProps) {
 								/>
 							</frame>
 						)}
-						<frame
-							Size={UDim2.fromScale(1, 1)}
-							BackgroundColor3={Palette.coral}
-							BackgroundTransparency={shake.map((amount) => math.clamp(1 - amount * 0.6, 0.4, 1))}
-							BorderSizePixel={0}
-							Active={false}
-							ZIndex={zIndex + 4}
-							Visible={shake.map((amount) => amount > 0.02)}
-						>
-							{corner}
-						</frame>
+						{shaken && (
+							<frame
+								Size={UDim2.fromScale(1, 1)}
+								BackgroundColor3={Palette.coral}
+								BackgroundTransparency={shake.map((amount) => math.clamp(1 - amount * 0.6, 0.4, 1))}
+								BorderSizePixel={0}
+								Active={false}
+								ZIndex={zIndex + 4}
+								Visible={shake.map((amount) => amount > 0.02)}
+							>
+								{corner}
+							</frame>
+						)}
 						{children}
 						<frame
 							Size={UDim2.fromScale(1, 1)}
@@ -2461,17 +2573,6 @@ export function Button(props: ButtonProps) {
 							<Stroke color={lighten(buttonColor, 0.3)} thickness={2} transparency={breatheRingTransparency} />
 						</frame>
 					)}
-					<frame
-						Size={UDim2.fromScale(1, 1)}
-						Position={surfacePosition}
-						BackgroundTransparency={1}
-						BorderSizePixel={0}
-						Active={false}
-						ZIndex={zIndex + 5}
-					>
-						{corner}
-						<Stroke color={Palette.cream} thickness={4} transparency={focusRingTransparency} />
-					</frame>
 				</frame>
 			</imagebutton>
 		</frame>
@@ -3113,7 +3214,7 @@ function SegmentedTabHit({
 		>
 			<frame
 				Size={UDim2.fromScale(1, 1)}
-				Position={chrome.offsetY.map((y) => new UDim2(0.5, 0, 0.5, math.round(y)))}
+				Position={chrome.offsetY.map((y) => new UDim2(0.5, 0, 0.5, y))}
 				AnchorPoint={new Vector2(0.5, 0.5)}
 				BackgroundColor3={Palette.white}
 				BackgroundTransparency={hoverAlpha}
@@ -3161,16 +3262,6 @@ function SegmentedTabHit({
 					position={option.icon !== undefined ? UDim2.fromOffset(38, 0) : UDim2.fromOffset(8, 0)}
 					sizeConstraint={new UDim2(1, option.icon !== undefined ? -46 : -16, 1, 0)}
 					zIndex={zIndex + 2}
-				/>
-			</frame>
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={zIndex + 3}>
-				<uicorner CornerRadius={new UDim(0, 7)} />
-				<uistroke
-					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
-					LineJoinMode={Enum.LineJoinMode.Round}
-					Color={Palette.cream}
-					Thickness={3}
-					Transparency={chrome.focusRing.map((amount) => 1 - math.clamp(amount, 0, 1) * 0.95)}
 				/>
 			</frame>
 		</imagebutton>
@@ -4113,10 +4204,186 @@ export function Dropdown({
 	);
 }
 
-export function LogoLockup(props: { micro?: boolean; position?: UDim2 }) {
+// The brand lockup. The artwork is layered so the game can move it: the badge, the strike star (which pivots
+// on its own centre), a warm glow behind the star, and the wordmark with a sheen copy on top. A small bead
+// travels the badge's orbit ring, a few embers rise off the anvil, and a glint sweeps the wordmark every
+// few seconds. Tapping the badge strikes the anvil. Every number below comes from the badge artwork
+// (tools/assetgen/build_logo_v2.py writes the same values to mark-layout.json).
+const LOGO_RING = { cx: 556, cy: 392, rx: 262, ry: 62, tilt: -16 };
+const LOGO_STAR = { x: 556, y: 392 };
+const LOGO_STRIKE = { x: 556, y: 546 };
+const LOGO_WARM = Color3.fromRGB(255, 188, 104);
+const LOGO_HOT = Color3.fromRGB(255, 240, 214);
+const LOGO_SWEEP_EVERY = 7.5;
+const LOGO_SWEEP_SECONDS = 1.1;
+
+function logoOrbit(angle: number): Vector2 {
+	const x = LOGO_RING.rx * math.cos(angle);
+	const y = LOGO_RING.ry * math.sin(angle);
+	const tilt = math.rad(LOGO_RING.tilt);
+	return new Vector2(LOGO_RING.cx + x * math.cos(tilt) - y * math.sin(tilt), LOGO_RING.cy + x * math.sin(tilt) + y * math.cos(tilt));
+}
+
+export function LogoLockup(props: { micro?: boolean; compact?: boolean; position?: UDim2 }) {
 	const micro = props.micro === true;
 	const mark = micro ? 40 : 48;
 	const textX = mark + 10;
+	const layered = MARK_BASE_ASSET !== "" && MARK_STAR_ASSET !== "";
+	const effectsPaused = React.useContext(UiEffectsPausedContext);
+	const settings = useMotionSettings();
+	const calm = effectsPaused || settings.soft === true;
+	const clock = useClock(layered && !calm, 1, 600, true);
+	const [hovered, setHovered] = React.useState(false);
+	const [strikes, setStrikes] = React.useState(0);
+	const strike = useFlash(strikes, calm, 0.7);
+	const hover = useFlipperSpring(hovered ? 1 : 0, calm, 640, 38);
+	const markAt = (point: Vector2) => UDim2.fromScale(point.X / 1000, point.Y / 1000);
+
+	const ignoreGuard = (instance: Instance | undefined) => {
+		if (instance !== undefined) {
+			instance.SetAttribute("LayoutGuardIgnore", true);
+		}
+	};
+
+	// the badge and its moving parts
+	const emblem = layered ? (
+		<frame
+			ref={ignoreGuard}
+			Size={UDim2.fromOffset(mark, mark)}
+			Position={new UDim2(0, 0, 0.5, 0)}
+			AnchorPoint={new Vector2(0, 0.5)}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			ClipsDescendants={false}
+		>
+			{MARK_GLOW_ASSET !== "" && (
+				<imagelabel
+					Image={MARK_GLOW_ASSET}
+					Size={UDim2.fromScale(0.9, 0.9)}
+					Position={markAt(new Vector2(LOGO_STAR.x, LOGO_STAR.y))}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+					ImageColor3={LOGO_WARM}
+					ImageTransparency={React.joinBindings([clock, strike, hover]).map(([t, kick, lift]) => {
+						const breath = 0.5 + 0.5 * math.sin(t * 1.3);
+						return math.clamp(0.8 - breath * 0.1 - kick * 0.35 - lift * 0.12, 0.2, 1);
+					})}
+					ZIndex={1}
+				/>
+			)}
+			<imagelabel
+				Image={MARK_BASE_ASSET}
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ScaleType={Enum.ScaleType.Fit}
+				ZIndex={2}
+			/>
+			{/* the strike star: breathes, tilts a hair, and kicks when the anvil is struck */}
+			<imagelabel
+				Image={MARK_STAR_ASSET}
+				Size={React.joinBindings([clock, strike, hover]).map(([t, kick, lift]) => {
+					const scale = 0.42 * (1 + math.sin(t * 1.3) * 0.035 + kick * 0.22 + lift * 0.05);
+					return UDim2.fromScale(scale, scale);
+				})}
+				Position={markAt(new Vector2(LOGO_STAR.x, LOGO_STAR.y))}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				Rotation={React.joinBindings([clock, strike]).map(([t, kick]) => math.sin(t * 0.8) * 2.2 + kick * 14)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				ScaleType={Enum.ScaleType.Fit}
+				ZIndex={4}
+			/>
+			{/* the bead on the orbit ring, with a short fading wake; it passes behind the star on the far side */}
+			{[0, 1, 2].map((index) => {
+				const lag = index * 0.2;
+				return (
+					<frame
+						key={`bead${index}`}
+						ref={ignoreGuard}
+						Size={UDim2.fromOffset(math.max(2, mark * (0.075 - index * 0.018)), math.max(2, mark * (0.075 - index * 0.018)))}
+						Position={clock.map((t) => markAt(logoOrbit(t * 0.9 - lag)))}
+						AnchorPoint={new Vector2(0.5, 0.5)}
+						BackgroundColor3={index === 0 ? LOGO_HOT : LOGO_WARM}
+						BackgroundTransparency={index * 0.3 + 0.05}
+						BorderSizePixel={0}
+						ZIndex={clock.map((t) => (math.sin(t * 0.9 - lag) < 0 ? 3 : 5))}
+					>
+						<uicorner CornerRadius={new UDim(1, 0)} />
+					</frame>
+				);
+			})}
+			{/* embers lifting off the anvil */}
+			{[0, 1, 2].map((index) => (
+				<frame
+					key={`ember${index}`}
+					ref={ignoreGuard}
+					Size={UDim2.fromOffset(math.max(2, mark * 0.05), math.max(2, mark * 0.05))}
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					Position={clock.map((t) => {
+						const life = (t * 0.32 + index / 3) % 1;
+						const x = LOGO_STRIKE.x + math.sin(t * 1.7 + index * 2.1) * 34 * life + (index - 1) * 26 * life;
+						const y = LOGO_STRIKE.y - life * 230;
+						return markAt(new Vector2(x, y));
+					})}
+					BackgroundColor3={LOGO_WARM}
+					BackgroundTransparency={clock.map((t) => {
+						const life = (t * 0.32 + index / 3) % 1;
+						return 1 - math.sin(life * math.pi) * 0.85;
+					})}
+					BorderSizePixel={0}
+					ZIndex={4}
+				>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+				</frame>
+			))}
+			{/* the whole badge is a button only so it can be struck and hovered */}
+			<textbutton
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				AutoButtonColor={false}
+				Selectable={false}
+				Text=""
+				ZIndex={8}
+				Event={{
+					MouseEnter: () => setHovered(true),
+					MouseLeave: () => setHovered(false),
+					Activated: () => {
+						setStrikes((count) => count + 1);
+						Audio.play("tick");
+					},
+				}}
+			/>
+		</frame>
+	) : (
+		<frame
+			Size={UDim2.fromOffset(mark, mark)}
+			Position={new UDim2(0, 0, 0.5, 0)}
+			AnchorPoint={new Vector2(0, 0.5)}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			ClipsDescendants={false}
+		>
+			<imagelabel
+				{...{ Name: "ForgeMonogram" }}
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				Image={COMPACT_MARK_ASSET}
+				ScaleType={Enum.ScaleType.Fit}
+				ZIndex={2}
+			/>
+		</frame>
+	);
+
+	// the sheen: a white copy of the wordmark whose opacity is a narrow band sliding across it
+	const sheen = clock.map((t) => {
+		const phase = t % LOGO_SWEEP_EVERY;
+		const progress = phase / LOGO_SWEEP_SECONDS;
+		return progress >= 1 ? -1.6 : -1.25 + progress * 2.5;
+	});
 	return (
 		<frame
 			{...{ Name: "AstralForgeBrand" }}
@@ -4126,24 +4393,7 @@ export function LogoLockup(props: { micro?: boolean; position?: UDim2 }) {
 			BorderSizePixel={0}
 			ClipsDescendants={false}
 		>
-			<frame
-				Size={UDim2.fromOffset(mark, mark)}
-				Position={new UDim2(0, 0, 0.5, 0)}
-				AnchorPoint={new Vector2(0, 0.5)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={false}
-			>
-				<imagelabel
-					{...{ Name: "ForgeMonogram" }}
-					Size={UDim2.fromScale(1, 1)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					Image={COMPACT_MARK_ASSET}
-					ScaleType={Enum.ScaleType.Fit}
-					ZIndex={2}
-				/>
-			</frame>
+			{emblem}
 			{!micro && (
 				<imagelabel
 					{...{ Name: "ForgeWordmark" }}
@@ -4155,7 +4405,33 @@ export function LogoLockup(props: { micro?: boolean; position?: UDim2 }) {
 					AnchorPoint={new Vector2(0, 0.5)}
 					Size={new UDim2(1, -textX, 0, 44)}
 					ZIndex={2}
-				/>
+				>
+					{layered && !calm && (
+						<imagelabel
+							Image={WORDMARK_ASSET}
+							ScaleType={Enum.ScaleType.Fit}
+							BackgroundTransparency={1}
+							BorderSizePixel={0}
+							ImageColor3={LOGO_HOT}
+							Size={UDim2.fromScale(1, 1)}
+							ZIndex={3}
+						>
+							<uigradient
+								Rotation={18}
+								Offset={sheen.map((x) => new Vector2(x, 0))}
+								Transparency={
+									new NumberSequence([
+										new NumberSequenceKeypoint(0, 1),
+										new NumberSequenceKeypoint(0.4, 1),
+										new NumberSequenceKeypoint(0.5, 0.35),
+										new NumberSequenceKeypoint(0.6, 1),
+										new NumberSequenceKeypoint(1, 1),
+									])
+								}
+							/>
+						</imagelabel>
+					)}
+				</imagelabel>
 			)}
 		</frame>
 	);

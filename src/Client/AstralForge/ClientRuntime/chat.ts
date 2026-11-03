@@ -31,7 +31,7 @@ const CHANNEL_LABEL: Record<string, string | undefined> = {
 type Done = (ok: boolean, reason?: string) => void;
 type Run = (action: string, payload: Record<string, unknown>, callback: (response: unknown) => void) => unknown;
 
-interface ChatRecord {
+export interface ChatRecord {
 	id: string;
 	userId: number;
 	username: string;
@@ -55,7 +55,7 @@ interface ChatRecord {
 	profileFrame?: string;
 }
 
-interface WhisperEntry {
+export interface WhisperEntry {
 	userId: number;
 	name: string;
 	displayName: string;
@@ -883,3 +883,4 @@ function useGameChat(active: boolean, enabled = true, dispatch?: Run, settings?:
 }
 
 export { useGameChat };
+export type ChatApi = ReturnType<typeof useGameChat>;

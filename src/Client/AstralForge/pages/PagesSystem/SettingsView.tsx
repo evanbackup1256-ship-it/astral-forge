@@ -347,7 +347,6 @@ function SettingRow(props: SettingRowProps) {
 interface SectionButtonProps {
 	section: SchemaSection;
 	active: boolean;
-	count: number;
 	compact: boolean;
 	size: UDim2;
 	layoutOrder: number;
@@ -390,20 +389,9 @@ function SectionButton(props: SectionButtonProps) {
 								fit={props.compact === true} // three to a row on phones: long names shrink to fit
 								minSize={10}
 								position={UDim2.fromOffset(props.compact ? 34 : 40, 0)}
-								sizeConstraint={new UDim2(1, props.compact ? -38 : -70, 1, 0)}
+								sizeConstraint={new UDim2(1, props.compact ? -38 : -54, 1, 0)}
 								zIndex={11}
 							/>
-							{!props.compact && (
-								<Text
-									value={tostring(props.count)}
-									size={12}
-									color={Palette.muted}
-									align={Enum.TextXAlignment.Right}
-									position={new UDim2(1, -36, 0, 0)}
-									sizeConstraint={new UDim2(0, 26, 1, 0)}
-									zIndex={11}
-								/>
-							)}
 						</frame>
 					</>
 				}
@@ -531,11 +519,6 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			}
 		}
 	}
-	const counts: Record<string, number | undefined> = {};
-	for (const entry of Schema.ENTRIES) {
-		counts[entry.section] = (counts[entry.section] ?? 0) + 1;
-	}
-
 	const preset = Schema.matchingPreset(settings);
 	const applyPreset = (entry: SchemaPreset) => {
 		dispatch("SetSetting", { Values: entry.values, Label: entry.notice });
@@ -623,9 +606,12 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 	const searchY = stack ? actionsY + 40 + 10 : 60;
 	const chipsX = stack ? 0 : 356;
 	const chipsY = stack ? searchY + searchH + 8 : searchY + math.floor((searchH - Browse.CHIP_H) / 2);
-	const headerH = (stack ? chipsY + Browse.CHIP_H : searchY + math.max(searchH, Browse.CHIP_H)) + 32;
+	// the panel pads 22px on every side, so the rows need 44px on top of their own height (32 left the
+	// search box flush with the bottom edge and its 44px touch area poking 16px out of the panel)
+	const HEADER_PAD = 22;
+	const headerH = (stack ? chipsY + Browse.CHIP_H : searchY + math.max(searchH, Browse.CHIP_H)) + HEADER_PAD * 2;
 	const header = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={22} reveal={reveal} reducedMotion={softMotion} clips={false}>
+		<Panel size={UDim2.fromScale(1, 1)} accent={accent} background={Palette.panelRaised} padding={HEADER_PAD} reveal={reveal} reducedMotion={softMotion} clips={false}>
 			<Text
 				value="Settings"
 				size={stack ? 22 : 26}
@@ -725,7 +711,6 @@ export function SettingsView({ state, dispatch, reducedMotion }: SettingsViewPro
 			<SectionButton
 				section={entry}
 				active={!listing && entry.id === activeSection}
-				count={counts[entry.id] ?? 0}
 				compact={stack}
 				size={UDim2.fromOffset(chipW, stack ? TapTarget : 42)}
 				layoutOrder={index + 1}

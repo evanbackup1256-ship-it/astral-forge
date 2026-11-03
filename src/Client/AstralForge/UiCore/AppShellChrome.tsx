@@ -11,12 +11,14 @@ import { enterPage, registerRegion } from "../CoreKit/selectionRegions";
 import { ClientLog } from "../CoreKit/log";
 import { setPresencePage } from "../CoreKit/session";
 import { Layout, Palette, chromeFor } from "../CoreKit/theme";
-import { AntilagContext, clampAntilagTier, setAntilagPreference, setAntilagScene, useAntilag } from "../MotionKit/antilag";
+import { AntilagContext, clampAntilagTier, setAntilagPreference, setAntilagScene, setAntilagSuspended, useAntilag } from "../MotionKit/antilag";
+import { ceilingForPreference } from "../../../Shared/AstralForge/Shared/AntilagGovernor";
+import { useClaim, useReserved } from "../MotionKit/choreography";
 import { useDynamicLayoutNumber } from "../MotionKit/dynamicLayout";
+import { joinTuple } from "../lua";
 import { Flex, FlexItem } from "../MotionKit/flexbox";
 import { useFlipperSpring, useViewport, useWallClock } from "../MotionKit/motion";
 import { PageContent } from "../pages/PageRouter";
-import QuickFind = require("../QuickFind");
 import { PageFrame } from "../ReactHosts/reactHost";
 import { useEventListener, useLatestCallback } from "../ReactHosts/reactModules";
 import { notePage } from "../ReactHosts/vendorHost";
@@ -44,6 +46,8 @@ import { Workspace } from "./WorkspaceChrome";
 import { DesktopLayout, openDesktopEditor, useDesktopEditorOpen, useDesktopPlan } from "../CoreKit/desktopLayout";
 import { DesktopLayoutEditor } from "../UiOverlays/DesktopLayoutEditor";
 import { ConfirmHost } from "../UiOverlays/ConfirmDialog";
+import { FocusGlider } from "./FocusGlider";
+import { RestoreChip } from "./RestoreChip";
 import TutorialScript = require("../../../Shared/AstralForge/Shared/SharedData/TutorialScript");
 
 type RevealSession = NonNullable<CrateRevealProps["session"]>;
@@ -250,6 +254,11 @@ function AppShell(props: ShellProps) {
 	}, [drawerNav]);
 	const [arcadeBusy, setArcadeBusy] = React.useState(false);
 	const [hidden, setHidden] = React.useState(false);
+	// a hidden interface has nothing on screen to animate: the antilag engine stops the decorative work
+	React.useEffect(() => {
+		setAntilagSuspended("hidden", hidden);
+		return () => setAntilagSuspended("hidden", false);
+	}, [hidden]);
 	const [buyAmount, setBuyAmount] = React.useState(1);
 	const chat = useGameChat(page === "Chat", true, dispatch, state.Settings);
 	const offlineReceiptKey = state.Offline !== undefined && state.Offline.Seconds >= 30
@@ -279,6 +288,12 @@ function AppShell(props: ShellProps) {
 	const softMotion = false;
 	const shellTopLive = useDynamicLayoutNumber(shellTop, softMotion);
 	const topbarLive = useDynamicLayoutNumber(topbarHeight, softMotion);
+	// floating pieces (the trade-return pill) claim space along the bottom; the page glides up out of their way
+	const bottomClaim = useReserved("bottom");
+	const contentHostRef = React.useRef<Frame>();
+	React.useEffect(() => {
+		contentHostRef.current?.SetAttribute("LayoutInMotion", bottomClaim.moving ? true : undefined);
+	}, [bottomClaim.moving]);
 	React.useEffect(() => { Audio.setView(page, false); }, [page]);
 	const effectsScale = tonumber(state.Settings.EffectsIntensity) ?? 1;
 	const accent = AppHelpers.pageAccent(page);
@@ -347,12 +362,16 @@ function AppShell(props: ShellProps) {
 		const entry = AppHelpers.pageEntry(pageId) as ReturnType<typeof AppHelpers.pageEntry> & { disabledReason?: string };
 		if (entry.disabled === true) {
 			Audio.play("locked");
+			ClientLog.count("nav.closed");
+			ClientLog.info("nav", `${pageId} is closed`, { Reason: entry.disabledReason ?? "closed" });
 			addNotice(`${entry.label} is closed`, entry.disabledReason ?? "Closed for now.", "Info");
 			return;
 		}
 		if (!AppHelpers.navUnlocked(state, pageId, tutorial?.page)) {
 			const lock = state.FeatureUnlocks?.[pageId];
 			Audio.play("locked");
+			ClientLog.count("nav.locked");
+			ClientLog.info("nav", `${pageId} is locked`, { Requirement: lock?.Requirement ?? "unknown" });
 			let body = lock?.Requirement ?? "Not unlocked yet.";
 			if (lock !== undefined && typeIs(lock.Requirement, "string") && lock.Requirement !== "") {
 				const done = typeIs(lock.Progress, "number") && typeIs(lock.Target, "number")
@@ -364,7 +383,9 @@ function AppShell(props: ShellProps) {
 			return;
 		}
 		Audio.setView(pageId);
-		ClientLog.debug("nav", pageId);
+		ClientLog.debug("nav", pageId, { From: page });
+		ClientLog.count("nav.total");
+		ClientLog.count(`nav.${pageId}`);
 		setPage(pageId);
 		if (drawerNav) setRailOpen(false);
 	};
@@ -382,6 +403,24 @@ function AppShell(props: ShellProps) {
 	const onWheelLand = React.useCallback(() => celebrate(), [celebrate]);
 	// stable shell handlers (same bodies as the old inline arrows; navigateRef always holds this render's navigate)
 	const navigateLatest = useLatestCallback((pageId: string) => navigateRef.current(pageId)) as (pageId: string) => void;
+	// Studio only: setting ReplicatedStorage.AstralDevRoute to a page id (from the command bar or a test
+	// driver) opens that page, so playtests do not depend on clicking through the rail
+	React.useEffect(() => {
+		const services = game.GetService("RunService");
+		if (!services.IsStudio()) {
+			return undefined;
+		}
+		const holder = game.GetService("ReplicatedStorage");
+		const apply = () => {
+			const route = holder.GetAttribute("AstralDevRoute");
+			if (typeIs(route, "string") && route !== "") {
+				holder.SetAttribute("AstralDevRoute", undefined);
+				navigateRef.current(route);
+			}
+		};
+		const connection = holder.GetAttributeChangedSignal("AstralDevRoute").Connect(apply);
+		return () => connection.Disconnect();
+	}, []);
 	const toggleRail = React.useCallback(() => setRailOpen((open) => !open), []);
 	const hideUI = React.useCallback(() => setHidden(true), []);
 	const showUI = React.useCallback(() => setHidden(false), []);
@@ -524,7 +563,7 @@ function AppShell(props: ShellProps) {
 	}, []);
 	const sampledAntilag = useAntilag();
 	const performanceBias = tonumber(state.Settings.PerformanceBias) ?? 0.5;
-	const performanceTierCap = performanceBias >= 0.88 ? 1 : performanceBias >= 0.68 ? 2 : 3;
+	const performanceTierCap = ceilingForPreference(performanceBias);
 	const rootAntilag = React.useMemo(() => clampAntilagTier(sampledAntilag, performanceTierCap), [performanceTierCap, sampledAntilag]);
 	const backgroundDetail = tonumber(state.Settings.BackgroundDetail) ?? 0.8;
 	const glowIntensity = tonumber(state.Settings.GlowIntensity) ?? 0.75;
@@ -548,7 +587,8 @@ function AppShell(props: ShellProps) {
 		setAntilagScene(cinematicOpen ? "cinematic" : arcadeBusy ? "arcade" : heavyPage ? "heavy" : "normal");
 		return () => setAntilagScene("normal");
 	}, [arcadeBusy, cinematicOpen, heavyPage]);
-	const gamepadReserve = gamepadActive ? 44 : 0;
+	// the controller hint bar claims its strip along the bottom: the page glides up when a pad connects
+	useClaim("gamepad-hints", "bottom", 44, gamepadActive);
 	let ownedMachines = 0;
 	if (state.Machines !== undefined) {
 		for (const [, level] of pairs(state.Machines)) {
@@ -573,7 +613,7 @@ function AppShell(props: ShellProps) {
 					<uigradient Color={new ColorSequence([new ColorSequenceKeypoint(0, Palette.void), new ColorSequenceKeypoint(0.5, Palette.graphite), new ColorSequenceKeypoint(1, Palette.void)])} Rotation={112} />
 					<frame Size={new UDim2(1, 0, 0, 1)} BackgroundColor3={Palette.brass}
 						BackgroundTransparency={hideAmount.map((amount) => math.clamp(0.8 + amount, 0, 1))} BorderSizePixel={0} ZIndex={2} />
-					<frame Size={UDim2.fromScale(1, 1)} Position={hideAmount.map((amount) => new UDim2(0, 0, amount * 1.05, 0))} BackgroundTransparency={1} BorderSizePixel={0}>
+					<frame Size={UDim2.fromScale(1, 1)} Position={hideAmount.map((amount) => new UDim2(0, 0, amount * 1.05, 0))} Visible={hideAmount.map((amount) => amount < 0.995)} BackgroundTransparency={1} BorderSizePixel={0}>
 						{(tonumber(state.Settings.BackgroundStars) ?? 1) >= 0.5 && backgroundDetail >= 0.2 && <StarField accent={accent} />}
 						{(tonumber(state.Settings.AmbientGlow) ?? 1) >= 0.5 && !suppressBackground && <AmbientLayer reducedMotion={softMotion || heavyPage || quietPage || arcadeBusy} intensity={glowIntensity} />}
 						{(tonumber(state.Settings.AmbientGlow) ?? 1) >= 0.5 && glowIntensity > 0.02 && backgroundDetail >= 0.45 &&
@@ -594,7 +634,8 @@ function AppShell(props: ShellProps) {
 							islandX={deskOn && desk.islandAt !== undefined ? math.floor(desk.islandAt.X * viewport.width) : undefined}
 							islandY={deskOn && desk.islandAt !== undefined ? math.floor(desk.islandAt.Y * viewport.height) : undefined}
 							islandScale={deskOn ? desk.islandScale : undefined} />}
-						<frame Size={shellTopLive.map((top) => new UDim2(1, -edgePad * 2, 1, -(top + bottomPad + gamepadReserve)))}
+						<frame ref={contentHostRef}
+							Size={joinTuple<[number, number]>(shellTopLive, bottomClaim.amount).map((values) => new UDim2(1, -edgePad * 2, 1, -(values[0] + bottomPad + values[1])))}
 							Position={shellTopLive.map((top) => UDim2.fromOffset(edgePad, top))} BackgroundTransparency={1} BorderSizePixel={0}>
 							<frame ref={pageRegionRef} Size={workspaceSize} Position={workspaceOffset} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={5}>
 								{deskOn && desk.pageMax < math.huge && <uisizeconstraint MaxSize={new Vector2(desk.pageMax, math.huge)} />}
@@ -633,12 +674,8 @@ function AppShell(props: ShellProps) {
 								<ComboBadge readout={comboReadout} reducedMotion={reducedMotion} position={new UDim2()} anchorPoint={desk.comboAt !== undefined ? TOP_CENTER_ANCHOR : TOP_RIGHT_ANCHOR} zIndex={65} />
 							</frame>)}
 						{renderEffectsScale > 0.05 && <EffectLayer pops={visiblePops} />}
-						<QuickFind.QuickFind state={state} dispatch={dispatch} navigate={navigateStable} chatUnread={chat.unread} reducedMotion={reducedMotion}
-							enabled={!hidden && !tutorialOpen && !domainOverlayActive && !showRelease} />
 					</frame>
-					<frame Size={UDim2.fromOffset(186, 44)} Position={hideAmount.map((amount) => new UDim2(0, edgePad, 0, -64 + math.floor(amount * (topPad + 64))))} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={200}>
-						<Button text="SHOW UI  ( ` )" icon="Hide.2" onClick={showUI} color={accent} textColor={Palette.ink} size={UDim2.fromScale(1, 1)} reducedMotion={reducedMotion} />
-					</frame>
+					<RestoreChip hidden={hidden} shown={hideAmount} topPad={topPad} input={gamepadActive ? "gamepad" : mobileShell ? "touch" : "keyboard"} reducedMotion={reducedMotion} onRestore={showUI} />
 					{!state.Flags.TutorialDone && tutorial !== undefined && <TutorialOverlay copy={tutorial} step={tutorialStep} count={TUTORIAL_STEPS.size()} reducedMotion={reducedMotion}
 						live={{ page, cash: compactNumber(state.Cash), vault: compactNumber(state.Vault), vaultFlux: asFlux(state.Vault), production: compactNumber(state.Production), ownedMachines, buyAmount }}
 						ctaLabel={tutorial.ctaLabel} onCta={tutorial.cta === "collect" ? () => dispatch("CollectVault") : tutorial.cta === "workshop" ? () => navigate("Workshop") : tutorial.cta === "research" ? () => navigate("Research") : undefined}
@@ -669,6 +706,7 @@ function AppShell(props: ShellProps) {
 				{deskEditorOpen && deskOn && <DesktopLayoutEditor dispatch={dispatch} viewportWidth={viewport.width} viewportHeight={viewport.height}
 					islandDock={islandDock} comboDock={comboDock} onClose={() => openDesktopEditor(false)} />}
 				<ConfirmHost reducedMotion={reducedMotion} />
+				<FocusGlider reducedMotion={reducedMotion} />
 				<RedrawCounterHud enabled={devRedraws} />
 			</>
 		</AntilagContext.Provider>

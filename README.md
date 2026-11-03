@@ -104,12 +104,59 @@ Player cards measure their actual width after padding and scrollbar changes;
 their stat/action grids reserve integer-sized cells and all social actions have
 48-pixel touch targets. Shared, inventory, shortcut and world grids round gutter
 reservation up to avoid accidental extra rows.
-Ranks uses the shared button chrome, sounds and search field. Its top three
-players have live avatar viewmodels with turn controls, medal-colored podiums
-and score comparison bars; narrow panels stack the podium cards. Player/name/ID
-and guild/tag search preserves original rank numbers, and a personal-standing
-filter complements the existing standing card. Avatar loading exposes retry
-states and cleans up cameras, worlds and late completions.
+Ranks (`RankDashboard.tsx`) is a Hall of Records rather than a card grid. Wide
+panels put an index of every board, grouped, with the Global / This server switch
+on the left; narrow panels use one horizontal strip of boards instead. The board
+reads as a masthead (your seat as a large numeral that arrives white-hot and cools
+into its metal, your score, the gap to the next seat, and a short ladder between
+the seat below and the seat above), three brass/steel/copper plaques for the top
+of the board with live avatar viewmodels (tap the figure to turn it, or to retry a
+failed load), then a ruled ledger whose bottom hairline per row doubles as the
+share-of-leader meter. Phones skip the plaques and show every seat as a ledger row
+with medal-colored numerals. When your own row scrolls out of view it is pinned to
+the edge it left from; tapping it (or right-stick click) scrolls back and washes
+the row. Search by player, name, ID or guild tag keeps the original seat numbers
+and hides the plaques; "Only me" filters to your row. Loading shows shimmering
+skeleton rows; an empty board, a failed load and a search with no match each get
+their own note (with Try again / Clear). Avatar loading cleans up cameras, worlds
+and late completions. Reduced Motion drops the arrival, the strike colors and the
+sheen. Other pages should reuse `useArrival`-style single-clock staggers (one
+spring, per-row slices) instead of a motor per row.
+Antilag (`MotionKit/antilag.tsx`, decisions in `Shared/AntilagGovernor.ts`, covered by `scripts/verify_antilag.luau`)
+runs one governor for the whole client. It watches frame-time windows and drops a tier on the first bad window (two
+tiers on a collapse), then climbs back only after a long clean stretch whose banked time drains slowly on middling
+windows and empties on bad ones; a drop soon after a climb doubles the next stretch (one slow spell counts once), and
+calm time forgives it. Tier 3 is full, 2 trimmed, 1 lean, 0 minimal. What a tier changes is read from
+`MotionKit/antilagState.ts` by the motion driver (decorative clocks tick at 60/30/16/8 Hz and freeze past a cap,
+springs gain stiffness so they settle sooner, entrances and idle glints stop), `Text` (no shadow copy), page sections
+(no rise, smaller mounting steps), the layout guard (frame budget 0.5 -> 0.08 ms), passive state repaints (up to 3.2x
+apart), the ambient event sky, shell effects, and the Ranks plaques (flat portrait instead of a 3D avatar). The
+"Priority" setting and heavy scenes only lower the ceiling the governor may climb to; a hidden interface or a
+backgrounded window suspends all decorative work. The expanded island says "Lite mode" while the tier is 1 or lower.
+Studio only: `ReplicatedStorage.AstralDevAntilag` (0 to 3) pins a tier, `AstralDevLag` (ms) burns that long every frame
+to simulate a slow machine, and `AstralAntilagDebug` shows the governor's state.
+The Control Room (`pages/PagesSystem/AdminView.tsx`, parts in `AdminParts.tsx`, `AdminTabs.tsx` and `AdminRunner.ts`)
+sends every command through the server's `AdminExecute` request: a fresh nonce, a string amount, an audit reason, and
+a dry run first if asked; dangerous commands are hold-to-run (keyboard and gamepad press twice). Its five tabs are the
+Console (target, command browser, runner), the Show Room (eight screen effects with live thumbnails, on one player or
+the whole server), Live Ops (broadcast, server gift, spotlight, loadout kits, fast-forward, whisper, live flags),
+Telemetry (the server's own counters and timings) and the Audit log with active bans. The new commands live in
+`AdminService.ts` (`Direct` commands run outside the profile pipeline, and every text another player reads is either
+from a fixed list or passes Roblox's filter); the effects are drawn by `UiCore/AdminShow.tsx`. `verify_admin_ops.luau`
+covers the kit, fast-forward, gift, show, spotlight and whisper handlers. Studio only: `AstralDevAdminTab`,
+`AstralDevAdminCommand`, `AstralDevAdminTarget` and `AstralDevAdminRun` on ReplicatedStorage drive the page.
+The Reaches (`pages/PagesProgress/ReachesView.tsx`, rules in `Shared/Reaches.ts`, server in `Services/ReachService.ts`,
+covered by `scripts/verify_reaches.luau`) finish the ore system that already fed the foundry upgrades, relic recipes
+and engraving: three regions with seven outcrops each are mined from the page (hold an outcrop; it regrows in 90s,
+per player), and the Rift Warden is one shared fight per server (tap to strike; a strike into its slam wind-up stuns
+you; three strikes earn a share of the Starsteel, the top striker gets more). The Warden's health is published as
+attributes on `ReplicatedStorage.AstralForgeWarden`. The ore foundry upgrades are bought there too (`OreAct`).
+Designed art: the loading screen (a brass astrolabe over a star-chart backdrop), the Reaches (Warden plates, ore
+specimens) and the Star Foundry (board, sockets, pieces, beams) use engraved art drawn as SVG in
+`tools/assetgen/art/*.html`, rendered to PNG with headless Edge (`python tools/assetgen/render_art.py`), uploaded
+(`upload_art.py upload`, `resolve <studio shim>`, `write`), which regenerates `ArtKit/ArtAssets.ts`. New art goes
+through that pipeline in the same style (ink, iron, worn brass, parchment, one muted accent; hatching, no glows)
+rather than being assembled from frames.
 Artifact visuals reject unfinished builds after departures, respawns, unequips
 or a newer refresh, preventing stale nameplates and partial visual leaks.
 Existing non-retired progression remains intact; full visual and multiplayer
@@ -124,11 +171,21 @@ one phone row. Artifact shop cards no longer stack beam fans, halos and a
 diamond icon over the elemental sprite; their acquisition badge says
 "Shop exclusive". `verify_shop_catalog.luau` exercises the actual catalog loader
 and tab geometry. This pass has not received rendered Studio/device signoff.
-LayoutGuard now diagnoses component-owned layouts rather than globally
-shrinking text, truncating labels, moving siblings or snapping animated groups.
-Shared text does not truncate by default; standard button labels wrap at their
-existing font size and remain visible to diagnostics. Explicit local text
-fitting keeps essential text above a 12-pixel floor. Named page sections
+LayoutGuard both diagnoses and repairs layouts as they appear. Overflowing
+single-line text is shrunk toward a 10-pixel floor, then truncated (wrapping
+stays with the owner: the engine under-reports the height of text it was just
+told to wrap); every repair waits until the same defect has stood still for a
+second or so, and none touches a control the pointer is on; a label whose text runs under a button or a neighbouring label
+is narrowed on the side the neighbour comes from; a label that reaches into the
+control stacked under it is cut off above that control; a control cut off by a
+clipping card, a drawn parent or the screen edge is pulled back inside (only
+when it is mostly visible already, so parked and animating things are left
+alone); an inner scroller with nothing to scroll stops stealing the outer one's
+drag and gets scrolling back when its content grows. Elements in motion
+(`LayoutInMotion`), floating overlays (`LayoutFloating`) and engine-laid-out
+children are never moved. Owners opt a subtree out of repairs with
+`LayoutGuardRecovery="off"`, or out of the guard entirely with
+`LayoutGuardIgnore`. Named page sections
 attribute issues to their layout owner. The mobile level shortcut has a
 header-height touch target rather than a 16-pixel label hitbox; rail/page
 headings reserve the measured line height instead of clipping descenders.
@@ -137,12 +194,16 @@ The diagnostic ring holds at most 128 issues. Collision traversal resumes
 across frames, including later siblings in large groups; collection and pair
 work share the 256-step/deadline budget. Recurring deduplicated defects still
 drive inspection priority. Hidden/clipped content and disabled world-space
-layers are excluded. Only an element explicitly marked
-`LayoutGuardRecovery="Canvas"` or `"FloatingPanel"` permits that recovery kind;
-ordinary component geometry remains untouched. Canvas underflow is measured
+layers are excluded. The guard's own writes do not reset its per-element repair
+budget, so an owner that keeps undoing a repair is learned and left alone.
+Canvas underflow is measured
 on the scrolling axes from real content, including scale, scroll position,
 positioned rows and trailing padding. Recovery preserves the other axis;
 content already inside the viewport does not fabricate an overflow.
+
+In Studio only, setting `ReplicatedStorage.AstralDevRoute` to a page id (for
+example `"Credits"`) from the command bar opens that page, which makes playtests
+and layout sweeps independent of the rail's scroll and collapse state.
 
 In the client developer console, invoke
 `game.Players.LocalPlayer.PlayerGui.AstralForgeLayoutDiagnostics:Invoke()`

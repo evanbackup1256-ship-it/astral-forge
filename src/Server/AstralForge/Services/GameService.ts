@@ -1,3 +1,4 @@
+import { traceRequests } from "../RequestTrace";
 import { T } from "../../../Shared/AstralForge/Shared/Locale";
 import type { StoreRow } from "../Modules/LeaderboardService";
 import type { FriendGraph } from "../Modules/FriendGraph";
@@ -27,6 +28,11 @@ import * as TradeEngine from "../Modules/TradeEngine";
 import { Roll as crateRoll, RollRecord as CrateRollRecord } from "../Modules/CrateRng";
 import { Ledgers as EconomyLedgers, Snapshot as walletSnapshot } from "../Modules/EconomyLedger";
 import { ServerEventService } from "./Gameplay/ServerEventService";
+// a type-only import is erased, so load the module explicitly: Flamework only knows services whose module ran
+import "./ReachService";
+import { ReachService } from "./ReachService";
+import OreMath from "../Modules/OreMath";
+import OreConfig = require("../../../Shared/AstralForge/Shared/SharedData/OreConfig");
 import CompanionBonds = require("./Gameplay/CompanionBonds");
 import ExpeditionBoardService = require("./Gameplay/ExpeditionBoard");
 import ForgeProgramsService = require("./Gameplay/ForgePrograms");
@@ -1241,6 +1247,8 @@ export class GameService {
 		private readonly guildService: GuildService,
 		// GameService reads the shared Specializations rules; this service keeps them live-tuned.
 		private readonly _specializations: SpecializationService,
+		// the Reaches: ore regions and the Rift Warden in the world
+		private readonly reachService: ReachService,
 	) {}
 
 	// Runs from the server runtime's "gameplay construction" boot step.
@@ -1283,6 +1291,61 @@ export class GameService {
 				this._payEvent(entries, def, why);
 			},
 		} as unknown as Parameters<ServerEventService["Attach"]>[0]);
+		this.reachService.Attach({
+			rebirths: (player) => {
+				const profile = this._data.Get(player) as Profile | undefined;
+				return profile !== undefined ? (num(profile.Rebirths) ?? 0) : undefined;
+			},
+			mine: (player, oreId) => {
+				let credited: number | undefined;
+				const response = this._mutate(
+					player,
+					(profile: Profile) => {
+						const ore = profile.Ore as Record<string, number>;
+						const bonus = OreMath.Effect(profile.OreUpgrades, "OreYield", OreConfig.Ore);
+						const amount = OreMath.Yield(OreConfig.Ore, oreId, bonus, (low, high) => this._random.NextInteger(low, high));
+						if (amount <= 0) {
+							return responseError(T("GameService.CouldnTFinishThat"));
+						}
+						ore[oreId] = (num(ore[oreId]) ?? 0) + amount;
+						bumpStat(profile, "OreMined", amount);
+						credited = amount;
+						return responseSuccess();
+					},
+					true,
+					"ore:mine",
+				);
+				if (response.ok !== true) {
+					return undefined;
+				}
+				return credited;
+			},
+			bossBonus: (player) => {
+				const profile = this._data.Get(player) as Profile | undefined;
+				return profile !== undefined ? OreMath.Effect(profile.OreUpgrades, "BossDamage", OreConfig.Ore) : 0;
+			},
+			reward: (player, spoils) => {
+				const response = this._mutate(
+					player,
+					(profile: Profile) => {
+						const ore = profile.Ore as Record<string, number>;
+						ore.Starsteel = (num(ore.Starsteel) ?? 0) + spoils.Starsteel;
+						profile.Stardust = (num(profile.Stardust) ?? 0) + spoils.Stardust;
+						bumpStat(profile, "WardenDefeats", 1);
+						return responseSuccess();
+					},
+					true,
+					"ore:warden",
+				);
+				if (response.ok === true) {
+					this._pushState(player);
+				}
+				return response.ok === true;
+			},
+			effect: (player, payload) => this._effect.fire(player, payload as never),
+			toast: (player, title, body, tone) => this._toastPlayer(player, title, body, tone),
+			random: () => this._random.NextNumber(),
+		});
 		// Studio only: start any event by id to try it (ServerScriptService.EventDebug:Invoke("IronTitan"))
 		if (game.GetService("RunService").IsStudio()) {
 			const debugHook = new Instance("BindableFunction");
@@ -2197,6 +2260,13 @@ export class GameService {
 			Mailbox: K.StoryMailSnapshot.MailboxPublic(mailState, unreadMail),
 			LimitedEvent: limitedEventPublic(profile, now),
 			Constellations: { ...Constellations.publicView(profile), Paused: HotFlags.Get("ConstellationsPaused") },
+			// ore balances (the relic bench and engraving read these) and the Reaches page
+			Ore: copyDictionary(profile.Ore),
+			Reaches: {
+				Forge: OreMath.PublicState(profile.Ore, profile.OreUpgrades, OreConfig.Ore),
+				Warden: this.reachService.WardenState(player),
+				Depleted: this.reachService.Depleted(player),
+			},
 			WeeklyBoard: {
 				Score: WeeklyBoard.scoreOf(profile, now),
 				EndsAt: WeeklyBoard.weekEndsAt(WeeklyBoard.weekOf(now)),
@@ -2842,6 +2912,44 @@ export class GameService {
 			bumpStat(profile, "RelicsEngraved", 1);
 			return responseSuccess(message, { Uid: uid, Engraving: instance.Engraving });
 		});
+	}
+
+	// The Reaches page: mine an outcrop, strike the Rift Warden, or spend ore on the five foundry upgrades.
+	// ReachService owns the regrow timers and the shared fight; profile changes come back through its hooks.
+	_oreAct(player: Player, payload: Dict | undefined) {
+		if (payload?.Op === "Mine") {
+			const outcome = this.reachService.Mine(player, payload.Node);
+			return outcome.ok ? responseSuccess(outcome.message, outcome.extra) : responseError(outcome.message);
+		}
+		if (payload?.Op === "Strike") {
+			const outcome = this.reachService.Strike(player);
+			if (outcome.ok) {
+				return responseSuccess(outcome.message, outcome.extra);
+			}
+			// a refused strike still tells the page why (caught by the slam, stunned)
+			const refused = responseError(outcome.message) as Dict;
+			if (outcome.extra !== undefined) {
+				for (const [key, value] of pairs(outcome.extra)) refused[key] = value;
+			}
+			return refused as Response;
+		}
+		if (payload?.Op === "Buy") {
+			return this._mutate(
+				player,
+				(profile: Profile) => {
+					const [ok, message] = OreMath.Purchase(
+						OreConfig.Ore,
+						profile.Ore as Record<string, number>,
+						profile.OreUpgrades as Record<string, number>,
+						payload.Upgrade,
+					);
+					return ok ? responseSuccess(message, { Upgrade: payload.Upgrade }) : responseError(message);
+				},
+				true,
+				"ore:upgrade",
+			);
+		}
+		return responseError(T("GameService.CouldnTFinishThat"));
 	}
 
 	_constellationAct(player: Player, payload: Dict | undefined) {
@@ -3783,13 +3891,26 @@ export class GameService {
 
 	_syncShop(player: Player) {
 		const ownedPasses = new Set<string>();
+		const livePasses: Dict[] = [];
 		for (const passDef of K.MonetizationConfig.GamePasses as Dict[]) {
 			if ((passDef.PassId as number) > 0) {
+				livePasses.push(passDef);
+			}
+		}
+		// ask about every pass at once: a slow answer costs one round trip, not one per pass
+		let waiting = livePasses.size();
+		for (const passDef of livePasses) {
+			task.spawn(() => {
 				const [ok, owns] = pcall(() => MarketplaceService.UserOwnsGamePassAsync(User.fromId(player.UserId), passDef.PassId as number));
 				if (ok && truthy(owns)) {
 					ownedPasses.add(passDef.Key as string);
 				}
-			}
+				waiting -= 1;
+			});
+		}
+		const giveUpAt = os.clock() + 10;
+		while (waiting > 0 && os.clock() < giveUpAt) {
+			task.wait();
 		}
 
 		if (!this._running || player.Parent !== Players || this._runtime.get(player) === undefined) {
@@ -6022,6 +6143,8 @@ export class GameService {
 			return this._programAct(player, payload);
 		} else if (action === K.Protocol.Actions.ConstellationAct) {
 			return this._constellationAct(player, payload);
+		} else if (action === K.Protocol.Actions.OreAct) {
+			return this._oreAct(player, payload);
 		} else if (action === K.Protocol.Actions.ClaimConvergenceReward) {
 			return this._convergence.Claim(player, payload?.Tier) as Response;
 		} else if (action === K.Protocol.Actions.ClaimQuest) {
@@ -6916,7 +7039,7 @@ export class GameService {
 			this._pushState(player);
 		});
 
-		ServerFunctions.request.setCallback((player: Player, action: string, payload?: unknown) => {
+		ServerFunctions.request.setCallback(traceRequests((player: Player, action: string, payload?: unknown) => {
 			const requestStartedAt = os.clock();
 
 			if (
@@ -7087,7 +7210,7 @@ export class GameService {
 				resultBag.N = nonce;
 			}
 			return resultBag;
-		});
+		}));
 
 		this._playerAddedConnection = Players.PlayerAdded.Connect((player) => {
 			this._spawnWorker(() => {

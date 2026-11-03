@@ -31,7 +31,20 @@ type LooseCreate = (type: unknown, props?: { [key: string]: unknown }, ...childr
 const AstralForge = script.Parent!;
 
 function kitMember(kit: string, member: string): unknown {
-	return (require(AstralForge.FindFirstChild(kit)! as ModuleScript) as LuaKit)(member);
+	const target = AstralForge.WaitForChild(kit);
+	if (target.IsA("ModuleScript")) {
+		const loaded = require(target) as LuaKit | Record<string, unknown>;
+		if (typeIs(loaded, "function")) {
+			return (loaded as LuaKit)(member);
+		} else if (typeIs(loaded, "table") && member in loaded) {
+			return (loaded as Record<string, unknown>)[member];
+		}
+	}
+	const child = target.WaitForChild(member);
+	if (child.IsA("ModuleScript")) {
+		return require(child);
+	}
+	return child;
 }
 
 function loadReact(): typeof import("@rbxts/react") {
@@ -93,6 +106,50 @@ __defs["BootLedger"] = () => {
 	let version = 0;
 	let cache: unknown;
 	let cacheVersion = -1;
+	// what happened and when, so the screen can say more than "loading": each station's finish time and a
+	// short trail of the things that completed (the screen shows the last few)
+	const bornAt = os.clock();
+	const doneAt: Record<string, number | undefined> = {};
+	const trail: { at: number; text: string }[] = [];
+	function pushEvent(text: string) {
+		trail.push({ at: os.clock() - bornAt, text: text });
+		if (trail.size() > 40) {
+			trail.remove(0);
+		}
+		version += 1;
+	}
+	function stationLabel(key: string): string {
+		for (const station of STATIONS) {
+			if (station.key === key) {
+				return station.label;
+			}
+		}
+		return key;
+	}
+	function stationFraction(key: string): number {
+		let loaded = 0;
+		let total = 0;
+		for (const [, entry] of pairs(parts[key] ?? {})) {
+			loaded += entry.loaded;
+			total += entry.total;
+		}
+		return total > 0 ? loaded / total : 1;
+	}
+	// the first time a station is whole: stamp it, add it to the trail, and put it in the log with its time
+	function checkDone(key: string) {
+		if (doneAt[key] !== undefined || stationFraction(key) < 1) {
+			return;
+		}
+		const elapsed = os.clock() - bornAt;
+		doneAt[key] = elapsed;
+		pushEvent(`${stationLabel(key)} ready`);
+		pcall(() => {
+			const log = kitMember("CoreKit", "log") as {
+				ClientLog: { info(this: void, scope: string, message: string, params?: Record<string, unknown>): void };
+			};
+			log.ClientLog.info("boot", `${string.lower(stationLabel(key))} ready`, { ElapsedMs: math.floor(elapsed * 1000) });
+		});
+	}
 
 	function stamp(station: string, item: string | undefined) {
 		if (typeIs(item, "string") && item !== "") {
@@ -122,6 +179,7 @@ __defs["BootLedger"] = () => {
 		}
 		stamp(station, item);
 		version += 1;
+		checkDone(station);
 	}
 	function finish(station: string, sub: string, item?: string) {
 		const entry = parts[station] !== undefined ? parts[station][sub] : undefined;
@@ -131,7 +189,11 @@ __defs["BootLedger"] = () => {
 		}
 		entry.loaded = entry.total;
 		stamp(station, item);
+		if (typeIs(item, "string") && item !== "") {
+			pushEvent(item);
+		}
 		version += 1;
+		checkDone(station);
 	}
 	// every part is known up front, so a station never looks done before its loader reports
 	part("server", "bridge", 0, 1);
@@ -142,6 +204,7 @@ __defs["BootLedger"] = () => {
 	part("sound", "bank", 0, 1);
 	part("world", "world", 0, 1);
 	part("code", "modules", 0, 1);
+	part("code", "tune", 0, 1);
 	for (const [key] of pairs(MENU_NAMES)) {
 		part("menus", key, 0, 1);
 	}
@@ -155,6 +218,7 @@ __defs["BootLedger"] = () => {
 		fraction: number;
 		done: boolean;
 		item?: string;
+		elapsed?: number;
 	}
 	interface LedgerView {
 		stations: StationRow[];
@@ -205,6 +269,7 @@ __defs["BootLedger"] = () => {
 					fraction: fraction,
 					done: fraction >= 1,
 					item: items[station.key],
+					elapsed: doneAt[station.key],
 				};
 				view.stations.push(row);
 				sum += fraction;
@@ -222,6 +287,18 @@ __defs["BootLedger"] = () => {
 		version(this: void): number {
 			return version;
 		},
+		// the last few things that completed, oldest first
+		events(this: void, limit: number): { at: number; text: string }[] {
+			const out: { at: number; text: string }[] = [];
+			for (let i = math.max(0, trail.size() - limit); i < trail.size(); i++) {
+				out.push(trail[i]);
+			}
+			return out;
+		},
+		// seconds since the ledger was created (the screen's clock)
+		age(this: void): number {
+			return os.clock() - bornAt;
+		},
 	};
 	return Ledger;
 };
@@ -237,6 +314,8 @@ __defs["BootScreen"] = () => {
 		WORDMARK_ASSET: string;
 		COMPACT_MARK_ASSET: string;
 	};
+	// the engraved clock and the star-chart paper (tools/assetgen/art, uploaded by upload_art.py)
+	const Art = (kitMember("ArtKit", "ArtAssets") as { ART: Record<string, string> }).ART;
 	const useViewport = (kitMember("MotionKit", "motion") as typeof import("./MotionKit/motion")).useViewport;
 	const Ledger = __load("BootLedger") as {
 		STATIONS: { key: string; label: string; verb: string }[];
@@ -250,11 +329,14 @@ __defs["BootScreen"] = () => {
 				fraction: number;
 				done: boolean;
 				item?: string;
+				elapsed?: number;
 			}[];
 			overall: number;
-			active?: { verb: string; item?: string };
+			active?: { key: string; verb: string; item?: string };
 		};
 		version(this: void): number;
+		events(this: void, limit: number): { at: number; text: string }[];
+		age(this: void): number;
 	};
 	const _theme = kitMember("CoreKit", "theme") as typeof import("./CoreKit/theme");
 	const Palette = _theme.Palette;
@@ -294,10 +376,13 @@ __defs["BootScreen"] = () => {
 		"Daily shop stock changes at midnight UTC.",
 		"Relics can be salvaged for essence if you pull a duplicate.",
 		"You can replay the tour from Settings.",
+		"Ore from the Reaches buys upgrades that never reset.",
+		"Strike the Rift Warden together for a share of its Starsteel.",
 	];
 	const TIPS_EVERY = 8;
 	const FADE_IN_SECONDS = 0.4;
-	const EXIT_SECONDS = 0.5;
+	// the outro: the rings swell and fade, a ripple goes out, then the screen dissolves
+	const EXIT_SECONDS = 1.15;
 	const EXIT_SECONDS_REDUCED = 0.25;
 	const STATUS_FADE = 0.2;
 
@@ -307,6 +392,35 @@ __defs["BootScreen"] = () => {
 	function smooth(t: number): number {
 		const u = clamp01(t);
 		return u * u * (3 - 2 * u);
+	}
+	function easeOut(t: number): number {
+		const u = clamp01(t);
+		return 1 - (1 - u) ** 3;
+	}
+	function easeIn(t: number): number {
+		const u = clamp01(t);
+		return u * u * u;
+	}
+	// a small overshoot as it settles, for the rete snapping into place
+	function easeOutBack(t: number): number {
+		const u = clamp01(t);
+		const c = 1.4;
+		return 1 + (c + 1) * (u - 1) ** 3 + c * (u - 1) ** 2;
+	}
+	function escapeRich(text: string): string {
+		return text.gsub("&", "&amp;")[0].gsub("<", "&lt;")[0].gsub(">", "&gt;")[0];
+	}
+	// each letter fades in a moment after the one before it (RichText per-letter transparency)
+	function cascade(text: string, age: number): string {
+		let out = "";
+		let index = 0;
+		for (const [, code] of utf8.codes(text)) {
+			const letter = escapeRich(utf8.char(code));
+			const shown = clamp01((age - index * 0.022) / 0.22);
+			out += shown >= 0.99 ? letter : `<font transparency="${string.format("%.2f", 1 - shown)}">${letter}</font>`;
+			index += 1;
+		}
+		return out;
 	}
 	function progressFor(
 		marks: Record<string, unknown>,
@@ -380,7 +494,12 @@ __defs["BootScreen"] = () => {
 		const tipSize = short ? 13 : 14;
 		const tipH = (tipSize + 4) * 2;
 		const block = wordH + (short ? 18 : 32) + 20 + 10 + 4;
-		const wordY = math.max(short ? 12 : 24, math.floor((height - block) * 0.5) - (short ? 10 : 24));
+		// the detail panel (stations, tally, trail) sits under the bar when there is room; keep its height in step
+		const detail = height >= 440 ? 12 + 24 + 10 + 18 * 7 + 10 + 42 : 0;
+		const wordY = math.max(
+			short ? 12 : 16,
+			math.floor((height - block - detail - (detail > 0 ? tipH + 40 : 0)) * 0.5) - (short ? 10 : detail > 0 ? 0 : 24),
+		);
 		const statusY = wordY + wordH + (short ? 18 : 32);
 		return {
 			short: short,
@@ -420,12 +539,27 @@ __defs["BootScreen"] = () => {
 		const [tipIndex, setTipIndex] = React.useState(() => math.random(1, LOADING_TIPS.size()));
 		const [tipAt, setTipAt] = React.useState(() => os.clock());
 		const [progress, setProgress] = React.useBinding(0);
+		// the ledger as of a few frames ago: the station rows redraw from this, about eight times a second
+		const [view, setView] = React.useState(() => Ledger.read());
+		const [shownPercent, setShownPercent] = React.useState(0);
 		const [status, setStatus] = React.useBinding("Starting up");
 		// 0..1: how far the current status line has faded in
 		const [statusIn, setStatusIn] = React.useBinding(1);
 		const [tipIn, setTipIn] = React.useBinding(reduced ? 1 : 0);
 		// 0 visible .. 1 gone: the fade-in at start and the fade-out at the end
 		const [cover, setCover] = React.useBinding(reduced ? 0 : 1);
+		// seconds since the screen appeared and since the outro began; every intro/outro motion derives from these
+		const [clock, setClock] = React.useBinding(0);
+		const [exitClock, setExitClock] = React.useBinding(0);
+		// the clock: hands at ten past ten until the loop starts them moving
+		const [still] = React.useBinding(0);
+		const [hourAngle, setHourAngle] = React.useBinding(305);
+		const [minuteAngle, setMinuteAngle] = React.useBinding(60);
+		const [secondAngle, setSecondAngle] = React.useBinding(0);
+		const [wheelAngle, setWheelAngle] = React.useBinding(0);
+		const [pinionAngle, setPinionAngle] = React.useBinding(0);
+		const [escapeAngle, setEscapeAngle] = React.useBinding(0);
+		const [percentText, setPercentText] = React.useBinding("0%");
 		const shownRef = React.useRef(0);
 		const statusRef = React.useRef({ text: "Starting up", at: 0 });
 		const readyRef = React.useRef(ready);
@@ -533,19 +667,55 @@ __defs["BootScreen"] = () => {
 		}, [exiting, ready]);
 		// one frame driver: ledger -> bar + status, and the fades
 		React.useEffect(() => {
+			let viewAt = 0;
 			const connection = RunService.RenderStepped.Connect((dt) => {
 				const now = os.clock();
 				const data = Ledger.read();
+				if (now - viewAt > 0.12) {
+					viewAt = now;
+					setView(data);
+					setShownPercent(math.floor(shownRef.current * 100 + 0.5));
+				}
 				const done = readyRef.current === true || exiting;
 				// the bar only ever moves forward, and only reaches the end when the game is ready
 				const target = done ? 1 : math.min(0.99, data.overall);
 				const stepped = reduced ? target : shownRef.current + (target - shownRef.current) * (1 - math.exp(-dt * 8));
 				shownRef.current = math.max(shownRef.current, stepped);
 				setProgress(shownRef.current);
-				const text = done ? "Ready" : data.active !== undefined ? data.active.verb : "Almost ready";
+				const text = done
+					? "Ready"
+					: data.active !== undefined
+						? data.active.item !== undefined
+							? `${data.active.verb}  ·  ${data.active.item}`
+							: data.active.verb
+						: "Almost ready";
 				if (text !== statusRef.current.text) {
 					statusRef.current = { text: text, at: now };
-					setStatus(text);
+				}
+				// the status line types itself in, one letter after another
+				const age = now - statusRef.current.at;
+				setStatus(reduced || age > 2 ? escapeRich(statusRef.current.text) : cascade(statusRef.current.text, age));
+				const t = now - mountedAt.current;
+				const x = exiting ? now - exitAt.current : 0;
+				setClock(t);
+				setExitClock(x);
+				setPercentText(done ? "100%" : `${math.floor(shownRef.current * 100)}%`);
+				if (!reduced) {
+					// a time-lapse: the minute hand sweeps a turn every 2.4 seconds from ten past ten, the hour hand
+					// follows at a twelfth of its pace, and on the way out both race
+					const sweep = t * 150 + x * x * 900;
+					setMinuteAngle(60 + sweep);
+					setHourAngle(305 + sweep / 12);
+					// the seconds hand ticks twice a second; each tick lands with a small mechanical overshoot
+					const ticks = t * 2;
+					const whole = math.floor(ticks);
+					const landed = whole + easeOutBack(clamp01((ticks - whole) / 0.16));
+					setSecondAngle(landed * 30);
+					// the movement: the escape wheel steps with the tick, the great wheel turns with the minute hand,
+					// and the small wheel it drives turns the other way at 40/24 the speed
+					setEscapeAngle(landed * 24);
+					setWheelAngle(sweep / 6);
+					setPinionAngle((-sweep / 6) * (40 / 24));
 				}
 				setStatusIn(reduced ? 1 : smooth((now - statusRef.current.at) / STATUS_FADE));
 				setTipIn(reduced ? 1 : smooth((now - tipAt) / FADE_IN_SECONDS));
@@ -579,102 +749,166 @@ __defs["BootScreen"] = () => {
 			});
 		}
 
-		const fadeFrom = (base: number) => cover.map((c) => clamp01(base + (1 - base) * c));
-		const column = L.column;
-		const centred = (y: number, height: number, width?: number) => ({
-			Position: new UDim2(0.5, 0, 0, y),
-			Size: UDim2.fromOffset(width ?? column, height),
-			AnchorPoint: new Vector2(0.5, 0),
+		// ── the clock ─────────────────────────────────────────────────────────────────────────
+		// An engraved skeleton clock (designed art, ArtKit/ArtAssets), one image per part, over a printed star chart.
+		// Intro: the paper comes up, the lamplight blooms, the movement and the dial turn into place, the hands sweep
+		// in from midnight and settle at ten past ten, the wordmark rises. Loop: a time-lapse sweep, the seconds hand
+		// ticking. Outro: the hands race, the clock swells and fades, an engraved ring ripples out, and the screen
+		// dissolves into the game.
+		const H = viewport.height;
+		const W = viewport.width;
+		const D = math.floor(math.min(H * (L.short ? 0.44 : 0.5), W * 0.62, 440));
+		const centreY = math.floor(H * 0.46);
+		const both = React.joinBindings({ t: clock, x: exitClock });
+		const phase = (introFrom: number, introSpan: number, outFrom: number, outSpan: number, back = false) =>
+			both.map((v) => {
+				const raw = clamp01(((v.t as number) - introFrom) / introSpan);
+				const shown = reduced ? 1 : back ? easeOutBack(raw) : easeOut(raw);
+				const gone = exiting ? easeIn(clamp01(((v.x as number) - outFrom) / outSpan)) : 0;
+				return [shown, gone] as [number, number];
+			});
+		const ring = (
+			name: string,
+			image: string,
+			size: number,
+			spin: unknown,
+			k: import("@rbxts/react").Binding<[number, number]>,
+			turnIn: number,
+			grow: number,
+			z: number,
+			alpha = 1,
+			// where the part's axle sits, as a share of the dial's diameter from its centre (the wheels sit off-centre)
+			offset: [number, number] = [0, 0],
+			tint: Color3 = new Color3(1, 1, 1),
+		) =>
+			e("imagelabel", {
+				Name: name,
+				AnchorPoint: new Vector2(0.5, 0.5),
+				Position: k.map(([, gone]) => {
+					const spread = 1 + gone * grow;
+					return new UDim2(0.5, offset[0] * D * spread, 0, centreY + offset[1] * D * spread);
+				}),
+				Size: k.map(([shown, gone]) => {
+					const s = size * (0.86 + 0.14 * math.min(shown, 1.08)) * (1 + gone * grow);
+					return UDim2.fromOffset(s, s);
+				}),
+				Rotation: React.joinBindings({ r: spin as never, k: k as never }).map((v) => (v.r as number) - (1 - math.min((v.k as [number, number])[0], 1)) * turnIn),
+				ImageTransparency: k.map(([shown, gone]) => clamp01(1 - math.min(shown, 1) * (1 - gone) * alpha)),
+				ImageColor3: tint,
+				Image: image,
+				BackgroundTransparency: 1,
+				ScaleType: Enum.ScaleType.Fit,
+				ZIndex: z,
+			});
+
+		const backdropIn = phase(0, 0.6, 0.45, 0.65);
+		const backdrop = e("imagelabel", {
+			Name: "BootBackdrop",
+			Size: UDim2.fromScale(1, 1),
+			BackgroundTransparency: 1,
+			Image: Art.BootBackdrop,
+			ScaleType: Enum.ScaleType.Crop,
+			ImageTransparency: backdropIn.map(([shown, gone]) => clamp01(1 - shown * (1 - gone))),
+			ZIndex: 2,
+		});
+		const glowK = phase(0.15, 0.75, 0.2, 0.6);
+		const glow = e("imagelabel", {
+			Name: "BootLamp",
+			AnchorPoint: new Vector2(0.5, 0.5),
+			Position: new UDim2(0.5, 0, 0, centreY),
+			Size: glowK.map(([shown, gone]) => UDim2.fromOffset(D * (1.1 + 0.5 * shown + gone * 0.6), D * (1.1 + 0.5 * shown + gone * 0.6))),
+			ImageTransparency: glowK.map(([shown, gone]) => clamp01(1 - shown * (1 - gone))),
+			Image: Art.BootCoreGlow,
+			BackgroundTransparency: 1,
+			ZIndex: 3,
+		});
+		// the clock, back to front: the movement (set back and dimmed so the hands read), the dial, then the hands.
+		// The great wheel and the small wheel mesh (centres one pitch apart); the escape wheel sits under XII.
+		const movementTint = Color3.fromRGB(150, 140, 126);
+		const wheel = ring("BootWheel", Art.ClockWheel, D * 0.42, wheelAngle, phase(0.25, 0.8, 0.1, 0.5), 90, 0.25, 4, 1, [-0.13, 0.1], movementTint);
+		const pinion = ring("BootPinion", Art.ClockPinion, D * 0.26, pinionAngle, phase(0.3, 0.8, 0.1, 0.5), -120, 0.25, 4, 1, [0.151, -0.031], movementTint);
+		const escapeWheel = ring("BootEscape", Art.ClockEscape, D * 0.2, escapeAngle, phase(0.35, 0.8, 0.1, 0.5), 60, 0.25, 4, 1, [0.02, -0.25], movementTint);
+		const dial = ring("BootDial", Art.ClockDial, D, still, phase(0.2, 0.8, 0.05, 0.55), 20, 0.3, 5);
+		const hourHand = ring("BootHourHand", Art.ClockHour, D, hourAngle, phase(0.5, 0.75, 0, 0.6, true), 305, 0.3, 6);
+		const minuteHand = ring("BootMinuteHand", Art.ClockMinute, D, minuteAngle, phase(0.55, 0.75, 0, 0.6, true), 420, 0.3, 7);
+		const secondHand = ring("BootSecondHand", Art.ClockSecond, D, secondAngle, phase(0.62, 0.7, 0, 0.6, true), 180, 0.3, 8);
+		const arbor = ring("BootArbor", Art.ClockCap, D * 0.07, still, phase(0.6, 0.5, 0, 0.6), 0, 0.3, 9);
+		const shock = e("imagelabel", {
+			Name: "BootRipple",
+			AnchorPoint: new Vector2(0.5, 0.5),
+			Position: new UDim2(0.5, 0, 0, centreY),
+			Size: exitClock.map((x) => {
+				const k = easeOut(clamp01((x - 0.12) / 0.8));
+				return UDim2.fromOffset(D * (0.5 + 2.4 * k), D * (0.5 + 2.4 * k));
+			}),
+			ImageTransparency: exitClock.map((x) => (exiting && x > 0.12 ? clamp01(0.1 + easeIn(clamp01((x - 0.12) / 0.8)) * 0.9) : 1)),
+			Image: Art.BootShockwave,
+			BackgroundTransparency: 1,
+			ZIndex: 7,
 		});
 
+		// the wordmark above the dial; it rises into place, and lifts away on the way out
+		const wordK = phase(0.6, 0.7, 0, 0.45);
+		const wordTop = math.max(16, centreY - D / 2 - L.wordH - (L.short ? 10 : 26));
 		const wordmark = e("imagelabel", {
 			Name: "BootWordmark",
-			...centred(L.wordY, L.wordH),
+			AnchorPoint: new Vector2(0.5, 0),
+			Position: wordK.map(([shown, gone]) => new UDim2(0.5, 0, 0, wordTop + (1 - shown) * 14 - gone * 18)),
+			Size: UDim2.fromOffset(L.column, L.wordH),
 			BackgroundTransparency: 1,
 			Image: BrandArt.WORDMARK_ASSET,
-			ImageTransparency: fadeFrom(0),
+			ImageTransparency: wordK.map(([shown, gone]) => clamp01(1 - shown * (1 - gone))),
 			ScaleType: Enum.ScaleType.Fit,
 			ZIndex: 6,
 		});
 
-		const statusRow = e(
-			"frame",
-			{ ...centred(L.statusY, 20), BackgroundTransparency: 1, ZIndex: 6 },
-			e("textlabel", {
-				Name: "BootStatus",
-				Size: UDim2.fromScale(1, 1),
-				BackgroundTransparency: 1,
-				Text: status,
-				TextColor3: Palette.cream,
-				TextTransparency: React.joinBindings({ c: cover, s: statusIn }).map((v) =>
-					clamp01(1 - (1 - (v.c as number)) * (v.s as number)),
-				),
-				TextSize: L.statusSize,
-				TextTruncate: Enum.TextTruncate.AtEnd,
-				FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
-				TextXAlignment: Enum.TextXAlignment.Center,
-				TextYAlignment: Enum.TextYAlignment.Bottom,
-				ZIndex: 7,
-			}),
-		);
-
-		// progress is the bar itself: a warm two-tone fill with a soft glow and a lit leading edge
-		const bar = e(
-			"frame",
-			{
-				Name: "BootProgress",
-				...centred(L.barY - 1, 5),
-				BackgroundColor3: Palette.line,
-				BackgroundTransparency: fadeFrom(0.78),
-				BorderSizePixel: 0,
-				ZIndex: 6,
-			},
-			e("uicorner", { CornerRadius: new UDim(1, 0) }),
-			e(
-				"frame",
-				{
-					Name: "Fill",
-					Size: progress.map((p) => UDim2.fromScale(math.max(0.012, p), 1)),
-					BackgroundColor3: Palette.white,
-					BackgroundTransparency: fadeFrom(0),
-					BorderSizePixel: 0,
-					ZIndex: 7,
-				},
-				e("uicorner", { CornerRadius: new UDim(1, 0) }),
-				e("uigradient", {
-					Color: new ColorSequence([
-						new ColorSequenceKeypoint(0, Palette.mango.Lerp(Palette.void, 0.35)),
-						new ColorSequenceKeypoint(1, Palette.mango),
-					]),
-				}),
-				e("uistroke", {
-					Color: Palette.mango,
-					Thickness: 2,
-					Transparency: cover.map((c) => clamp01(0.72 + 0.28 * c)),
-				}),
-				e("frame", {
-					Name: "Tip",
-					Size: UDim2.fromOffset(9, 9),
-					Position: UDim2.fromScale(1, 0.5),
-					AnchorPoint: new Vector2(0.5, 0.5),
-					BackgroundColor3: Palette.cream,
-					BackgroundTransparency: fadeFrom(0),
-					BorderSizePixel: 0,
-					ZIndex: 8,
-				}, e("uicorner", { CornerRadius: new UDim(1, 0) })),
-			),
-		);
+		// under the dial: the status line types itself in letter by letter, the percent counts beneath it
+		const textK = phase(0.9, 0.5, 0, 0.35);
+		const statusTop = centreY + D / 2 + (L.short ? 10 : 22);
+		const statusRow = e("textlabel", {
+			Name: "BootStatus",
+			AnchorPoint: new Vector2(0.5, 0),
+			Position: new UDim2(0.5, 0, 0, statusTop),
+			Size: UDim2.fromOffset(L.column, 22),
+			BackgroundTransparency: 1,
+			RichText: true,
+			Text: status,
+			TextColor3: Palette.cream,
+			TextTransparency: textK.map(([shown, gone]) => clamp01(1 - shown * (1 - gone))),
+			TextSize: L.statusSize,
+			TextTruncate: Enum.TextTruncate.AtEnd,
+			FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
+			TextXAlignment: Enum.TextXAlignment.Center,
+			ZIndex: 7,
+		});
+		const percentRow = e("textlabel", {
+			Name: "BootPercent",
+			AnchorPoint: new Vector2(0.5, 0),
+			Position: new UDim2(0.5, 0, 0, statusTop + 26),
+			Size: UDim2.fromOffset(L.column, 16),
+			BackgroundTransparency: 1,
+			Text: percentText,
+			TextColor3: Palette.brass,
+			TextTransparency: textK.map(([shown, gone]) => clamp01(1 - shown * (1 - gone) * 0.85)),
+			TextSize: 12,
+			FontFace: Font.fromEnum(Enum.Font.BuilderSansBold),
+			TextXAlignment: Enum.TextXAlignment.Center,
+			ZIndex: 7,
+		});
 
 		const tipText = stalled ? "Still loading. Your save is safe." : (LOADING_TIPS[tipIndex - 1] ?? "");
 		const tip = e("textlabel", {
 			Name: "BootTip",
-			...centred(L.tipY, L.tipH),
+			AnchorPoint: new Vector2(0.5, 0),
+			Position: new UDim2(0.5, 0, 0, L.tipY),
+			Size: UDim2.fromOffset(L.column, L.tipH),
 			BackgroundTransparency: 1,
 			Text: tipText,
 			TextColor3: Palette.muted,
-			TextTransparency: React.joinBindings({ c: cover, t: tipIn }).map((v) =>
-				clamp01(1 - (1 - (v.c as number)) * (v.t as number)),
-			),
+			TextTransparency: React.joinBindings({ k: textK as never, t: tipIn }).map((v) => {
+				const [shown, gone] = v.k as [number, number];
+				return clamp01(1 - shown * (1 - gone) * (v.t as number));
+			}),
 			TextSize: L.tipSize,
 			TextWrapped: true,
 			TextTruncate: Enum.TextTruncate.AtEnd,
@@ -684,27 +918,31 @@ __defs["BootScreen"] = () => {
 			ZIndex: 6,
 		});
 
+		// the room itself: solid ink until the outro dissolves it
 		return e(
 			"frame",
 			{
 				Size: UDim2.fromScale(1, 1),
-				BackgroundColor3: Palette.white,
-				BackgroundTransparency: exiting ? cover : 0,
+				BackgroundColor3: Palette.ink,
+				BackgroundTransparency: exitClock.map((x) => (exiting ? easeIn(clamp01((x - 0.45) / 0.65)) : 0)),
 				BorderSizePixel: 0,
 				Active: !exiting,
 				ZIndex: 420,
 			},
-			e("uigradient", {
-				Rotation: 90,
-				Color: new ColorSequence([
-					new ColorSequenceKeypoint(0, Palette.void),
-					new ColorSequenceKeypoint(0.55, Palette.night),
-					new ColorSequenceKeypoint(1, Palette.void),
-				]),
-			}),
+			backdrop,
+			glow,
+			wheel,
+			pinion,
+			escapeWheel,
+			dial,
+			hourHand,
+			minuteHand,
+			secondHand,
+			arbor,
+			shock,
 			wordmark,
 			statusRow,
-			bar,
+			percentRow,
 			tip,
 			_version !== undefined &&
 				e("textlabel", {
@@ -714,7 +952,7 @@ __defs["BootScreen"] = () => {
 					BackgroundTransparency: 1,
 					Text: `v${_version}`,
 					TextColor3: Palette.line,
-					TextTransparency: fadeFrom(0),
+					TextTransparency: textK.map(([shown, gone]) => clamp01(1 - shown * (1 - gone))),
 					TextSize: 11,
 					FontFace: Font.fromEnum(Enum.Font.BuilderSansMedium),
 					TextXAlignment: Enum.TextXAlignment.Right,

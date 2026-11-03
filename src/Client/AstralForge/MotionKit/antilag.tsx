@@ -2,6 +2,18 @@ import { isConstrainedInput } from "../CoreKit/inputLayer";
 import type { RequestFunction } from "../ClientNetwork";
 import React from "@rbxts/react";
 import { ClientLog, QualitySample, recordPerformanceTelemetry } from "../CoreKit/log";
+import {
+	boundsForMode,
+	DeviceProfile,
+	Governor,
+	PerformanceMode,
+	performanceModeFor,
+	profileFor,
+	tierForDevice,
+	TIER_MAX,
+	TierProfile,
+} from "../../../Shared/AstralForge/Shared/AntilagGovernor";
+import { setLive } from "./antilagState";
 
 const RunService = game.GetService("RunService");
 const Stats = game.GetService("Stats");
@@ -34,6 +46,7 @@ export interface Telemetry extends QualitySample {
 	p50FrameTimeMs: number;
 	p95FrameTimeMs: number;
 	p99FrameTimeMs: number;
+	worstFrameMs: number;
 	jankRatio: number;
 	hitchScore: number;
 	pingMs?: number;
@@ -49,6 +62,7 @@ const DEFAULT_TELEMETRY: Telemetry = {
 	p50FrameTimeMs: DEFAULT_FRAME_MS,
 	p95FrameTimeMs: DEFAULT_FRAME_MS,
 	p99FrameTimeMs: DEFAULT_FRAME_MS,
+	worstFrameMs: DEFAULT_FRAME_MS,
 	jankRatio: 0,
 	hitchScore: 0,
 	sampledAt: 0,
@@ -74,9 +88,6 @@ const frames = new Array<number>(FRAME_RING, 1 / 60);
 const scratch = new Array<number>(FRAME_RING, 1 / 60);
 let frameWrite = 0;
 let frameFilled = 0;
-let liveScene = "normal";
-let livePreference = IS_CONSTRAINED ? 0.62 : 0.42;
-const sceneListeners = new Array<() => void>();
 
 function validPing(value: unknown): value is number {
 	return typeIs(value, "number") && value === value && value >= 0 && value <= 10000;
@@ -283,8 +294,6 @@ function percentile(count: number, p: number): number {
 }
 
 let lastGuardSweepAt = 0;
-type BootSeedListener = (quality: number, fps: number) => void;
-const bootSeedListeners = new Array<BootSeedListener>();
 
 function trimWorkers(workers: Set<thread>) {
 	if (workers.size() <= 6) {
@@ -313,16 +322,6 @@ function sweepRuntimeGuards() {
 	trimWorkers(latencyTimeoutWorkers);
 	if (cachedPingItem !== undefined && cachedPingItem.Parent === undefined) {
 		cachedPingItem = undefined;
-	}
-	if (bootSeedListeners.size() > 8) {
-		while (bootSeedListeners.size() > 4) {
-			bootSeedListeners.shift();
-		}
-	}
-	if (sceneListeners.size() > 8) {
-		while (sceneListeners.size() > 4) {
-			sceneListeners.shift();
-		}
 	}
 }
 
@@ -384,6 +383,7 @@ function startTelemetry() {
 			p50FrameTimeMs: p50 * 1000,
 			p95FrameTimeMs: p95 * 1000,
 			p99FrameTimeMs: p99 * 1000,
+			worstFrameMs: scratch[count - 1] * 1000,
 			jankRatio: jankFrames / math.max(count, 1),
 			hitchScore: hitchFrames / math.max(count, 1),
 			pingMs: stablePing,
@@ -426,269 +426,230 @@ export function usePerformanceTelemetry(): Telemetry {
 	return sample;
 }
 
-export interface AntilagInfo {
+export interface AntilagInfo extends TierProfile {
 	fps: number;
-	tier: number;
-	quality: number;
 	pressure: number;
 	hitchScore: number;
-	frameBudgetMs: number;
-	fxBudget: number;
-	particleBudget: number;
-	titleGlyphLimit: number;
-	renderRate: number;
-	glowScale: number;
-	allowAmbient: boolean;
-	allowConfetti: boolean;
-	skipEntrance: boolean;
-	freezeIcons: boolean;
-	maxClocks: number;
-	maxPops: number;
-	maxStars: number;
 	constrained: boolean;
+	/** window in the background, UI hidden: decorative work is stopped */
+	suspended: boolean;
 }
 
-function infoFromQuality(quality: number, fps: number, pressure: number, hitchScore: number): AntilagInfo {
-	const q = math.clamp(quality, 0, 1);
-	const tight = IS_CONSTRAINED;
-	const qEff = tight ? math.min(q, 0.78) : q;
-	const tier = qEff < 0.2 ? 0 : qEff < 0.44 ? 1 : qEff < 0.7 ? 2 : 3;
-	const fxBudget = math.clamp(0.05 + qEff * (tight ? 0.28 : 0.34) + qEff * qEff * (tight ? 0.12 : 0.18), 0.05, tight ? 0.52 : 0.7);
-	const renderRate = math.clamp(math.floor((tight ? 12 : 16) + qEff * (tight ? 28 : 34) + 0.5), tight ? 12 : 16, tight ? 42 : 56);
+// ---- the engine -------------------------------------------------------------------------------------
+// One governor for the whole client. Providers only subscribe to what it publishes; the telemetry loop runs
+// while at least one provider is mounted. The governor drops a tier on the first bad window and climbs back
+// only after a long clean stretch (see Shared/AntilagGovernor).
+
+const governor = new Governor(IS_CONSTRAINED, IS_CONSTRAINED ? 1 : 2);
+let ceilingPreference = TIER_MAX;
+let ceilingScene = TIER_MAX;
+const suspendKeys = new Set<string>();
+const infoListeners = new Set<(info: AntilagInfo) => void>();
+
+function applyCeiling() {
+	const device = IS_CONSTRAINED ? 2 : TIER_MAX;
+	governor.setCeiling(math.min(device, ceilingPreference, ceilingScene));
+}
+applyCeiling();
+
+function buildInfo(fps: number, hitchScore: number): AntilagInfo {
+	const profile = profileFor(governor.tier, IS_CONSTRAINED);
 	return {
+		...profile,
 		fps,
-		tier,
-		quality: q,
-		pressure: math.clamp(pressure, 0, 1),
+		pressure: math.clamp(1 - governor.tier / TIER_MAX + hitchScore * 0.5, 0, 1),
 		hitchScore: math.clamp(hitchScore, 0, 1),
-		frameBudgetMs: 1000 / renderRate,
-		fxBudget,
-		particleBudget: math.clamp(math.floor(1 + (tight ? 8 : 12) * qEff + 0.5), 1, tight ? 9 : 14),
-		titleGlyphLimit: tight ? 12 : 18,
-		renderRate,
-		glowScale: math.clamp(0.08 + qEff * (tight ? 0.52 : 0.72), 0.08, tight ? 0.62 : 0.86),
-		allowAmbient: true,
-		allowConfetti: qEff >= (tight ? 0.42 : 0.34),
-		skipEntrance: false,
-		freezeIcons: false,
-		maxClocks: math.clamp(math.floor((tight ? 2 : 3) + (tight ? 6 : 8) * qEff + 0.5), tight ? 2 : 3, tight ? 8 : 12),
-		maxPops: math.clamp(math.floor(1 + (tight ? 2 : 3) * qEff + 0.5), 1, tight ? 3 : 4),
-		maxStars: qEff < (tight ? 0.5 : 0.42) ? 0 : math.clamp(math.floor(qEff * (tight ? 3.5 : 5) + 0.5), 1, tight ? 3 : 5),
-		constrained: tight,
+		constrained: IS_CONSTRAINED,
+		suspended: suspendKeys.size() > 0,
 	};
 }
 
-function tierCeiling(tier: number): number {
-	if (tier === 0) {
-		return 0.18;
+const DEFAULT_INFO = buildInfo(IS_CONSTRAINED ? 48 : 60, 0);
+export const AntilagContext = React.createContext<AntilagInfo>(DEFAULT_INFO);
+let latestAntilagInfo: AntilagInfo = DEFAULT_INFO;
+setLive(DEFAULT_INFO, DEFAULT_INFO.suspended);
+
+function publish(info: AntilagInfo) {
+	latestAntilagInfo = info;
+	setLive(info, info.suspended);
+	for (const listener of infoListeners) {
+		listener(info);
 	}
-	if (tier === 1) {
-		return 0.4;
-	}
-	if (tier === 2) {
-		return 0.66;
-	}
-	return 1;
 }
 
-const DEFAULT_INFO = infoFromQuality(IS_CONSTRAINED ? 0.55 : 0.88, IS_CONSTRAINED ? 48 : 60, 0.2, 0);
-export const AntilagContext = React.createContext<AntilagInfo>(DEFAULT_INFO);
-let bootSeededQuality: number | undefined;
-let bootSeededFps: number | undefined;
+function evaluate(sample: Telemetry) {
+	const before = governor.tier;
+	const verdict = governor.update(
+		{
+			fps: sample.fps,
+			p95Ms: sample.p95FrameTimeMs,
+			p99Ms: sample.p99FrameTimeMs,
+			worstMs: sample.worstFrameMs,
+			jank: sample.jankRatio,
+			hitch: sample.hitchScore,
+		},
+		os.clock(),
+	);
+	if (RunService.IsStudio()) {
+		// Studio readout of what the governor is thinking (read it with execute_luau)
+		game.GetService("ReplicatedStorage").SetAttribute(
+			"AstralAntilagDebug",
+			`tier ${governor.tier} ${governor.lastHealth} clean ${math.floor(governor.cleanTime * 10) / 10}s backoff ${governor.backoff} fps ${math.floor(sample.fps)} p95 ${math.floor(sample.p95FrameTimeMs)}ms`,
+		);
+	}
+	if (!verdict.changed && governor.tier === latestAntilagInfo.tier) {
+		return;
+	}
+	publish(buildInfo(sample.fps, sample.hitchScore));
+	ClientLog.info("perf", `antilag tier ${before} -> ${verdict.tier}`, {
+		Reason: verdict.reason ?? "",
+		Fps: math.floor(sample.fps),
+		P95Ms: math.floor(sample.p95FrameTimeMs),
+		Panic: verdict.panic,
+		Backoff: governor.backoff,
+	});
+}
 
-function sceneLoad(scene: string): number {
-	if (scene === "cinematic") {
-		return 0.38;
+/** Holds the UI quiet while `key` is set: the window is in the background, or the interface is hidden. */
+export function setAntilagSuspended(key: string, on: boolean) {
+	const had = suspendKeys.has(key);
+	if (on === had) {
+		return;
 	}
-	if (scene === "arcade") {
-		return 0.28;
+	if (on) {
+		suspendKeys.add(key);
+	} else {
+		suspendKeys.delete(key);
+		// frames right after a resume are long ones that say nothing about the hardware
+		governor.grace(os.clock() + 2.5);
 	}
-	if (scene === "heavy") {
-		return 0.16;
-	}
-	return 0;
+	publish(buildInfo(latestAntilagInfo.fps, latestAntilagInfo.hitchScore));
 }
 
 export function setAntilagScene(scene: string) {
-	if (liveScene === scene) {
-		return;
-	}
-	liveScene = scene;
-	for (const listener of sceneListeners) {
-		listener();
-	}
+	// the scene never raises the tier, it only lowers the ceiling the governor may climb to
+	ceilingScene = scene === "normal" ? TIER_MAX : 2;
+	applyCeiling();
+	evaluate(latestTelemetry);
 }
+
+let activeMode: PerformanceMode | undefined;
+let measuredTier: number | undefined;
 
 export function setAntilagPreference(bias: number) {
-	const preferred = math.clamp(bias, 0, 1);
-	if (math.abs(preferred - livePreference) < 0.01) {
+	const mode = performanceModeFor(math.clamp(bias, 0, 1));
+	if (mode === activeMode) {
 		return;
 	}
-	livePreference = preferred;
-	for (const listener of sceneListeners) {
-		listener();
+	activeMode = mode;
+	const bounds = boundsForMode(mode);
+	ceilingPreference = bounds.ceiling;
+	applyCeiling();
+	governor.setFloor(math.min(bounds.floor, governor.ceiling));
+	const start = bounds.trustCeiling ? governor.ceiling : math.min(measuredTier ?? governor.tier, governor.ceiling);
+	if (start !== governor.tier) {
+		governor.force(start, os.clock());
 	}
+	evaluate(latestTelemetry);
+	publish(buildInfo(latestAntilagInfo.fps, latestAntilagInfo.hitchScore));
 }
 
-export function seedAntilagFromBoot(fps: number): number {
-	const measured = math.clamp(fps, 8, 120);
-	bootSeededFps = measured;
-	const raw = math.clamp((measured - 16) / 44, 0.12, 1);
-	const motionFloor = IS_CONSTRAINED ? 0.4 : 0.48;
-	const seeded = math.max(raw, motionFloor);
-	const quality = IS_CONSTRAINED ? math.min(seeded, 0.74) : seeded;
-	bootSeededQuality = quality;
-	for (const listener of bootSeedListeners) {
-		listener(quality, measured);
-	}
-	return quality < 0.2 ? 0 : quality < 0.44 ? 1 : quality < 0.7 ? 2 : 3;
+export function seedAntilagFromDevice(device: DeviceProfile): number {
+	const tier = tierForDevice({ ...device, fps: math.clamp(device.fps, 8, 120), constrained: IS_CONSTRAINED });
+	measuredTier = tier;
+	const start = activeMode !== undefined && boundsForMode(activeMode).trustCeiling ? governor.ceiling : tier;
+	governor.force(math.clamp(start, governor.floor, governor.ceiling), os.clock());
+	// the loading screen closing and the whole interface mounting is a few long frames, not the hardware
+	governor.grace(os.clock() + 9);
+	publish(buildInfo(device.fps, 0));
+	return governor.tier;
 }
 
 export function clampAntilagTier(info: AntilagInfo, maxTier: number): AntilagInfo {
 	if (info.tier <= maxTier) {
 		return info;
 	}
-	return infoFromQuality(math.min(info.quality, tierCeiling(maxTier)), info.fps, info.pressure, info.hitchScore);
+	return { ...info, ...profileFor(maxTier, info.constrained) };
 }
 
-function scoreWindow(sample: Telemetry): number {
-	const targetFps = IS_CONSTRAINED ? 45 : 58;
-	const fpsScore = math.clamp(sample.fps / targetFps, 0, 1.15);
-	const p95Score = math.clamp(1 - (sample.p95FrameTimeMs - (IS_CONSTRAINED ? 20 : 16)) / 48, 0, 1);
-	const p99Score = math.clamp(1 - (sample.p99FrameTimeMs - (IS_CONSTRAINED ? 28 : 20)) / 70, 0, 1);
-	const jankScore = 1 - math.clamp(sample.jankRatio * (IS_CONSTRAINED ? 1.4 : 1.7), 0, 1);
-	const hitchPenalty = math.clamp(sample.hitchScore * (IS_CONSTRAINED ? 2.4 : 2.1), 0, 1);
-	const pingPenalty = sample.pingMs !== undefined && sample.pingMs > 180 ? math.clamp((sample.pingMs - 180) / 500, 0, 0.16) : 0;
-	const blended = fpsScore * 0.3 + p95Score * 0.28 + p99Score * 0.18 + jankScore * 0.24;
-	return math.clamp(blended - hitchPenalty * 0.62 - pingPenalty, 0, 1);
-}
+let providerCount = 0;
+let engineStop: (() => void) | undefined;
 
-let latestAntilagInfo: AntilagInfo = DEFAULT_INFO;
-
-export function AntilagProvider(props: { children?: React.ReactNode }) {
-	const startingQuality = bootSeededQuality ?? (IS_CONSTRAINED ? 0.55 : 0.88);
-	const startingFps = bootSeededFps ?? (IS_CONSTRAINED ? 48 : 60);
-	const [info, setInfo] = React.useState(() => infoFromQuality(startingQuality, startingFps, 0.2, 0));
-	const infoRef = React.useRef(info);
-	infoRef.current = info;
-	latestAntilagInfo = info;
-
-	React.useEffect(() => {
-		const apply: BootSeedListener = (quality, fps) => {
-			const seeded = infoFromQuality(quality, fps, 1 - quality, 0);
-			infoRef.current = seeded;
-			setInfo(seeded);
+function startEngine() {
+	const stops = new Array<() => void>();
+	// the first mount of the whole interface is one long stall that says nothing about the machine
+	governor.grace(os.clock() + 6);
+	stops.push(subscribeTelemetry(evaluate));
+	if (!RunService.IsStudio()) {
+		// a backgrounded window keeps nothing animating
+		const released = UserInputService.WindowFocusReleased.Connect(() => setAntilagSuspended("focus", true));
+		const focused = UserInputService.WindowFocused.Connect(() => setAntilagSuspended("focus", false));
+		stops.push(() => {
+			released.Disconnect();
+			focused.Disconnect();
+		});
+	} else {
+		// Studio only: ReplicatedStorage.AstralDevAntilag = 0..3 pins a tier (anything else frees it), and
+		// AstralDevLag = N burns N ms of every frame, so the governor can be watched reacting to a slow machine
+		const storage = game.GetService("ReplicatedStorage");
+		const apply = () => {
+			const pin = storage.GetAttribute("AstralDevAntilag");
+			governor.setPin(typeIs(pin, "number") && pin >= 0 && pin <= TIER_MAX ? pin : undefined);
+			evaluate(latestTelemetry);
 		};
-		if (bootSeededQuality !== undefined) {
-			apply(bootSeededQuality, bootSeededFps ?? 60);
-		}
-		bootSeedListeners.push(apply);
-		return () => {
-			const index = bootSeedListeners.indexOf(apply);
-			if (index >= 0) {
-				bootSeedListeners.remove(index);
-			}
-		};
-	}, []);
-
-	React.useEffect(() => {
-		let quality = startingQuality;
-		let lastLoggedTier = infoRef.current.tier;
-		const TIER_DEBOUNCE_SECONDS = 1.5;
-		const QUALITY_FLOOR = IS_CONSTRAINED ? 0.22 : 0.46;
-		const SUSTAINED_BAD_SAMPLES = 3;
-		const MAX_DROP = 0.24;
-		let badSamples = 0;
-		let pendingTier = lastLoggedTier;
-		let pendingTierSince = os.clock();
-		let lastRiseAt = 0;
-		let lastDropAt = 0;
-		let slope = 0;
-		let previousScore = quality;
-		let holdUntil = 0;
-		let hitchStrikes = 0;
-		let hitchHoldUntil = 0;
-		const evaluateStartedAt = os.clock();
-		const evaluate = (sample: Telemetry) => {
-			const raw = scoreWindow(sample);
-			slope = slope * 0.55 + (raw - previousScore) * 0.45;
-			previousScore = raw;
-			const scene = sceneLoad(liveScene);
-			const prefer = livePreference * 0.48;
-			const touchCeil = IS_CONSTRAINED ? 0.82 : 1;
-			let target = math.clamp(raw - scene - prefer, 0.08, touchCeil);
-			const now = os.clock();
-			const warming = now - evaluateStartedAt < 1;
-			if (warming) {
-				target = math.max(target, quality);
-			}
-			const collapsed = !warming && (sample.fps < 40 || sample.p95FrameTimeMs >= 32);
-			if (collapsed) {
-				badSamples += 1;
-				hitchStrikes += 1;
-				hitchHoldUntil = now + 1.8;
-			} else {
-				badSamples = 0;
-				hitchStrikes = math.max(0, hitchStrikes - 1);
-				if (now >= hitchHoldUntil && sample.hitchScore < 0.05 && sample.fps >= 50) {
-					hitchHoldUntil = now;
+		apply();
+		const pinned = storage.GetAttributeChangedSignal("AstralDevAntilag").Connect(apply);
+		const burn = RunService.RenderStepped.Connect(() => {
+			const ms = storage.GetAttribute("AstralDevLag");
+			if (typeIs(ms, "number") && ms > 0) {
+				const stopAt = os.clock() + ms / 1000;
+				while (os.clock() < stopAt) {
+					// busy on purpose
 				}
 			}
-			if (sample.fps < 50 && !warming) {
-				target = math.min(target, 0.22 + (sample.fps / 50) * 0.4);
-			}
-			if (warming) {
-				target = math.max(target, quality);
-			}
-			const falling = target < quality - 0.02;
-			const rising = target > quality + 0.05;
-			if (falling && badSamples >= SUSTAINED_BAD_SAMPLES && now - lastDropAt >= 2) {
-				quality = math.max(target, quality - MAX_DROP);
-				lastDropAt = now;
-				holdUntil = now + 3;
-				badSamples = 0;
-			} else if (rising && now >= holdUntil && now - lastDropAt >= 2.2 && now - lastRiseAt >= 1.1) {
-				quality += (target - quality) * 0.08;
-				lastRiseAt = now;
-			} else if (!falling) {
-				quality += (target - quality) * 0.02;
-			}
-			quality = math.clamp(quality, QUALITY_FLOOR, touchCeil);
-			const pressure = math.clamp(1 - raw + scene + prefer, 0, 1);
-			const scored = infoFromQuality(quality, sample.fps, pressure, sample.hitchScore);
-			const published = infoRef.current;
-			if (scored.tier === published.tier) {
-				pendingTier = published.tier;
-				pendingTierSince = now;
-				return;
-			}
-			if (pendingTier !== scored.tier) {
-				pendingTier = scored.tier;
-				pendingTierSince = now;
-			}
-			if (now - pendingTierSince < TIER_DEBOUNCE_SECONDS) {
-				return;
-			}
-			latestAntilagInfo = scored;
-			infoRef.current = scored;
-			setInfo(scored);
-			if (scored.tier !== lastLoggedTier) {
-				lastLoggedTier = scored.tier;
-				ClientLog.debug("perf", `${math.floor(sample.fps)} fps, quality ${"%.2f".format(quality)}`);
-			}
-		};
-		const onScene = () => evaluate(latestTelemetry);
-		sceneListeners.push(onScene);
-		const stop = subscribeTelemetry(evaluate);
-		return () => {
+		});
+		stops.push(() => {
+			pinned.Disconnect();
+			burn.Disconnect();
+		});
+	}
+	engineStop = () => {
+		for (const stop of stops) {
 			stop();
-			const index = sceneListeners.indexOf(onScene);
-			if (index >= 0) {
-				sceneListeners.remove(index);
-			}
+		}
+	};
+}
+
+function acquireEngine(): () => void {
+	providerCount += 1;
+	if (providerCount === 1) {
+		startEngine();
+	}
+	let released = false;
+	return () => {
+		if (released) {
+			return;
+		}
+		released = true;
+		providerCount = math.max(0, providerCount - 1);
+		if (providerCount === 0 && engineStop !== undefined) {
+			engineStop();
+			engineStop = undefined;
+		}
+	};
+}
+
+export function AntilagProvider(props: { children?: React.ReactNode }) {
+	const [info, setInfo] = React.useState<AntilagInfo>(latestAntilagInfo);
+	React.useEffect(() => {
+		const release = acquireEngine();
+		infoListeners.add(setInfo);
+		setInfo(latestAntilagInfo);
+		return () => {
+			infoListeners.delete(setInfo);
+			release();
 		};
 	}, []);
-
 	return <AntilagContext.Provider value={info}>{props.children}</AntilagContext.Provider>;
 }
 

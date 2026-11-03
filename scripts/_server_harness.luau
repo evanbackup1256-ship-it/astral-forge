@@ -15,6 +15,8 @@ local Stub
 Stub = setmetatable({}, {
 	__index = function() return Stub end,
 	__call = function() return Stub end,
+	-- looping over a stub is an empty loop (a callable table would otherwise be called as the iterator, forever)
+	__iter = function() return function() return nil end end,
 	__tostring = function() return "Stub" end,
 })
 local function signal()

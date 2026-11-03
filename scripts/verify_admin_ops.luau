@@ -143,6 +143,100 @@ do
 	check(self:ReceiveLiveOps("junk") == false and self:ReceiveLiveOps({ Kind = "Nope" }) == false, "junk messages ignored")
 end
 
+------------------------------------------------------------------ control room additions
+do
+	local Policy = H.load("Server/AstralForge/Modules/AdminPolicy")
+	local Schema = H.load("Shared/AstralForge/Shared/AdminCommandSchema")
+	local effect = { Category = "Effects", World = true }
+	local whisper = { Category = "Moderation", Direct = true }
+	check(Policy.Allows("Developer", "Fireworks", effect) == true, "developers can play screen effects")
+	check(Policy.Allows("Moderator", "Fireworks", effect) == false and Policy.Allows("Support", "Fireworks", effect) == false, "moderators and support cannot")
+	check(Policy.Allows("Moderator", "Whisper", whisper) == true and Policy.Allows("Support", "Whisper", whisper) == true, "moderators and support can whisper")
+	check(Policy.Allows("Support", "Kick", { Category = "Moderation" }) == true and Policy.Allows("Support", "GlobalBan", { Category = "Moderation" }) == false, "support's other limits are unchanged")
+
+	local gift = Schema.describe("ServerGift", { Option = true })
+	check(gift.UsesAmount and gift.Maximum == 1e9 and gift.Integer, "ServerGift takes a whole amount up to a billion")
+	check(Schema.validate("ServerGift", { Option = true }, "0", "Flux") == nil and Schema.validate("ServerGift", { Option = true }, "2e9", "Flux") == nil, "ServerGift refuses zero and absurd amounts")
+	check(Schema.validate("ServerGift", { Option = true }, "500", "Flux") == 500, "ServerGift accepts 500")
+	check(Schema.validate("ServerGift", { Option = true }, "500", "") == nil, "ServerGift needs a currency")
+	local ff = Schema.describe("FastForward", {})
+	check(ff.UsesAmount and ff.Minimum == 1 and ff.Maximum == 720, "FastForward is 1 to 720 hours")
+	check(Schema.validate("FastForward", {}, "721", "") == nil and Schema.validate("FastForward", {}, "24", "") == 24, "FastForward bounds hold")
+	local show = Schema.describe("ServerShow", { Option = true })
+	check(show.Mode == "duration" and show.Minimum == 3 and show.Maximum == 20, "ServerShow is a 3 to 20 second effect")
+end
+
+do
+	local AdminModule = H.load("Server/AstralForge/Services/AdminService")
+	local AS, Handlers = AdminModule.AdminService, AdminModule.AdminHandlers
+	local Omega = H.load("Shared/AstralForge/Shared/OmegaMath")
+	-- kits are built from the grant handlers
+	local p = DataTemplate.New()
+	local cores, dust = p.Cores or 0, p.Stardust or 0
+	local starter = Handlers.ApplyKit(p, 1, "Starter")
+	check(starter.ok == true and p.Cores == cores + 5 and p.Stardust == dust + 500, "the Starter kit grants its parts")
+	check(Handlers.ApplyKit(DataTemplate.New(), 1, "Nope").ok == false and Handlers.ApplyKit(DataTemplate.New(), 1, "").ok == false, "unknown kits are refused")
+	local vet = DataTemplate.New()
+	local rebirths = vet.Rebirths or 0
+	check(Handlers.ApplyKit(vet, 1, "Veteran").ok == true and vet.Rebirths == rebirths + 10, "the Veteran kit adds its rebirths")
+	local play = DataTemplate.New()
+	check(Handlers.ApplyKit(play, 1, "Playtest").ok == true, "the Playtest kit applies")
+	-- fast-forward credits production over time
+	local q = DataTemplate.New()
+	local before = q.Cash
+	local r = Handlers.FastForward(q, 2, "")
+	check(r.ok == true and Omega.Gt(q.Cash, before) and Omega.Gt(q.LifetimeCash, 0), "FastForward credits production")
+	local single = DataTemplate.New()
+	Handlers.FastForward(single, 1, "")
+	local double = DataTemplate.New()
+	Handlers.FastForward(double, 2, "")
+	check(Omega.Gt(double.Cash, single.Cash), "two hours credit more than one")
+
+	-- direct commands: server gift, spotlight, whisper, server show
+	local a, b = H.player("P1"), H.player("P2")
+	local admin = H.player("Owner")
+	H.Players.__players = { a, b }
+	local profiles = { [a] = DataTemplate.New(), [b] = DataTemplate.New() }
+	local recorded = {}
+	local fakeData = {
+		Get = function(_, player) return profiles[player] end,
+		GetRevision = function() return 4 end,
+		Save = function() return true end,
+		AtomicUpdate = function(_, player, callback) return true, callback(profiles[player]) end,
+	}
+	toasts = {}
+	local self = setmetatable({ _data = fakeData, _record = function(_, ...) table.insert(recorded, { ... }) end }, { __index = AS })
+	local giftDef = { Label = "Gift every player here (Option = currency)", Option = true, Category = "LiveOps", Direct = true }
+	local coresA = profiles[a].Cores or 0
+	local dry = self:_direct(admin, "ServerGift", giftDef, 25, "Cores", "event", nil, true)
+	check(dry.DryRun == true and (profiles[a].Cores or 0) == coresA and #toasts == 0, "a gift preview changes nothing")
+	local done = self:_direct(admin, "ServerGift", giftDef, 25, "Cores", "event", nil, false)
+	check(done.ok == true and profiles[a].Cores == coresA + 25 and profiles[b].Cores == (DataTemplate.New().Cores or 0) + 25, "a gift reaches every player here")
+	check(#toasts == 2 and #recorded == 1 and recorded[1][3] == "ServerGift", "each player is told, and it is audited once")
+	check(self:_direct(admin, "ServerGift", giftDef, 25, "Bananas", "event", nil, false).ok == false, "an unknown currency is refused")
+
+	local showDef = { Label = "Server-wide effect (Option = effect)", Option = true, Category = "LiveOps", Direct = true }
+	check(self:_direct(admin, "ServerShow", showDef, 6, "Fireworks", "party", nil, false).ok == true, "a show effect plays")
+	check(self:_direct(admin, "ServerShow", showDef, 6, "FakeRob", "party", nil, false).ok == false, "only listed show effects can be sent server-wide")
+	check(self:_direct(admin, "ServerShow", showDef, 6, "Fireworks", "party", nil, true).DryRun == true, "a show preview is a preview")
+
+	local spotDef = { Label = "Put a player in the spotlight (Option = title)", Option = true, Category = "LiveOps", Direct = true }
+	toasts = {}
+	check(self:_direct(admin, "Spotlight", spotDef, 1, "CommunityHero", "kind", a.UserId, false).ok == true and #toasts == 2, "the spotlight tells everyone here")
+	check(self:_direct(admin, "Spotlight", spotDef, 1, "Whatever you like", "kind", a.UserId, false).ok == false, "spotlight titles come from the list")
+	check(self:_direct(admin, "Spotlight", spotDef, 1, "CommunityHero", "kind", 987654321, false).ok == false, "the spotlight needs a player who is here")
+
+	local whisperDef = { Label = "Whisper a private note (Option = message)", Option = true, Category = "Moderation", Direct = true }
+	H.services.TextService = {
+		FilterStringAsync = function(_, text) return { GetChatForUserAsync = function(_, userId) return text .. "#" .. userId end } end,
+	}
+	toasts = {}
+	local w = self:_direct(admin, "Whisper", whisperDef, 1, "Thanks for the bug report", "support", b.UserId, false)
+	check(w.ok == true and #toasts == 1 and toasts[1][1] == b and string.find(toasts[1][2].Body, "#" .. b.UserId, 1, true), "a whisper is filtered for its recipient and sent to them only")
+	check(self:_direct(admin, "Whisper", whisperDef, 1, "x", "support", b.UserId, false).ok == false, "a one-letter whisper is refused")
+	H.services.TextService = { FilterStringAsync = function() error("filter down") end }
+	check(self:_direct(admin, "Whisper", whisperDef, 1, "hello there", "support", b.UserId, false).ok == false, "a whisper fails closed when the filter does")
+end
 ------------------------------------------------------------------ kill switches in GameService
 do
 	local GS = H.load("Server/AstralForge/Services/GameService").GameService

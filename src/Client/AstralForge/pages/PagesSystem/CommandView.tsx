@@ -1,12 +1,10 @@
-﻿import React from "@rbxts/react";
-import { segmentedHeight } from "../../UiCore/ui";
+import React from "@rbxts/react";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { clockText, compactNumber, Flux, formatReward, gteFlux, Reward } from "../../CoreKit/format";
-import { chromeFor, Layout, Palette, scrollTail, TapTarget } from "../../CoreKit/theme";
+import { chromeFor, Layout, Palette, TapTarget } from "../../CoreKit/theme";
 import { easeOutCubic, useBoatTween, useStagger, useViewport } from "../../MotionKit/motion";
-import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
+import { BrowseApi, BrowseCategory, BrowseSort, clientModule, kitMember, LuauComponent } from "../luauKits";
 import { useServerClock } from "../../hooks/useServerClock";
-import { ProfileStylePanel, profileStyleHeight } from "./ProfileStylePanel";
 
 const UserInputService = game.GetService("UserInputService");
 
@@ -17,6 +15,7 @@ const DescribeGenerated = require(
 	milestoneName(this: void, tier: number): string;
 	tripLine(this: void, count: number, foundRelic: boolean): string;
 };
+
 const SeasonPremium = require(
 	game.GetService("ReplicatedStorage").WaitForChild("AstralForge").WaitForChild("Shared").WaitForChild("SeasonPremium") as ModuleScript,
 ) as { PassKey: string; Reward(this: void, tier: number): Reward };
@@ -28,8 +27,8 @@ interface AnimatedTitleKit {
 	titleTier: (this: void, fx: string) => string;
 }
 const { AnimatedTitlePreview, darkTitlePlate, titleFxAccent, titleTier } = kitMember<AnimatedTitleKit>("ReactHosts", "AnimatedTitle");
-const { AutoGrid, VirtualGrid } = kitMember<{ AutoGrid: LuauComponent; VirtualGrid: LuauComponent }>("LayoutKit", "scrolling");
-const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
+import { AutoPage } from "./AutoPage";
+
 interface UiKit {
 	Badge: LuauComponent;
 	Button: LuauComponent;
@@ -42,6 +41,7 @@ interface UiKit {
 	meterFill: (this: void, value: number, target: number, full?: boolean) => number;
 }
 const { Badge, Button, IconTile, Meter, meterFill, Panel, SectionLabel, SegmentedTabs, Text } = kitMember<UiKit>("UiCore", "ui");
+
 const ElementFxModule = clientModule<{
 	ElementFx: LuauComponent;
 	sheet: (this: void, element: unknown) => { Color: Color3; Label: string } | undefined;
@@ -50,7 +50,7 @@ const ElementFx = ElementFxModule.ElementFx;
 const elementSheet = ElementFxModule.sheet;
 const Browse = clientModule<BrowseApi>("BrowseKit");
 
-interface Directive {
+export interface Directive {
 	Id: string;
 	Name: string;
 	Description?: string;
@@ -59,7 +59,8 @@ interface Directive {
 	Target: number;
 	Reward?: Reward;
 }
-interface TitleEntry {
+
+export interface TitleEntry {
 	Id: string;
 	Name: string;
 	Description?: string;
@@ -67,15 +68,35 @@ interface TitleEntry {
 	Equipped?: boolean;
 	Fx?: string;
 }
-interface ShopOffer {
+
+export interface Expedition {
 	Id: string;
 	Name: string;
 	Color: Color3;
-	Price: number;
-	Purchased?: boolean;
+	RequiredLevel: number;
+	Duration: number;
+	ArtifactChance: number;
+	ArtifactId?: string;
 	Reward?: Reward;
 }
-interface CommandState {
+
+export interface ArtifactDef {
+	Id: string;
+	Name: string;
+	Rarity: string;
+	Color: Color3;
+	Element: unknown;
+	EffectKind: string;
+	EffectPerLevel: number;
+}
+
+export interface SeasonTier {
+	Tier: number;
+	RequiredXP: number;
+	Reward?: Reward;
+}
+
+export interface CommandState {
 	Level: number;
 	XP: number;
 	LevelFloorXP: number;
@@ -94,35 +115,11 @@ interface CommandState {
 	Artifacts: Record<string, { Level: number; Fragments: number } | undefined>;
 	EquippedArtifact?: string;
 	Titles: TitleEntry[];
-	Shop: ShopOffer[];
 	Crew: Record<string, number | undefined>;
 	MachineMastery: Record<string, number | undefined>;
 }
-interface Expedition {
-	Id: string;
-	Name: string;
-	Color: Color3;
-	RequiredLevel: number;
-	Duration: number;
-	ArtifactChance: number;
-	ArtifactId?: string;
-	Reward?: Reward;
-}
-interface ArtifactDef {
-	Id: string;
-	Name: string;
-	Rarity: string;
-	Color: Color3;
-	Element: unknown;
-	EffectKind: string;
-	EffectPerLevel: number;
-}
-interface SeasonTier {
-	Tier: number;
-	RequiredXP: number;
-	Reward?: Reward;
-}
-interface Operations {
+
+export interface Operations {
 	Expeditions: Expedition[];
 	Artifacts: ArtifactDef[];
 	SeasonTiers: SeasonTier[];
@@ -132,7 +129,8 @@ interface Operations {
 	MaxCommanderLevel: number;
 	Crew: Record<string, { Name: string; Color: Color3; BaseCost: number; MaxLevel: number; Description?: string } | undefined>;
 }
-interface CommandProps {
+
+export interface CommandProps {
 	state: { Command?: CommandState; Stardust?: Flux; Cosmetics?: unknown; Rebirths?: unknown };
 	config: { Operations?: Operations; Machines: Array<{ Id: string; Name: string; Color: Color3 }> };
 	dispatch: (action: string, payload?: object, callback?: (response: { ok?: boolean; message?: string; ArtifactNew?: boolean }) => void) => unknown;
@@ -140,35 +138,71 @@ interface CommandProps {
 	onSectionChange?: () => void;
 }
 
-// The last trip this session, so the hero can offer it again once the crew is home.
-let lastTripId: string | undefined;
-
-/** "3:40 PM" in the player's own clock, for when a trip lands. */
-function landsAt(unix: number): string {
-	const [text] = string.gsub(os.date("%I:%M %p", math.floor(unix)), "^0", "");
-	return text;
-}
-
-function gridPanelHeight(headerH: number, rows: number, cellH: number, gap: number, pad: number) {
-	const safeRows = math.max(1, rows);
-	const gridH = safeRows * cellH + math.max(0, safeRows - 1) * gap;
-	return pad * 2 + headerH + gridH;
-}
-const TABS = ["Overview", "Expeditions", "Artifacts", "Season"];
-const TITLE_FX_FALLBACKS = ["shimmer", "aurora", "pulse", "chrome", "wave", "glow"];
-const TAB_LABEL: Record<string, string> = { Overview: "Overview", Expeditions: "Expeditions", Artifacts: "Artifacts", Season: "Rank Track" };
+const TABS = ["Overview", "Titles", "Expeditions", "Artifacts", "Season", "Crew"];
+const TAB_LABEL: Record<string, string> = {
+	Overview: "COMMAND",
+	Titles: "WARDROBE",
+	Expeditions: "EXPEDITIONS",
+	Artifacts: "RELIQUARY",
+	Season: "SEASON",
+	Crew: "CREW",
+};
 const TAB_OPTIONS = TABS.map((id) => ({ id, label: TAB_LABEL[id] }));
+
+const { BrowseBar, NoResults } = Browse;
+
+// A title's rarity is its look's tier; the rank orders the "Rarest first" sort
+const TITLE_TIER_RANK: Record<string, number | undefined> = { MYTHIC: 1, LEGENDARY: 2, EPIC: 3, RARE: 4, COMMON: 5 };
+function tierOf(entry: TitleEntry): string {
+	return titleTier(entry.Fx ?? "shimmer").upper();
+}
+function tierRank(entry: TitleEntry): number {
+	return TITLE_TIER_RANK[tierOf(entry)] ?? 9;
+}
+const TITLE_CATEGORIES: BrowseCategory<TitleEntry>[] = [
+	{ id: "All", label: "All" },
+	{ id: "Owned", label: "Owned", test: (entry) => entry.Unlocked === true },
+	{ id: "Locked", label: "Locked", test: (entry) => entry.Unlocked !== true },
+	...["Mythic", "Legendary", "Epic", "Rare", "Common"].map((tier) => ({
+		id: tier,
+		label: tier,
+		test: (entry: TitleEntry) => tierOf(entry) === tier.upper(),
+	})),
+];
+const TITLE_SORTS: BrowseSort<TitleEntry>[] = [
+	{ id: "Default", label: "Recommended" },
+	{ id: "Rarity", label: "Rarest first", compare: (a, b) => tierRank(a) < tierRank(b) },
+	{ id: "Owned", label: "Owned first", compare: (a, b) => a.Unlocked === true && b.Unlocked !== true },
+	{ id: "Name", label: "A to Z", compare: (a, b) => a.Name < b.Name },
+];
+
+const RARITY_COLORS: Record<string, Color3> = {
+	Common: Color3.fromRGB(180, 190, 205),
+	Rare: Color3.fromRGB(80, 180, 255),
+	Epic: Color3.fromRGB(195, 110, 255),
+	Legendary: Color3.fromRGB(255, 195, 60),
+	Mythic: Color3.fromRGB(255, 95, 135),
+	Divine: Color3.fromRGB(255, 235, 140),
+};
+
 const CREW_ROLES = ["Pilot", "Engineer", "Navigator"];
+const CREW_PERKS: Record<string, string> = {
+	Pilot: "+15% Expedition Speed per rank",
+	Engineer: "+20% Artifact Fragment yield",
+	Navigator: "+10% Rare Relic discovery rate",
+};
 
 function crewCost(base: number, level: number) {
 	return math.floor(base * math.pow(level, 1.55));
 }
+
 function artifactEffect(artifact: ArtifactDef, level: number) {
 	if (artifact.EffectKind === "OfflineHours") {
 		return `+${"%.1f".format(artifact.EffectPerLevel * level)}h offline`;
 	}
 	return `+${"%.0f".format(artifact.EffectPerLevel * level * 100)}% ${artifact.EffectKind}`;
 }
+
 const ARTIFACT_ICONS: Record<string, string | undefined> = {
 	SolarLens: "Forge",
 	VaultPrism: "Vault",
@@ -183,175 +217,18 @@ const ARTIFACT_ICONS: Record<string, string | undefined> = {
 	AuroraMap: "World",
 	CrownOfHours: "Milestone",
 };
+
 function artifactIcon(id: string) {
 	return ARTIFACT_ICONS[id] ?? "Artifact";
 }
 
-function TabRail(props: { active: string; setActive: (tab: string) => void; reducedMotion?: boolean; stack: boolean; columns?: number }) {
-	return (
-		<SegmentedTabs
-			options={TAB_OPTIONS}
-			value={props.active}
-			onChange={props.setActive}
-			accent={Palette.cyan}
-			columns={props.columns ?? TABS.size()}
-			gap={4}
-			size={UDim2.fromScale(1, 1)}
-			reducedMotion={props.reducedMotion}
-		/>
-	);
+let lastTripId: string | undefined;
+
+function landsAt(unix: number): string {
+	const [text] = string.gsub(os.date("%I:%M %p", math.floor(unix)), "^0", "");
+	return text;
 }
 
-function TabPane(props: { tabKey: string; reducedMotion?: boolean; children?: React.ReactNode }) {
-	const reducedMotion = props.reducedMotion;
-	const enter = useBoatTween(1, reducedMotion ? 0.01 : 0.2, reducedMotion, easeOutCubic, 0);
-	return (
-		<frame
-			key={props.tabKey}
-			Size={new UDim2(1, 0, 0, 0)}
-			AutomaticSize={Enum.AutomaticSize.Y}
-			BackgroundTransparency={1}
-			BorderSizePixel={0}
-			LayoutOrder={20}
-		>
-			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Layout.panelGap)} />
-			<frame
-				Size={new UDim2(1, 0, 0, 0)}
-				AutomaticSize={Enum.AutomaticSize.Y}
-				Position={enter.map((a) => new UDim2(0, math.round((1 - math.clamp(a, 0, 1)) * 7), 0, 0))}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-			>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Layout.panelGap)} />
-				{props.children}
-			</frame>
-		</frame>
-	);
-}
-
-interface TitleCardProps {
-	id: string;
-	name: string;
-	description?: string;
-	unlocked?: boolean;
-	equipped?: boolean;
-	fx: string;
-	stack: boolean;
-	reducedMotion?: boolean;
-	dispatch: CommandProps["dispatch"];
-}
-
-const CommandTitleCard = React.memo((props: TitleCardProps) => {
-	const accent = titleFxAccent(props.fx);
-	const tierLabel = titleTier(props.fx).upper();
-	const fxLabel = props.fx.gsub("-", " ")[0].upper();
-	const effectName = `${tierLabel}  ${fxLabel}`;
-	const equip = React.useCallback(() => props.dispatch("EquipTitle", { Id: props.id }), [props.dispatch, props.id]);
-	const actionHeight = props.stack ? TapTarget : 34;
-	const actionSize = new UDim2(1, -14, 0, actionHeight);
-	const actionPosition = new UDim2(0, 7, 1, -(actionHeight + 7));
-	const descText = props.description ?? "This is how the title looks in chat and on your nameplate.";
-	return (
-		<frame
-			Size={UDim2.fromScale(1, 1)}
-			BackgroundColor3={darkTitlePlate(props.fx)}
-			BackgroundTransparency={props.equipped ? 0.06 : 0.28}
-			BorderSizePixel={0}
-			Active={false}
-			ClipsDescendants={true}
-		>
-			<uicorner CornerRadius={new UDim(0, 14)} />
-			<uistroke
-				Color={props.equipped ? accent : props.unlocked ? accent : Palette.lineSoft}
-				Thickness={props.equipped ? 1.8 : 1}
-				Transparency={props.equipped ? 0.08 : props.unlocked ? 0.48 : 0.58}
-			/>
-			<frame Size={new UDim2(1, -16, 0, 16)} Position={UDim2.fromOffset(8, 6)} BackgroundTransparency={1} BorderSizePixel={0}>
-				<frame
-					Size={UDim2.fromOffset(6, 6)}
-					Position={new UDim2(0, 2, 0.5, 0)}
-					AnchorPoint={new Vector2(0, 0.5)}
-					Rotation={45}
-					BackgroundColor3={props.unlocked ? accent : Palette.muted}
-					BorderSizePixel={0}
-				/>
-				<Text
-					value={effectName}
-					size={9}
-					minSize={8}
-					color={props.unlocked ? accent : Palette.muted}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					align={Enum.TextXAlignment.Left}
-					position={UDim2.fromOffset(14, 1)}
-					sizeConstraint={new UDim2(1, -68, 0, 14)}
-				/>
-				<Text
-					value={props.equipped ? "ACTIVE" : props.unlocked ? "OWNED" : "LOCKED"}
-					size={8}
-					minSize={7}
-					color={props.equipped ? Palette.mint : props.unlocked ? Palette.creamSoft : Palette.muted}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					align={Enum.TextXAlignment.Right}
-					position={new UDim2(1, -52, 0, 1)}
-					sizeConstraint={UDim2.fromOffset(52, 14)}
-				/>
-			</frame>
-			<frame Size={new UDim2(1, -14, 0, 36)} Position={UDim2.fromOffset(7, 23)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
-				<AnimatedTitlePreview
-					text={props.name}
-					fx={props.fx}
-					size={props.stack ? 18 : 16}
-					reducedMotion={props.reducedMotion}
-					preview={!props.equipped}
-					transparency={props.unlocked ? 0 : 0.42}
-				/>
-			</frame>
-			<Text
-				value={descText}
-				size={10}
-				color={props.unlocked ? Palette.creamSoft : Palette.muted}
-				wrap={true}
-				fit={true}
-				minSize={9}
-				align={Enum.TextXAlignment.Center}
-				position={UDim2.fromOffset(9, 62)}
-				sizeConstraint={new UDim2(1, -18, 0, 46)}
-			/>
-			{props.unlocked && !props.equipped ? (
-				<Button
-					text="EQUIP CREST"
-					icon="Loadout.5"
-					onClick={equip}
-					color={accent}
-					textColor={Palette.ink}
-					size={actionSize}
-					position={actionPosition}
-					reducedMotion={props.reducedMotion}
-				/>
-			) : (
-				<frame Size={actionSize} Position={actionPosition} BackgroundColor3={Palette.panelSoft} BorderSizePixel={0} Active={false}>
-					<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
-					<uistroke Color={props.equipped ? accent : Palette.lineSoft} Thickness={1} Transparency={0.52} />
-					<Text
-						value={props.equipped ? "EQUIPPED" : "LOCKED"}
-						size={11}
-						minSize={9}
-						color={props.equipped ? accent : Palette.muted}
-						weight={Enum.FontWeight.Heavy}
-						fit={true}
-						align={Enum.TextXAlignment.Center}
-						sizeConstraint={UDim2.fromScale(1, 1)}
-					/>
-				</frame>
-			)}
-		</frame>
-	);
-});
-
-// true once the running trip's EndsAt has passed. Flips with one timer at landing instead of a
-// once-a-second clock, so the whole Command page re-renders once per trip, not once per second.
 function useTripLanded(active: boolean, endsAt: number): boolean {
 	const serverNow = () => game.GetService("Workspace").GetServerTimeNow();
 	const [landed, setLanded] = React.useState(() => active && serverNow() >= endsAt);
@@ -374,1398 +251,995 @@ function useTripLanded(active: boolean, endsAt: number): boolean {
 	return landed;
 }
 
-// the only part of the trip card that reads the clock: re-renders just what `render` returns,
-// once a second while `ticking`; otherwise it renders once with the current time
-function TripClock(props: { ticking: boolean; render: (now: number) => React.Element }) {
-	const now = useServerClock(props.ticking);
-	return props.render(props.ticking ? now : game.GetService("Workspace").GetServerTimeNow());
+function TabPane(props: { tabKey: string; reducedMotion?: boolean; children?: React.ReactNode }) {
+	const reducedMotion = props.reducedMotion;
+	const enter = useBoatTween(1, reducedMotion ? 0.01 : 0.22, reducedMotion, easeOutCubic, 0);
+	return (
+		<frame
+			key={props.tabKey}
+			Size={new UDim2(1, 0, 0, 0)}
+			AutomaticSize={Enum.AutomaticSize.Y}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			LayoutOrder={20}
+		>
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Layout.panelGap)} />
+			<frame
+				Size={new UDim2(1, 0, 0, 0)}
+				AutomaticSize={Enum.AutomaticSize.Y}
+				Position={enter.map((a) => new UDim2(0, 0, 0, math.round((1 - math.clamp(a, 0, 1)) * 6)))}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Layout.panelGap)} />
+				{props.children}
+			</frame>
+		</frame>
+	);
 }
 
-// weekly jobs roll over with the server's UTC week (UtcClockMath.Week)
-const WEEK_SECONDS = 7 * 24 * 60 * 60;
-function weeklyResetText(now: number): string {
-	const left = math.max(0, (math.floor(now / WEEK_SECONDS) + 1) * WEEK_SECONDS - now);
-	const days = math.floor(left / 86400);
-	const hours = math.floor((left % 86400) / 3600);
-	if (days > 0) {
-		return `New jobs in ${days}d ${hours}h`;
-	}
-	const minutes = math.max(1, math.floor((left % 3600) / 60));
-	return hours > 0 ? `New jobs in ${hours}h ${minutes}m` : `New jobs in ${minutes}m`;
-}
-
-function CommandViewReady(props: CommandProps) {
+export function CommandView(props: CommandProps) {
 	const { state, config, dispatch, onSectionChange } = props;
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
-	const softMotion = props.reducedMotion;
-	const reducedMotion = softMotion;
-	const overviewReveal = useStagger(0, softMotion);
-	const expeditionsReveal = useStagger(1, softMotion);
-	const opsReveal = useStagger(2, softMotion);
-	const commandSoft =
-		softMotion || overviewReveal === undefined || expeditionsReveal === undefined || opsReveal === undefined;
-	const claimHostRef = React.useRef<Frame>();
-	const [contentWidth, setContentWidth] = React.useState(360);
-	const stack = chrome.contentStack || contentWidth < 760;
-	const ops = config.Operations!;
-	const command = state.Command!;
-	const [tab, setTab] = React.useState("Overview");
+	const reducedMotion = props.reducedMotion === true;
+	const [contentWidth, setContentWidth] = React.useState(700);
+	const stack = chrome.contentStack || contentWidth < 740;
 	const scrollRef = React.useRef<ScrollingFrame>();
+
+	const ops = config.Operations ?? {
+		Expeditions: [],
+		Artifacts: [],
+		SeasonTiers: [],
+		MaxCommanderLevel: 50,
+		Crew: {},
+	};
+	const command = state.Command ?? {
+		Level: 1,
+		XP: 0,
+		LevelFloorXP: 0,
+		NextLevelXP: 1000,
+		Signals: 0,
+		ExpeditionsCompleted: 0,
+		StreakShields: 0,
+		ClaimableCommanderLevels: [],
+		Weekly: [],
+		SeasonClaims: {},
+		SeasonXP: 0,
+		Artifacts: {},
+		Titles: [],
+		Crew: {},
+		MachineMastery: {},
+	};
+
+	const [tab, setTab] = React.useState("Overview");
+
+	// Active expedition state
+	const active = command.ActiveExpedition;
+	const activeId = active?.Id ?? "";
+	const activeEnds = active?.EndsAt ?? 0;
+	const activeStarted = active?.StartedAt ?? 0;
+	const expeditionReady = useTripLanded(activeId !== "", activeEnds);
+	const serverNow = useServerClock(tab === "Expeditions" && activeId !== "" && !expeditionReady);
+
+	if (activeId !== "") {
+		lastTripId = activeId;
+	}
+
+	const [tripReport, setTripReport] = React.useState<{ name: string; haul: string; found: boolean } | undefined>(undefined);
+	const [pendingKey, setPendingKey] = React.useState<string | undefined>(undefined);
+
+	const sendAction = (key: string, action: string, payload: object) => {
+		if (pendingKey !== undefined) return;
+		setPendingKey(key);
+		const timeout = task.delay(7, () => setPendingKey(undefined));
+		dispatch(action, payload, (res) => {
+			pcall(task.cancel, timeout);
+			setPendingKey(undefined);
+		});
+	};
+
+	// Measure container width
 	React.useEffect(() => {
 		const host = scrollRef.current;
-		if (!host) {
-			return undefined;
-		}
+		if (!host) return undefined;
 		const measure = () => {
 			if (host.AbsoluteSize.X > 0) {
 				setContentWidth(host.AbsoluteSize.X);
 			}
 		};
 		measure();
-		const connection = host.GetPropertyChangedSignal("AbsoluteSize").Connect(measure);
-		return () => connection.Disconnect();
+		const conn = host.GetPropertyChangedSignal("AbsoluteSize").Connect(measure);
+		return () => conn.Disconnect();
 	}, []);
-	React.useEffect(() => {
-		const frame = scrollRef.current;
-		if (frame) {
-			frame.CanvasPosition = new Vector2(0, 0);
-		}
-	}, [tab]);
-	const expeditionBrowse = Browse.useBrowse<Expedition>({
-		id: "Expeditions",
-		items: ops.Expeditions ?? [],
-		text: (expedition) => [expedition.Name, formatReward(expedition.Reward), `level ${expedition.RequiredLevel}`],
-		categories: [
-			{ id: "All", label: "All" },
-			{ id: "Available", label: "Available", test: (expedition) => command.Level >= expedition.RequiredLevel },
-			{ id: "Locked", label: "Locked", test: (expedition) => command.Level < expedition.RequiredLevel },
-		],
-		sorts: [
-			{ id: "Level", label: "By level" },
-			{ id: "Shortest", label: "Shortest trip", compare: (a, b) => (tonumber(a.Duration) ?? 0) < (tonumber(b.Duration) ?? 0) },
-			{ id: "Relic", label: "Best relic odds", compare: (a, b) => (tonumber(a.ArtifactChance) ?? 0) > (tonumber(b.ArtifactChance) ?? 0) },
-		],
+
+	// Active equipped title
+	const titlesList = command.Titles ?? [];
+	const equippedTitle = titlesList.find((t) => t.Equipped === true) ?? titlesList[0];
+	const [selectedTitleId, setSelectedTitleId] = React.useState<string>(equippedTitle?.Id ?? "");
+	const currentPreviewTitle = titlesList.find((t) => t.Id === selectedTitleId) ?? equippedTitle;
+
+	// Titles: search, rarity and sort come from the shared browse kit, like every other list page
+	const titleBrowse = Browse.useBrowse<TitleEntry>({
+		id: "CommandTitles",
+		items: titlesList,
+		text: (entry) => [entry.Name, entry.Description, tierOf(entry), entry.Fx],
+		categories: TITLE_CATEGORIES,
+		sorts: TITLE_SORTS,
 	});
-	const expeditionList = expeditionBrowse.results;
-	const titlesEnabled = ops.TitlesEnabled !== false;
-	const maxed = command.Level >= ops.MaxCommanderLevel;
-	const levelProgress = maxed
-		? 1
-		: meterFill(command.XP - command.LevelFloorXP, math.max(1, command.NextLevelXP - command.LevelFloorXP));
-	const nextClaim = command.ClaimableCommanderLevels[0] as number | undefined;
-	const active = command.ActiveExpedition;
-	const activeId = active?.Id ?? "";
-	const activeEnds = active?.EndsAt ?? 0;
-	const activeStarted = active?.StartedAt ?? 0;
-	// the page itself only needs to know when the trip lands (one re-render, at landing); the
-	// per-second countdown text, meter and button label each tick inside a small TripClock
-	const expeditionReady = useTripLanded(activeId !== "", activeEnds);
-	const tripTicking = tab === "Expeditions" && activeId !== "" && !expeditionReady;
-	const tripProgress = (now: number) =>
-		activeId === "" ? 0 : math.clamp((now - activeStarted) / math.max(1, activeEnds - activeStarted), 0, 1);
-	if (activeId !== "") {
-		lastTripId = activeId;
-	}
-	const [tripReport, setTripReport] = React.useState<{ name: string; haul: string; found: boolean } | undefined>(undefined);
-	// purchases and claims: the pressed button spins until the server answers, a refusal shakes it,
-	// and nothing else can be sent meanwhile (no double buys or double claims)
-	const [pendingKey, setPendingKey] = React.useState<string | undefined>(undefined);
-	const [refusal, setRefusal] = React.useState<{ key: string; token: number }>({ key: "", token: 0 });
-	const sendPending = (key: string, action: string, payload: object) => {
-		if (pendingKey !== undefined) {
-			return;
-		}
-		setPendingKey(key);
-		// never leave the spinner up if the answer is lost
-		const fallback = task.delay(8, () => setPendingKey(undefined));
-		dispatch(action, payload, (response) => {
-			pcall(task.cancel, fallback);
-			setPendingKey(undefined);
-			if (response.ok !== true) {
-				setRefusal((current) => ({ key, token: current.token + 1 }));
-			}
-		});
-	};
-	const pendingProps = (key: string) => ({
-		loading: pendingKey === key,
-		shakeToken: refusal.key === key ? refusal.token : 0,
-	});
+
+	// Commander Level calculations
+	const maxedLevel = command.Level >= ops.MaxCommanderLevel;
+	const levelRange = math.max(1, command.NextLevelXP - command.LevelFloorXP);
+	const levelProgress = maxedLevel ? 1 : math.clamp((command.XP - command.LevelFloorXP) / levelRange, 0, 1);
+	const nextClaimable = command.ClaimableCommanderLevels[0] as number | undefined;
+
+	// Expeditions repeat
 	const repeatTrip = activeId === "" && lastTripId !== undefined ? ops.Expeditions.find((item) => item.Id === lastTripId) : undefined;
 	const canRepeat = repeatTrip !== undefined && command.Level >= repeatTrip.RequiredLevel;
-	const statusLine =
-		activeId === ""
-			? tripReport !== undefined
-				? `${tripReport.name} came back with ${tripReport.haul}.`
-				: "Launch an unlocked adventure below."
-			: expeditionReady
-				? "Crew is back. Collect their rewards."
-				: undefined;
-	const tripStatusAt = (now: number) => `Back in ${clockText(math.max(0, activeEnds - now))}, around ${landsAt(activeEnds)}`;
-	const claimLabel =
-		activeId === ""
-			? canRepeat
-				? "SEND AGAIN"
-				: "Choose below"
-			: expeditionReady
-				? "COLLECT"
-				: undefined;
-	const tripLabelAt = (now: number) => clockText(math.max(0, activeEnds - now));
-	const collectTrip = () => {
-		const name = ops.Expeditions.find((item) => item.Id === activeId)?.Name ?? "Your crew";
-		dispatch("ClaimExpedition", {}, (response) => {
-			if (response.ok === true) {
-				const haul = response.message !== undefined && response.message !== "" ? response.message : "their rewards";
-				setTripReport({ name, haul, found: response.ArtifactNew === true });
-			}
-		});
-	};
-	const onHeroAction = () => {
-		if (activeId === "" && canRepeat && repeatTrip !== undefined) {
-			setTripReport(undefined);
-			dispatch("LaunchExpedition", { Id: repeatTrip.Id });
-		} else {
-			collectTrip();
-		}
-	};
-	let firstReadyWeeklyId: string | undefined;
-	if (typeIs(command.Weekly, "table")) {
-		for (const directive of command.Weekly) {
-			if (!directive.Claimed && directive.Progress >= directive.Target) {
-				firstReadyWeeklyId = directive.Id;
-				break;
-			}
-		}
-	}
-	let firstReadySeasonTier: number | undefined;
+
+	// Season pass calculations
 	const passOwned = command.SeasonPassOwned === true;
-	const premiumClaims = typeIs(command.PremiumClaims, "table") ? command.PremiumClaims : {};
-	if (typeIs(ops.SeasonTiers, "table") && typeIs(command.SeasonClaims, "table")) {
-		for (const tier of ops.SeasonTiers) {
-			const claimed = command.SeasonClaims[tostring(tier.Tier)] === true;
-			const passClaimed = !passOwned || premiumClaims[tostring(tier.Tier)] === true;
-			const unlocked = command.SeasonXP >= tier.RequiredXP;
-			if (unlocked && (!claimed || !passClaimed)) {
-				firstReadySeasonTier = tier.Tier;
-				break;
-			}
-		}
-	}
-	const commandClaimReady =
-		(tab === "Overview" && (nextClaim !== undefined || firstReadyWeeklyId !== undefined)) ||
-		(tab === "Expeditions" && expeditionReady) ||
-		(tab === "Season" && firstReadySeasonTier !== undefined);
-	React.useEffect(() => {
-		if (!commandClaimReady || !UserInputService.GamepadEnabled) {
-			return undefined;
-		}
-		const host = claimHostRef.current;
-		if (host === undefined) {
-			return undefined;
-		}
-		const selectJob = task.defer(() => {
-			if (host.Parent === undefined) {
-				return;
-			}
-			GamepadNavigationService.FocusClaim(host);
-		});
-		return () => {
-			pcall(task.cancel, selectJob);
-		};
-	}, [tab, nextClaim, firstReadyWeeklyId, expeditionReady, firstReadySeasonTier, commandClaimReady]);
-	const activeConfig = ops.Expeditions.find((item) => item.Id === activeId);
-	const ownedArtifacts = ops.Artifacts.filter((artifact) => command.Artifacts[artifact.Id] !== undefined).size();
-	const nextTier = ops.SeasonTiers.find((tier) => command.SeasonClaims[tostring(tier.Tier)] !== true);
-	const seasonFill = nextTier ? meterFill(command.SeasonXP, math.max(1, nextTier.RequiredXP)) : 1;
-	const seasonStatus = nextTier
-		? command.SeasonXP >= nextTier.RequiredXP
-			? `Gift ${nextTier.Tier} is ready`
-			: `${compactNumber(nextTier.RequiredXP - command.SeasonXP)} XP to gift ${nextTier.Tier}`
-		: "All season gifts claimed";
-	const passStatus = passOwned
-		? "Season Pass active: every tier pays out twice."
-		: "The Season Pass in the Shop adds a second reward to every tier.";
-	const panelPad = 14;
-	const gridGap = 8;
-	const heroH = stack ? 196 : 168;
-	const crewCols = stack ? 1 : 3;
-	const crewCellH = 136;
-	const crewRows = math.max(1, math.ceil(CREW_ROLES.size() / crewCols));
-	const crewH = gridPanelHeight(54, crewRows, crewCellH, gridGap, panelPad);
-	const weeklyItemH = stack ? 148 : 92;
-	const weeklyStride = stack ? 156 : 100;
-	const weeklyCount = math.max(1, command.Weekly.size());
-	const weeklyH = panelPad * 2 + 36 + (weeklyCount - 1) * weeklyStride + weeklyItemH;
-	const titleCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (210 + gridGap))));
-	const titleCellH = 176;
-	const titleRows = math.max(1, math.ceil(math.max(1, command.Titles.size()) / titleCols));
-	// closed titles: the 152px badge sits beside the 18px "Title wardrobe" header (~140px) when there's
-	// room, otherwise on its own line under it (narrow phones), and the panel grows by that line
-	const CLOSED_BADGE_W = 152;
-	const closedBadgeOwnLine = contentWidth - panelPad * 2 < 140 + CLOSED_BADGE_W + 12;
-	const closedBadgeLine = closedBadgeOwnLine ? 26 + 8 : 0;
-	const titlesH = titlesEnabled ? gridPanelHeight(52, titleRows, titleCellH, gridGap, panelPad) : 112 + closedBadgeLine;
-	const styleH = profileStyleHeight(stack) + panelPad * 2;
-	const shopCols = math.max(1, math.min(4, math.floor((contentWidth - panelPad * 2 + gridGap) / (190 + gridGap))));
-	const shopCellH = 180;
-	const shopRows = math.max(1, math.ceil(math.max(1, command.Shop.size()) / shopCols));
-	const shopH = gridPanelHeight(36, shopRows, shopCellH, gridGap, panelPad);
-	const masteryCols = math.max(1, math.min(3, math.floor((contentWidth - panelPad * 2 + gridGap) / (210 + gridGap))));
-	const masteryCellH = 64;
-	const masteryRows = math.max(1, math.ceil(math.max(1, config.Machines.size()) / masteryCols));
-	const masteryH = gridPanelHeight(36, masteryRows, masteryCellH, gridGap, panelPad);
-	// phones in landscape get the side-by-side trip rows: the stacked row (button underneath)
-	// would fill most of a 360px-tall screen
-	const tripStack = stack && !chrome.landscape;
-	const expeditionHeroH = tripStack ? 188 : 140;
-	const expeditionRowH = tripStack ? 168 : 132;
-	const artifactHeroH = 110;
-	// relic rows follow the trip rows: side by side on landscape phones
-	const artifactRowH = tripStack ? 180 : 140;
-	const seasonHeroH = 164;
-	const seasonRowH = stack ? 184 : 144;
-	const heroInfoWidth = stack ? -100 : -(114 + 210 + 14);
-	let tabContent = 0;
-	let listContent = 0;
-	let tabHeroH = 0;
-	if (tab === "Overview") {
-		tabContent = heroH + crewH + weeklyH + titlesH + styleH + shopH + masteryH + Layout.panelGap * 6;
-	} else if (tab === "Expeditions") {
-		tabHeroH = expeditionHeroH;
-		listContent = ops.Expeditions.size() * expeditionRowH + math.max(0, ops.Expeditions.size() - 1) * Layout.panelGap;
-	} else if (tab === "Artifacts") {
-		tabHeroH = artifactHeroH;
-		listContent = ops.Artifacts.size() * artifactRowH + math.max(0, ops.Artifacts.size() - 1) * Layout.panelGap;
-	} else {
-		tabHeroH = seasonHeroH;
-		listContent = ops.SeasonTiers.size() * seasonRowH + math.max(0, ops.SeasonTiers.size() - 1) * Layout.panelGap;
-	}
-	const headerH = 56;
-	const tabColumns = math.max(1, math.min(TABS.size(), math.floor((contentWidth + 4) / 140)));
-	const tabsH = segmentedHeight(TABS.size(), tabColumns, viewport, 48, 4);
-	const commandTail = scrollTail(stack, chrome.bottomSafe, stack ? 72 : 48);
-	const useFillList = tab !== "Overview";
-	let order = 0;
-	const nextOrder = () => {
-		order += 1;
-		return order;
-	};
-	const changeTab = (nextTab: string) => {
-		if (nextTab === tab) {
-			return undefined;
-		}
-		onSectionChange?.();
-		setTab(nextTab);
-	};
-	const header = (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} Active={false}>
-			<SectionLabel value="Season" color={Palette.cyan} />
-			<Text
-				value={ops.SeasonName ?? "Deep Space Command"}
-				size={stack ? 24 : 28}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				position={UDim2.fromOffset(0, 22)}
-				sizeConstraint={new UDim2(1, 0, 0, 32)}
+	const nextSeasonTier = ops.SeasonTiers.find((tier) => command.SeasonClaims[tostring(tier.Tier)] !== true);
+	const seasonFill = nextSeasonTier ? math.clamp(command.SeasonXP / math.max(1, nextSeasonTier.RequiredXP), 0, 1) : 1;
+
+	// Render Tab Navigation Bar
+	const tabRail = (
+		<Panel
+			size={new UDim2(1, 0, 0, stack ? 44 : 48)}
+			accent={Palette.cyan}
+			background={Palette.panel}
+			padding={4}
+			layoutOrder={1}
+			reducedMotion={reducedMotion}
+		>
+			<SegmentedTabs
+				options={TAB_OPTIONS}
+				value={tab}
+				onChange={(val: string) => {
+					setTab(val);
+					onSectionChange?.();
+					if (scrollRef.current) {
+						scrollRef.current.CanvasPosition = new Vector2(0, 0);
+					}
+				}}
+				accent={Palette.cyan}
+				columns={stack ? 3 : TABS.size()}
+				gap={4}
+				size={UDim2.fromScale(1, 1)}
+				reducedMotion={reducedMotion}
 			/>
-		</frame>
-	);
-	const tabsRow = (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} Active={false}>
-			<TabRail active={tab} setActive={changeTab} reducedMotion={reducedMotion || commandSoft} stack={stack} columns={tabColumns} />
-		</frame>
+		</Panel>
 	);
 
-	let overviewPane: React.Element | false = false;
-	if (tab === "Overview") {
-		const crewCells = CREW_ROLES.map((roleId, index) => {
-			const role = ops.Crew[roleId];
-			if (!role) {
-				return undefined;
-			}
-			const level = command.Crew[roleId] ?? 1;
-			const cost = crewCost(role.BaseCost, level);
-			const maxRole = level >= role.MaxLevel;
-			const can = !maxRole && command.Signals >= cost;
-			return (
-				<frame key={roleId} BackgroundColor3={Palette.panelRaised} BorderSizePixel={0} LayoutOrder={index}>
-					<uicorner CornerRadius={new UDim(0, 10)} />
-					<uistroke Color={role.Color} Thickness={1} Transparency={0.4} />
-					<Text
-						value={role.Name}
-						size={13}
-						color={role.Color}
-						weight={Enum.FontWeight.Heavy}
-						fit={false}
-						position={UDim2.fromOffset(10, 8)}
-						sizeConstraint={new UDim2(1, -20, 0, 18)}
-					/>
-					<Text
-						value={
-							role.MaxLevel >= 1000000000
-								? `Lv ${compactNumber(level)}`
-								: `Lv ${compactNumber(level)} / ${compactNumber(role.MaxLevel)}`
-						}
-						size={11}
-						color={Palette.creamSoft}
-						fit={false}
-						position={UDim2.fromOffset(10, 30)}
-						sizeConstraint={new UDim2(1, -20, 0, 16)}
-					/>
-					{role.Description !== undefined ? (
+	// --------------------------------------------------------------------------------------------
+	// TAB 1: OVERVIEW (TACTICAL COMMAND HUB)
+	// --------------------------------------------------------------------------------------------
+	const overviewTab = (
+		<TabPane tabKey="Overview" reducedMotion={reducedMotion}>
+			{/* Hero Status Banner */}
+			<Panel
+				size={new UDim2(1, 0, 0, stack ? 160 : 138)}
+				accent={Palette.cyan}
+				background={Palette.panelRaised}
+				padding={14}
+				layoutOrder={1}
+				reducedMotion={reducedMotion}
+			>
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
+					<frame Size={new UDim2(1, -120, 0, 26)} BackgroundTransparency={1}>
 						<Text
-							value={role.Description}
+							value={`COMMANDER RANK  ·  LEVEL ${command.Level}`}
+							size={14}
+							color={Palette.cream}
+							weight={Enum.FontWeight.Heavy}
+							align={Enum.TextXAlignment.Left}
+						/>
+					</frame>
+					<frame Size={UDim2.fromOffset(110, 26)} Position={new UDim2(1, -110, 0, 0)} BackgroundTransparency={1}>
+						<Badge filled={true}
+							value={`${compactNumber(command.Signals)} SIGNALS`}
+							accent={Palette.cyan}
+						
+							size={UDim2.fromScale(1, 1)}
+						/>
+					</frame>
+
+					{/* XP Meter */}
+					<frame Size={new UDim2(1, 0, 0, 18)} Position={UDim2.fromOffset(0, 36)} BackgroundTransparency={1}>
+						<Meter
+							value={levelProgress}
+							color={Palette.cyan}
+							size={UDim2.fromScale(1, 1)}
+							reducedMotion={reducedMotion}
+						/>
+					</frame>
+					<frame Size={new UDim2(1, 0, 0, 16)} Position={UDim2.fromOffset(0, 58)} BackgroundTransparency={1}>
+						<Text
+							value={maxedLevel ? "MAXIMUM RANK ATTAINED" : `${compactNumber(command.XP - command.LevelFloorXP)} / ${compactNumber(levelRange)} XP TO LEVEL ${command.Level + 1}`}
 							size={11}
 							color={Palette.muted}
-							wrap={true}
-							fit={true}
-							minSize={9}
-							position={UDim2.fromOffset(10, 50)}
-							sizeConstraint={new UDim2(1, -20, 0, 30)}
+							align={Enum.TextXAlignment.Left}
 						/>
-					) : undefined}
-					<Button
-						text={maxRole ? "MAX" : `Train · ${compactNumber(cost)} signals`}
-						onClick={() => dispatch("UpgradeCrew", { Role: roleId })}
-						color={role.Color}
-						textColor={Palette.ink}
-						size={new UDim2(1, -20, 0, stack ? TapTarget : 36)}
-						position={new UDim2(0, 10, 1, -(stack ? TapTarget + 8 : 44))}
-						disabled={!can}
-						reducedMotion={softMotion}
-						highlight={can}
-					/>
-				</frame>
-			);
-		});
-		const weeklyGrid = (
-			<VirtualGrid
-				scrollRef={scrollRef}
-				count={command.Weekly.size()}
-				columns={1}
-				cellHeight={weeklyItemH}
-				gap={weeklyStride - weeklyItemH}
-				overscanRows={softMotion ? 0 : 1}
-				position={UDim2.fromOffset(0, 36)}
-				itemKey={(index: number) => {
-					const directive = command.Weekly[index] as Directive | undefined;
-					return directive !== undefined ? directive.Id : `weekly-${index}`;
-				}}
-				renderItem={(index: number) => {
-					const directive = command.Weekly[index] as Directive | undefined;
-					if (directive === undefined) {
-						return undefined;
-					}
-					const ready = !directive.Claimed && directive.Progress >= directive.Target;
-					const rewardLine = formatReward(directive.Reward);
-					const claimRef = ready && nextClaim === undefined && directive.Id === firstReadyWeeklyId ? claimHostRef : undefined;
-					const claimButton = (
+					</frame>
+
+					{/* Action / Claim Button */}
+					{nextClaimable !== undefined && (
 						<Button
-							text={directive.Claimed ? "DONE" : ready ? "CLAIM" : "NOT YET"}
-							onClick={() => sendPending(`weekly:${directive.Id}`, "ClaimWeeklyDirective", { Id: directive.Id })}
-							{...pendingProps(`weekly:${directive.Id}`)}
-							color={Palette.green}
+							text={`CLAIM RANK ${nextClaimable} REWARD`}
+							icon="Gift"
+							onClick={() => sendAction("ClaimLevel", "ClaimCommanderReward", { Level: nextClaimable })}
+							color={Palette.mint}
 							textColor={Palette.ink}
-							size={UDim2.fromScale(1, 1)}
-							disabled={directive.Claimed || !ready}
+							size={new UDim2(1, 0, 0, 36)}
+							position={new UDim2(0, 0, 1, -36)}
+							loading={pendingKey === "ClaimLevel"}
 							reducedMotion={reducedMotion}
-							highlight={ready}
 						/>
-					);
-					return (
-						<frame Size={new UDim2(1, 0, 0, weeklyItemH)} BackgroundColor3={Palette.ink} BorderSizePixel={0}>
-							<uicorner CornerRadius={new UDim(0, 10)} />
-							<uistroke Color={ready ? Palette.green : Palette.lineSoft} Thickness={1} Transparency={0.45} />
-							<Text
-								value={directive.Name}
-								size={13}
-								color={ready ? Palette.green : Palette.cream}
-								weight={Enum.FontWeight.Heavy}
-								fit={false}
-								position={UDim2.fromOffset(12, 8)}
-								sizeConstraint={new UDim2(1, stack ? -24 : -156, 0, 18)}
-							/>
-							<Text
-								value={directive.Description ?? ""}
-								size={11}
-								color={Palette.muted}
-								fit={false}
-								position={UDim2.fromOffset(12, 28)}
-								sizeConstraint={new UDim2(1, stack ? -24 : -156, 0, 16)}
-							/>
-							<Text
-								value={rewardLine !== "" ? rewardLine : `${compactNumber(directive.Progress)} / ${compactNumber(directive.Target)}`}
-								size={10}
-								color={Palette.creamSoft}
-								wrap={true}
-								fit={true}
-								minSize={9}
-								position={UDim2.fromOffset(12, 46)}
-								sizeConstraint={new UDim2(1, stack ? -24 : -156, 0, 28)}
-							/>
-							<Meter
-								value={meterFill(directive.Progress, directive.Target, directive.Claimed || ready)}
-								color={Palette.green}
+					)}
+				</frame>
+			</Panel>
+
+			{/* Active Fleet Expedition Card */}
+			<Panel
+				size={new UDim2(1, 0, 0, stack ? 130 : 110)}
+				accent={Palette.violet}
+				background={Palette.panel}
+				padding={14}
+				layoutOrder={2}
+				reducedMotion={reducedMotion}
+			>
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
+					<SectionLabel value="ACTIVE FLEET DISPATCH" color={Palette.violet} />
+					<Text
+						value={
+							activeId === ""
+								? "No fleet currently deployed into deep space."
+								: expeditionReady
+								? "Fleet has returned with expedition spoils!"
+								: `Fleet underway. Landing at ${landsAt(activeEnds)}.`
+						}
+						size={12}
+						color={Palette.creamSoft}
+						position={UDim2.fromOffset(0, 22)} sizeConstraint={new UDim2(1, 0, 0, 18)}
+						align={Enum.TextXAlignment.Left}
+					/>
+					<frame Size={UDim2.fromOffset(160, 34)} Position={new UDim2(1, -160, 1, -34)} BackgroundTransparency={1}>
+						{activeId === "" ? (
+							<Button
+								text={canRepeat ? "REPEAT TRIP" : "EXPEDITIONS"}
+								icon="World"
+								onClick={() => {
+									if (canRepeat && repeatTrip) {
+										sendAction("RepeatTrip", "LaunchExpedition", { Id: repeatTrip.Id });
+									} else {
+										setTab("Expeditions");
+									}
+								}}
+								color={Palette.violet}
+								textColor={Palette.ink}
+								size={UDim2.fromScale(1, 1)}
 								reducedMotion={reducedMotion}
-								position={UDim2.fromOffset(12, stack ? 78 : 76)}
-								size={new UDim2(1, stack ? -24 : -156, 0, 7)}
 							/>
-							<frame
-								key="CommandClaimActions"
-								Size={stack ? new UDim2(1, -24, 0, TapTarget) : UDim2.fromOffset(140, 44)}
-								Position={stack ? new UDim2(0, 12, 1, -(TapTarget + 8)) : new UDim2(1, -150, 0.5, -22)}
-								BackgroundTransparency={1}
-								BorderSizePixel={0}
-								ClipsDescendants={false}
-								ref={claimRef}
-							>
-								{claimButton}
+						) : (
+							<Button
+								text={expeditionReady ? "COLLECT SPOILS" : "IN FLIGHT"}
+								icon="Collect"
+								onClick={() => {
+									if (expeditionReady) {
+										sendAction("ClaimExp", "ClaimExpedition", {});
+									}
+								}}
+								color={expeditionReady ? Palette.mint : Palette.panelSoft}
+								textColor={expeditionReady ? Palette.ink : Palette.muted}
+								size={UDim2.fromScale(1, 1)}
+								reducedMotion={reducedMotion}
+							/>
+						)}
+					</frame>
+				</frame>
+			</Panel>
+
+			{/* Tactical Directives List */}
+			<Panel
+				size={new UDim2(1, 0, 0, 0)}
+				autoHeight={true}
+				accent={Palette.mango}
+				background={Palette.panel}
+				padding={14}
+				layoutOrder={3}
+				reducedMotion={reducedMotion}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+				<SectionLabel value="TACTICAL DIRECTIVES" color={Palette.mango} />
+				{(command.Weekly ?? []).map((directive, index) => {
+					const finished = directive.Claimed === true;
+					const canClaim = !finished && directive.Progress >= directive.Target;
+					const progressFrac = math.clamp(directive.Progress / math.max(1, directive.Target), 0, 1);
+					return (
+						<frame
+							key={directive.Id}
+							Size={new UDim2(1, 0, 0, stack ? 84 : 64)}
+							BackgroundColor3={Palette.panelSoft}
+							BackgroundTransparency={0.2}
+							BorderSizePixel={0}
+							LayoutOrder={index + 1}
+						>
+							<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
+							<uistroke Color={canClaim ? Palette.mango : Palette.lineSoft} Thickness={1} Transparency={0.5} />
+							<frame Size={new UDim2(1, -140, 1, 0)} Position={UDim2.fromOffset(12, 0)} BackgroundTransparency={1}>
+								<Text
+									value={directive.Name}
+									size={13}
+									color={Palette.cream}
+									weight={Enum.FontWeight.Heavy}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, 10)} sizeConstraint={new UDim2(1, 0, 0, 19)}
+								/>
+								<Text
+									value={directive.Description ?? `${compactNumber(directive.Progress)}/${compactNumber(directive.Target)} completed`}
+									size={11}
+									color={Palette.muted}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, 28)} sizeConstraint={new UDim2(1, 0, 0, 17)}
+								/>
+								<frame Size={new UDim2(1, 0, 0, 6)} Position={UDim2.fromOffset(0, stack ? 64 : 46)} BackgroundTransparency={1}>
+									<Meter value={progressFrac} color={Palette.mango} size={UDim2.fromScale(1, 1)} reducedMotion={reducedMotion} />
+								</frame>
+							</frame>
+							<frame Size={UDim2.fromOffset(110, 36)} Position={new UDim2(1, -122, 0.5, -18)} BackgroundTransparency={1}>
+								<Button
+									text={finished ? "CLAIMED" : canClaim ? "CLAIM" : `${math.floor(progressFrac * 100)}%`}
+									onClick={() => {
+										if (canClaim) {
+											sendAction(`Dir_${directive.Id}`, "ClaimDirective", { Id: directive.Id });
+										}
+									}}
+									color={canClaim ? Palette.mango : Palette.panelRaised}
+									textColor={canClaim ? Palette.ink : Palette.muted}
+									size={UDim2.fromScale(1, 1)}
+									loading={pendingKey === `Dir_${directive.Id}`}
+									reducedMotion={reducedMotion}
+								/>
 							</frame>
 						</frame>
 					);
-				}}
-			/>
-		);
-		const titlesBody = titlesEnabled ? (
-			<>
-				<Text
-					value="Each title shows as it looks on you."
-					size={11}
-					color={Palette.muted}
-					fit={false}
-					position={UDim2.fromOffset(0, 26)}
-					sizeConstraint={new UDim2(1, 0, 0, 18)}
-				/>
-				<VirtualGrid
-					scrollRef={scrollRef}
-					count={command.Titles.size()}
-					columns={titleCols}
-					cellHeight={titleCellH}
-					gap={gridGap}
-					overscanRows={1}
-					position={UDim2.fromOffset(0, 52)}
-					itemKey={(index: number) => {
-						const title = command.Titles[index] as TitleEntry | undefined;
-						return title !== undefined ? title.Id : `title-${index}`;
-					}}
-					renderItem={(index: number) => {
-						const title = command.Titles[index] as TitleEntry | undefined;
-						if (title === undefined) {
-							return undefined;
-						}
-						const titleFx = title.Fx ?? TITLE_FX_FALLBACKS[index % TITLE_FX_FALLBACKS.size()];
-						return (
-							<CommandTitleCard
-								id={title.Id}
-								name={title.Name}
-								description={title.Description}
-								unlocked={title.Unlocked}
-								equipped={title.Equipped}
-								fx={titleFx}
-								stack={stack}
-								reducedMotion={reducedMotion}
-								dispatch={dispatch}
-							/>
-						);
-					}}
-				/>
-			</>
-		) : (
-			<>
-				<Badge
-					value="TEMPORARILY CLOSED"
-					accent={Palette.muted}
-					size={UDim2.fromOffset(CLOSED_BADGE_W, 26)}
-					position={closedBadgeOwnLine ? UDim2.fromOffset(0, 30) : new UDim2(1, -CLOSED_BADGE_W, 0, 0)}
-				/>
-				<Text
-					value={ops.TitleStatus ?? "Titles are temporarily unavailable."}
-					size={12}
-					color={Palette.muted}
-					wrap={true}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(0, 36 + closedBadgeLine)}
-					sizeConstraint={new UDim2(1, 0, 0, 44)}
-				/>
-			</>
-		);
-		overviewPane = (
-			<TabPane tabKey="Overview" reducedMotion={reducedMotion}>
-				<Panel
-					size={new UDim2(1, 0, 0, heroH)}
-					accent={Palette.cyan}
-					background={Palette.panelRaised}
-					padding={16}
-					layoutOrder={nextOrder()}
-					reducedMotion={softMotion}
-				>
-					<frame Size={UDim2.fromOffset(stack ? 72 : 96, stack ? 72 : 96)} BackgroundColor3={Palette.ink} BorderSizePixel={0}>
-						<uicorner CornerRadius={new UDim(0, 14)} />
-						<uistroke Color={Palette.cyan} Thickness={2} Transparency={0.25} />
-						<Text
-							value={"%02d".format(command.Level)}
-							size={stack ? 28 : 36}
-							color={Palette.cyan}
-							weight={Enum.FontWeight.Heavy}
-							fit={false}
-							align={Enum.TextXAlignment.Center}
-							sizeConstraint={new UDim2(1, 0, 0.7, 0)}
+				})}
+			</Panel>
+		</TabPane>
+	);
+
+	// --------------------------------------------------------------------------------------------
+	// TAB 2: TITLES & WARDROBE (BRAND NEW COMPLETE REVAMP)
+	// --------------------------------------------------------------------------------------------
+	const previewFx = currentPreviewTitle?.Fx ?? "shimmer";
+	const previewAccent = titleFxAccent(previewFx);
+	const previewTier = titleTier(previewFx).upper();
+	const previewIsEquipped = currentPreviewTitle?.Equipped === true;
+	const previewIsUnlocked = currentPreviewTitle?.Unlocked === true;
+
+	const titlesTab = (
+		<TabPane tabKey="Titles" reducedMotion={reducedMotion}>
+			{/* Interactive Live Holographic Title Showcase Card */}
+			<Panel
+				size={new UDim2(1, 0, 0, stack ? 230 : 190)}
+				accent={previewAccent}
+				background={darkTitlePlate(previewFx)}
+				padding={16}
+				layoutOrder={1}
+				reducedMotion={reducedMotion}
+			>
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
+					{/* Header tier and FX tag */}
+					<frame Size={new UDim2(1, 0, 0, 20)} BackgroundTransparency={1}>
+						<Badge filled={true}
+							value={`${previewTier} · ${previewFx.upper()}`}
+							accent={previewAccent}
+						
+							size={UDim2.fromOffset(140, 20)}
 						/>
 						<Text
-							value="LVL"
+							value={previewIsEquipped ? "EQUIPPED TITLE" : previewIsUnlocked ? "OWNED TITLE" : "LOCKED TITLE"}
+							size={11}
+							color={previewIsEquipped ? Palette.mint : previewIsUnlocked ? Palette.creamSoft : Palette.muted}
+							weight={Enum.FontWeight.Heavy}
+							align={Enum.TextXAlignment.Right}
+							position={new UDim2(1, -120, 0, 0)}
+							sizeConstraint={UDim2.fromOffset(120, 20)}
+						/>
+					</frame>
+
+					{/* Live Animated Title Display */}
+					<frame Size={new UDim2(1, 0, 0, 44)} Position={UDim2.fromOffset(0, 26)} BackgroundTransparency={1}>
+						<AnimatedTitlePreview
+							text={currentPreviewTitle?.Name ?? "Stellar Voyager"}
+							fx={previewFx}
+							size={stack ? 22 : 26}
+							preview={!previewIsEquipped}
+							reducedMotion={reducedMotion}
+						/>
+					</frame>
+
+					{/* Simulated In-Game Chat & Overhead Preview */}
+					<frame
+						Size={new UDim2(1, 0, 0, 38)}
+						Position={UDim2.fromOffset(0, 76)}
+						BackgroundColor3={Palette.void}
+						BackgroundTransparency={0.4}
+						BorderSizePixel={0}
+					>
+						<uicorner CornerRadius={new UDim(0, 8)} />
+						<uistroke Color={previewAccent} Thickness={1} Transparency={0.7} />
+						<Text
+							value={`[${previewTier.sub(1, 3)} · ${currentPreviewTitle?.Name ?? "Explorer"}] Player: System status online.`}
+							size={11}
+							color={Palette.cream}
+							align={Enum.TextXAlignment.Left}
+							position={UDim2.fromOffset(10, 2)}
+							sizeConstraint={new UDim2(1, -20, 0, 16)}
+						/>
+						<Text
+							value={currentPreviewTitle?.Description ?? "Earned through distinguished cosmic achievements."}
 							size={11}
 							color={Palette.muted}
-							weight={Enum.FontWeight.Bold}
-							fit={false}
-							align={Enum.TextXAlignment.Center}
-							position={UDim2.fromScale(0, 0.68)}
-							sizeConstraint={new UDim2(1, 0, 0.28, 0)}
+							align={Enum.TextXAlignment.Left}
+							position={UDim2.fromOffset(10, 20)}
+							sizeConstraint={new UDim2(1, -20, 0, 14)}
 						/>
 					</frame>
-					<Text
-						value={command.Rank ?? "Commander"}
-						size={stack ? 18 : 22}
-						color={Palette.cream}
-						weight={Enum.FontWeight.Heavy}
-						fit={true}
-						minSize={13}
-						position={UDim2.fromOffset(stack ? 88 : 114, 4)}
-						sizeConstraint={new UDim2(1, heroInfoWidth, 0, 28)}
-					/>
-					<Text
-						value={maxed ? "Top rank" : `${compactNumber(math.max(0, command.NextLevelXP - command.XP))} XP to next`}
-						size={12}
-						color={Palette.muted}
-						fit={false}
-						position={UDim2.fromOffset(stack ? 88 : 114, 36)}
-						sizeConstraint={new UDim2(1, heroInfoWidth, 0, 18)}
-					/>
-					<Meter
-						value={levelProgress}
-						color={Palette.cyan}
-						reducedMotion={softMotion}
-						position={UDim2.fromOffset(stack ? 88 : 114, 60)}
-						size={new UDim2(1, heroInfoWidth, 0, 8)}
-					/>
-					<Text
-						value={`${compactNumber(command.Signals)} signals  ·  ${compactNumber(command.ExpeditionsCompleted)} ${
-							command.ExpeditionsCompleted === 1 ? "trip" : "trips"
-						}  ·  ${compactNumber(command.StreakShields)} ${command.StreakShields === 1 ? "shield" : "shields"}`}
-						size={12}
-						color={Palette.creamSoft}
-						fit={true}
-						minSize={10}
-						wrap={true}
-						position={UDim2.fromOffset(0, stack ? 90 : 112)}
-						sizeConstraint={new UDim2(1, 0, 0, stack ? 34 : 18)}
-					/>
-					<frame
-						key="CommandClaimActions"
-						Size={stack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(210, 46)}
-						Position={stack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -210, 0, 16)}
-						BackgroundTransparency={1}
-						BorderSizePixel={0}
-						ClipsDescendants={false}
-						ref={nextClaim !== undefined ? claimHostRef : undefined}
-					>
-						<Button
-							text={nextClaim !== undefined ? `Claim level ${nextClaim}` : "Rank gifts complete"}
-							icon="Gift.15"
-							onClick={() => {
-								if (nextClaim !== undefined) {
-									sendPending("commander", "ClaimCommanderReward", { Level: nextClaim });
-								}
-							}}
-							color={Palette.cyan}
-							textColor={Palette.ink}
-							size={UDim2.fromScale(1, 1)}
-							disabled={nextClaim === undefined}
-							{...pendingProps("commander")}
-							reducedMotion={softMotion}
-							highlight={nextClaim !== undefined}
-						/>
-					</frame>
-				</Panel>
-				<Panel size={new UDim2(1, 0, 0, crewH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
-					<Text value="Officers" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
-					<Text
-						value="Train officers with signals."
-						size={12}
-						color={Palette.muted}
-						fit={true}
-						minSize={10}
-						position={UDim2.fromOffset(0, 28)}
-						sizeConstraint={new UDim2(1, 0, 0, 18)}
-					/>
-					<frame
-						Size={new UDim2(1, 0, 0, crewRows * crewCellH + math.max(0, crewRows - 1) * gridGap)}
-						Position={UDim2.fromOffset(0, 54)}
-						BackgroundTransparency={1}
-						BorderSizePixel={0}
-						Active={false}
-					>
-						<AutoGrid columns={crewCols} cellHeight={crewCellH} rowGap={gridGap} columnGap={gridGap} />
-						{crewCells}
-					</frame>
-				</Panel>
-				<Panel
-					size={new UDim2(1, 0, 0, weeklyH)}
-					accent={Palette.green}
-					background={Palette.panel}
-					padding={14}
-					layoutOrder={nextOrder()}
-					reducedMotion={reducedMotion}
-					clips={false}
-				>
-					<Text value="Weekly jobs" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
-					<Text
-						value={weeklyResetText(game.GetService("Workspace").GetServerTimeNow())}
-						size={12}
-						color={Palette.muted}
-						fit={false}
-						align={Enum.TextXAlignment.Right}
-						position={UDim2.fromOffset(0, 4)}
-						sizeConstraint={new UDim2(1, 0, 0, 18)}
-					/>
-					{weeklyGrid}
-				</Panel>
-				<Panel
-					size={new UDim2(1, 0, 0, titlesH)}
-					accent={titlesEnabled ? Palette.violet : Palette.muted}
-					background={Palette.panel}
-					padding={panelPad}
-					layoutOrder={nextOrder()}
-					reducedMotion={reducedMotion}
-				>
-					<Text value="Title wardrobe" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={12} sizeConstraint={new UDim2(1, titlesEnabled || closedBadgeOwnLine ? 0 : -(CLOSED_BADGE_W + 12), 0, 24)} />
-					{titlesBody}
-				</Panel>
-				<Panel
-					size={new UDim2(1, 0, 0, styleH)}
-					accent={Palette.cyan}
-					background={Palette.panel}
-					padding={panelPad}
-					layoutOrder={nextOrder()}
-					reducedMotion={reducedMotion}
-				>
-					<Text value="Profile style" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 24)} />
-					<ProfileStylePanel
-						cosmetics={state.Cosmetics}
-						rebirths={state.Rebirths}
-						dispatch={dispatch}
-						stack={stack}
-						reducedMotion={reducedMotion}
-					/>
-				</Panel>
-				<Panel size={new UDim2(1, 0, 0, shopH)} accent={Palette.mango} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
-					<Text
-						value={`Signal shop · ${compactNumber(command.Signals)} ready`}
-						size={18}
-						color={Palette.cream}
-						weight={Enum.FontWeight.Heavy}
-						fit={false}
-						sizeConstraint={new UDim2(1, 0, 0, 24)}
-					/>
-					<VirtualGrid
-						scrollRef={scrollRef}
-						count={command.Shop.size()}
-						columns={shopCols}
-						cellHeight={shopCellH}
-						gap={gridGap}
-						position={UDim2.fromOffset(0, 36)}
-						itemKey={(index: number) => {
-							const offer = command.Shop[index] as ShopOffer | undefined;
-							return offer !== undefined ? offer.Id : `shop-${index}`;
-						}}
-						renderItem={(index: number) => {
-							const offer = command.Shop[index] as ShopOffer | undefined;
-							if (offer === undefined) {
-								return undefined;
-							}
-							const can = !offer.Purchased && command.Signals >= offer.Price;
-							return (
-								<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0} Active={false}>
-									<uicorner CornerRadius={new UDim(0, 10)} />
-									<uistroke Color={offer.Color} Thickness={1} Transparency={0.35} />
-									<Text
-										value={offer.Name}
-										size={12}
-										color={offer.Color}
-										weight={Enum.FontWeight.Heavy}
-										fit={true}
-										minSize={9}
-										position={UDim2.fromOffset(8, 8)}
-										sizeConstraint={new UDim2(1, -16, 0, 20)}
-									/>
-									<Text
-										value={formatReward(offer.Reward)}
-										fit={true}
-										minSize={10}
-										size={11}
-										color={Palette.creamSoft}
-										wrap={true}
-										position={UDim2.fromOffset(8, 34)}
-										sizeConstraint={new UDim2(1, -16, 0, 40)}
-									/>
-									<Button
-										text={offer.Purchased ? "BOUGHT" : `${offer.Price} Signals`}
-										onClick={() => sendPending(`signal:${offer.Id}`, "BuySignalOffer", { Id: offer.Id })}
-										{...pendingProps(`signal:${offer.Id}`)}
-										color={offer.Color}
-										textColor={Palette.ink}
-										size={new UDim2(1, -16, 0, stack ? TapTarget : 40)}
-										position={new UDim2(0, 8, 1, -(stack ? TapTarget + 8 : 48))}
-										disabled={!can}
-										reducedMotion={reducedMotion}
-										highlight={can}
-									/>
-								</frame>
-							);
-						}}
-					/>
-				</Panel>
-				<Panel size={new UDim2(1, 0, 0, masteryH)} accent={Palette.blue} background={Palette.panel} padding={panelPad} layoutOrder={nextOrder()} reducedMotion={reducedMotion}>
-					<Text value="Machine mastery" size={18} color={Palette.cream} weight={Enum.FontWeight.Heavy} fit={true} minSize={14} sizeConstraint={new UDim2(1, 0, 0, 24)} />
-					<VirtualGrid
-						scrollRef={scrollRef}
-						count={config.Machines.size()}
-						columns={masteryCols}
-						cellHeight={masteryCellH}
-						gap={gridGap}
-						position={UDim2.fromOffset(0, 36)}
-						itemKey={(index: number) => {
-							const machine = config.Machines[index] as { Id: string } | undefined;
-							return machine !== undefined ? machine.Id : `machine-${index}`;
-						}}
-						renderItem={(index: number) => {
-							const machine = config.Machines[index] as { Id: string; Name: string; Color: Color3 } | undefined;
-							if (machine === undefined) {
-								return undefined;
-							}
-							const mastery = command.MachineMastery[machine.Id] ?? 0;
-							const rank = math.floor(math.sqrt(mastery));
-							const nextRank = math.pow(rank + 1, 2);
-							const fill = rank >= 99 ? 1 : (mastery - rank * rank) / math.max(1, nextRank - rank * rank);
-							return (
-								<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0} Active={false}>
-									<uicorner CornerRadius={new UDim(0, 10)} />
-									<Text
-										value={machine.Name}
-										size={12}
-										color={Palette.cream}
-										weight={Enum.FontWeight.Bold}
-										fit={true}
-										minSize={9}
-										position={UDim2.fromOffset(8, 6)}
-										sizeConstraint={new UDim2(1, -70, 0, 18)}
-									/>
-									<Badge value={`RANK ${rank}`} accent={machine.Color} filled={true} position={new UDim2(1, -58, 0, 6)} size={UDim2.fromOffset(48, 20)} />
-									<Meter value={fill} color={machine.Color} reducedMotion={reducedMotion} position={UDim2.fromOffset(8, 34)} size={new UDim2(1, -16, 0, 6)} />
-									<Text
-										value={`${compactNumber(mastery)} built`}
-										size={10}
-										color={Palette.muted}
-										fit={true}
-										minSize={9}
-										position={UDim2.fromOffset(8, 44)}
-										sizeConstraint={new UDim2(1, -16, 0, 14)}
-									/>
-								</frame>
-							);
-						}}
-					/>
-				</Panel>
-			</TabPane>
-		);
-	}
 
-	let expeditionsPane: React.Element | false = false;
-	if (tab === "Expeditions") {
-		expeditionsPane = (
-			<TabPane tabKey="Expeditions" reducedMotion={reducedMotion}>
+					{/* Equip CTA Button */}
+					<frame Size={new UDim2(1, 0, 0, 36)} Position={new UDim2(0, 0, 1, -36)} BackgroundTransparency={1}>
+						{previewIsUnlocked && !previewIsEquipped ? (
+							<Button
+								text="EQUIP TITLE CREST"
+								icon="Loadout"
+								onClick={() => {
+									if (currentPreviewTitle) {
+										sendAction(`Equip_${currentPreviewTitle.Id}`, "EquipTitle", { Id: currentPreviewTitle.Id });
+									}
+								}}
+								color={previewAccent}
+								textColor={Palette.ink}
+								size={UDim2.fromScale(1, 1)}
+								loading={pendingKey === `Equip_${currentPreviewTitle?.Id}`}
+								reducedMotion={reducedMotion}
+							/>
+						) : (
+							<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.panelSoft} BorderSizePixel={0}>
+								<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
+								<uistroke Color={previewIsEquipped ? Palette.mint : Palette.lineSoft} Thickness={1} Transparency={0.5} />
+								<Text
+									value={previewIsEquipped ? "CREST IS CURRENTLY EQUIPPED" : "UNLOCK VIA GAMEPLAY TO EQUIP"}
+									size={12}
+									color={previewIsEquipped ? Palette.mint : Palette.muted}
+									weight={Enum.FontWeight.Heavy}
+								/>
+							</frame>
+						)}
+					</frame>
+				</frame>
+			</Panel>
+
+				{/* Search, sort and rarity chips: the same bar every list page uses */}
+				<frame Size={new UDim2(1, 0, 0, Browse.barHeight(stack, true))} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2} ZIndex={30}>
+					<BrowseBar browse={titleBrowse} placeholder="Search titles" accent={Palette.cyan} stack={stack} reducedMotion={reducedMotion} />
+				</frame>
+
+			{/* Titles Grid */}
+				{titleBrowse.results.size() === 0 ? (
+					<NoResults
+						browse={titleBrowse}
+						noun="titles"
+						icon="Loadout"
+						accent={Palette.violet}
+						reducedMotion={reducedMotion}
+						size={new UDim2(1, 0, 0, 220)}
+						layoutOrder={3}
+					/>
+				) : (
+			<Panel
+				size={new UDim2(1, 0, 0, 0)}
+				autoHeight={true}
+				accent={Palette.violet}
+				background={Palette.panel}
+				padding={14}
+				layoutOrder={3}
+				reducedMotion={reducedMotion}
+			>
+				<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1}>
+					<uigridlayout
+						CellSize={new UDim2(stack ? 0.5 : 0.333, -8, 0, 160)}
+						CellPadding={UDim2.fromOffset(8, 8)}
+						SortOrder={Enum.SortOrder.LayoutOrder}
+					/>
+					{titleBrowse.results.map((item, idx) => {
+						const fx = item.Fx ?? "shimmer";
+						const cardAccent = titleFxAccent(fx);
+						const cardTier = titleTier(fx).upper();
+						const isSelected = item.Id === currentPreviewTitle?.Id;
+						const isEquipped = item.Equipped === true;
+						const isUnlocked = item.Unlocked === true;
+
+						return (
+							<frame
+								key={item.Id}
+								BackgroundColor3={darkTitlePlate(fx)}
+								BackgroundTransparency={isEquipped ? 0.1 : isSelected ? 0.15 : 0.35}
+								BorderSizePixel={0}
+								LayoutOrder={idx + 1}
+							>
+								<uicorner CornerRadius={new UDim(0, 12)} />
+								<uistroke
+									Color={isEquipped ? Palette.mint : isSelected ? cardAccent : Palette.lineSoft}
+									Thickness={isEquipped ? 2 : isSelected ? 1.6 : 1}
+									Transparency={isEquipped ? 0.1 : isSelected ? 0.2 : 0.6}
+								/>
+								<frame Size={new UDim2(1, -16, 0, 16)} Position={UDim2.fromOffset(8, 8)} BackgroundTransparency={1}>
+									<Text
+										value={cardTier}
+										size={11}
+										color={cardAccent}
+										weight={Enum.FontWeight.Heavy}
+										align={Enum.TextXAlignment.Left}
+									/>
+									<Text
+										value={isEquipped ? "ACTIVE" : isUnlocked ? "OWNED" : "LOCKED"}
+										size={11}
+										color={isEquipped ? Palette.mint : isUnlocked ? Palette.creamSoft : Palette.muted}
+										weight={Enum.FontWeight.Heavy}
+										align={Enum.TextXAlignment.Right}
+									/>
+								</frame>
+								<frame Size={new UDim2(1, -16, 0, 36)} Position={UDim2.fromOffset(8, 28)} BackgroundTransparency={1}>
+									<AnimatedTitlePreview
+										text={item.Name}
+										fx={fx}
+										size={stack ? 14 : 16}
+										preview={!isEquipped}
+										reducedMotion={reducedMotion}
+									/>
+								</frame>
+								<Text
+									value={item.Description ?? "Cosmic title"}
+									size={11}
+									color={isUnlocked ? Palette.creamSoft : Palette.muted}
+									align={Enum.TextXAlignment.Center}
+									position={UDim2.fromOffset(8, 70)}
+									sizeConstraint={new UDim2(1, -16, 0, 36)}
+								/>
+								<frame Size={new UDim2(1, -16, 0, 32)} Position={new UDim2(0, 8, 1, -38)} BackgroundTransparency={1}>
+									<Button
+										text={isEquipped ? "ACTIVE" : isUnlocked ? "EQUIP" : "PREVIEW"}
+										onClick={() => {
+											setSelectedTitleId(item.Id);
+											if (isUnlocked && !isEquipped) {
+												sendAction(`Equip_${item.Id}`, "EquipTitle", { Id: item.Id });
+											}
+										}}
+										color={isEquipped ? Palette.mint : isUnlocked ? cardAccent : Palette.panelSoft}
+										textColor={isEquipped ? Palette.ink : isUnlocked ? Palette.ink : Palette.cream}
+										size={UDim2.fromScale(1, 1)}
+										reducedMotion={reducedMotion}
+									/>
+								</frame>
+							</frame>
+						);
+					})}
+				</frame>
+			</Panel>
+				)}
+		</TabPane>
+	);
+
+	// --------------------------------------------------------------------------------------------
+	// TAB 3: EXPEDITIONS (FLEET OPERATIONS)
+	// --------------------------------------------------------------------------------------------
+	const expeditionsTab = (
+		<TabPane tabKey="Expeditions" reducedMotion={reducedMotion}>
+			{/* Active Flight Telemetry */}
+			{activeId !== "" && (
 				<Panel
-					size={new UDim2(1, 0, 0, expeditionHeroH)}
-					accent={expeditionReady ? Palette.green : Palette.cyan}
+					size={new UDim2(1, 0, 0, stack ? 140 : 120)}
+					accent={Palette.violet}
 					background={Palette.panelRaised}
 					padding={14}
-					layoutOrder={nextOrder()}
+					layoutOrder={1}
 					reducedMotion={reducedMotion}
 				>
-					<Text value={activeId === "" && tripReport !== undefined ? `"${DescribeGenerated.tripLine(command.ExpeditionsCompleted, tripReport.found)}"` : "Active trip"} size={12} color={Palette.muted} weight={Enum.FontWeight.Bold} fit={true} minSize={9} sizeConstraint={new UDim2(1, 0, 0, 16)} />
-					<Text
-						value={activeConfig?.Name ?? (canRepeat ? `Last trip: ${repeatTrip!.Name}` : "No trip underway")}
-						size={tripStack ? 18 : 22}
-						color={expeditionReady ? Palette.green : Palette.cream}
-						weight={Enum.FontWeight.Heavy}
-						fit={false}
-						position={UDim2.fromOffset(0, 22)}
-						sizeConstraint={new UDim2(1, tripStack ? 0 : -230, 0, 28)}
-					/>
-					<TripClock
-						ticking={tripTicking}
-						render={(now) => (
-							<Text
-								value={statusLine ?? tripStatusAt(now)}
-								size={12}
-								color={activeId === "" && tripReport !== undefined ? Palette.creamSoft : Palette.muted}
-								fit={true}
-								minSize={10}
-								position={UDim2.fromOffset(0, 54)}
-								sizeConstraint={new UDim2(1, tripStack ? 0 : -230, 0, 18)}
-							/>
-						)}
-					/>
-					<TripClock
-						ticking={tripTicking}
-						render={(now) => (
-							<Meter
-								value={expeditionReady ? 1 : tripProgress(now)}
-								color={expeditionReady ? Palette.green : Palette.cyan}
-								reducedMotion={reducedMotion}
-								position={UDim2.fromOffset(0, 80)}
-								size={new UDim2(1, tripStack ? 0 : -230, 0, 8)}
-							/>
-						)}
-					/>
-					<frame
-						key="CommandClaimActions"
-						Size={tripStack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(210, 48)}
-						Position={tripStack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -210, 0.5, -24)}
-						BackgroundTransparency={1}
-						BorderSizePixel={0}
-						ClipsDescendants={false}
-						ref={expeditionReady ? claimHostRef : undefined}
-					>
-						<TripClock
-							ticking={tripTicking}
-							render={(now) => (
-								<Button
-									text={claimLabel ?? tripLabelAt(now)}
-									icon={activeId === "" && canRepeat ? "Refresh.3" : "Gift.16"}
-									onClick={onHeroAction}
-									color={activeId === "" && canRepeat ? repeatTrip!.Color : Palette.green}
-									textColor={Palette.ink}
-									size={UDim2.fromScale(1, 1)}
-									disabled={!expeditionReady && !(activeId === "" && canRepeat)}
-									reducedMotion={reducedMotion}
-									highlight={expeditionReady}
-								/>
-							)}
+					<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
+						<SectionLabel value="EXPEDITION TELEMETRY" color={Palette.violet} />
+						<Text
+							value={expeditionReady ? "MISSION COMPLETE  ·  READY FOR RECOVERY" : `ESTIMATED ARRIVAL: ${landsAt(activeEnds)} (${clockText(math.max(0, activeEnds - serverNow))} remaining)`}
+							size={13}
+							color={Palette.cream}
+							weight={Enum.FontWeight.Heavy}
+							position={UDim2.fromOffset(0, 20)} sizeConstraint={new UDim2(1, 0, 0, 19)}
+							align={Enum.TextXAlignment.Left}
 						/>
+						<frame Size={new UDim2(1, 0, 0, 10)} Position={UDim2.fromOffset(0, 48)} BackgroundTransparency={1}>
+							<Meter
+								value={expeditionReady ? 1 : math.clamp((serverNow - activeStarted) / math.max(1, activeEnds - activeStarted), 0, 1)}
+								color={Palette.violet}
+								size={UDim2.fromScale(1, 1)}
+								reducedMotion={reducedMotion}
+							/>
+						</frame>
+						{expeditionReady && (
+							<Button
+								text="COLLECT SPOILS"
+								icon="Collect"
+								onClick={() => sendAction("ClaimExp", "ClaimExpedition", {})}
+								color={Palette.mint}
+								textColor={Palette.ink}
+								size={new UDim2(1, 0, 0, 36)}
+								position={new UDim2(0, 0, 1, -36)}
+								loading={pendingKey === "ClaimExp"}
+								reducedMotion={reducedMotion}
+							/>
+						)}
 					</frame>
 				</Panel>
-				<Browse.BrowseBar
-					browse={expeditionBrowse}
-					placeholder="Search adventures by name or reward"
-					accent={Palette.cyan}
-					stack={stack}
-					reducedMotion={softMotion}
-					layoutOrder={nextOrder()}
-					zIndex={30}
-				/>
-				{expeditionList.size() === 0 && (
-					<Browse.NoResults
-						browse={expeditionBrowse}
-						noun="adventures"
-						icon="World.7"
-						accent={Palette.cyan}
-						reducedMotion={softMotion}
-						layoutOrder={nextOrder()}
-					/>
-				)}
-				<VirtualGrid
-					scrollRef={scrollRef}
-					count={expeditionList.size()}
-					columns={1}
-					cellHeight={expeditionRowH}
-					gap={Layout.panelGap}
-					overscanRows={softMotion ? 0 : 1}
-					layoutOrder={nextOrder()}
-					itemKey={(index: number) => {
-						const expedition = expeditionList[index] as Expedition | undefined;
-						return expedition !== undefined ? expedition.Id : `expedition-${index}`;
-					}}
-					renderItem={(index: number) => {
-						const expedition = expeditionList[index] as Expedition | undefined;
-						if (expedition === undefined) {
-							return undefined;
-						}
-						const locked = command.Level < expedition.RequiredLevel;
-						const busy = activeId !== "";
-						const can = !locked && !busy;
-						const pilot = command.Crew.Pilot ?? 1;
-						return (
-							<Panel
-								size={new UDim2(1, 0, 0, expeditionRowH)}
-								accent={expedition.Color}
-								background={Palette.panel}
-								padding={14}
-								interactive={true}
-								highlight={can}
-								reducedMotion={reducedMotion}
-							>
-								<IconTile
-									kind={artifactIcon(expedition.ArtifactId ?? expedition.Id)}
-									accent={expedition.Color}
-									size={46}
-									radius={14}
-									position={UDim2.fromOffset(0, tripStack ? 6 : 18)}
-									reducedMotion={reducedMotion}
-								/>
+			)}
+
+			{/* Available Expeditions List */}
+			<Panel
+				size={new UDim2(1, 0, 0, 0)}
+				autoHeight={true}
+				accent={Palette.cyan}
+				background={Palette.panel}
+				padding={14}
+				layoutOrder={2}
+				reducedMotion={reducedMotion}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+				<SectionLabel value="ORBITAL MISSIONS" color={Palette.cyan} />
+				{ops.Expeditions.map((mission, idx) => {
+					const isLocked = command.Level < mission.RequiredLevel;
+					const isRunning = activeId === mission.Id;
+					return (
+						<frame
+							key={mission.Id}
+							Size={new UDim2(1, 0, 0, stack ? 94 : 76)}
+							BackgroundColor3={Palette.panelSoft}
+							BackgroundTransparency={0.2}
+							BorderSizePixel={0}
+							LayoutOrder={idx + 1}
+						>
+							<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
+							<uistroke Color={isLocked ? Palette.lineSoft : mission.Color ?? Palette.cyan} Thickness={1} Transparency={0.5} />
+							<frame Size={new UDim2(1, -160, 1, 0)} Position={UDim2.fromOffset(14, 0)} BackgroundTransparency={1}>
 								<Text
-									value={`Lv ${expedition.RequiredLevel}  ·  ${clockText(
-										math.max(10, math.floor(expedition.Duration * math.max(0.35, 1 - (pilot - 1) * 0.05))),
-									)}`}
-									size={11}
-									color={expedition.Color}
-									weight={Enum.FontWeight.Bold}
-									fit={true}
-									minSize={9}
-									position={UDim2.fromOffset(58, 4)}
-									sizeConstraint={new UDim2(1, tripStack ? -70 : -224, 0, 16)}
-								/>
-								<Text
-									value={expedition.Name}
-									size={17}
-									color={Palette.cream}
+									value={mission.Name}
+									size={14}
+									color={isLocked ? Palette.muted : Palette.cream}
 									weight={Enum.FontWeight.Heavy}
-									fit={true}
-									minSize={12}
-									position={UDim2.fromOffset(58, 24)}
-									sizeConstraint={new UDim2(1, tripStack ? -70 : -224, 0, 24)}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, 10)} sizeConstraint={new UDim2(1, 0, 0, 20)}
 								/>
 								<Text
-									value={`${formatReward(expedition.Reward)}  ·  ${"%.0f".format(expedition.ArtifactChance * 100)}% relic`}
+									value={`Duration: ${clockText(mission.Duration)}  ·  Relic Chance: ${math.floor(mission.ArtifactChance * 100)}%`}
 									size={11}
 									color={Palette.muted}
-									wrap={true}
-									fit={true}
-									minSize={9}
-									position={UDim2.fromOffset(58, 52)}
-									sizeConstraint={new UDim2(1, tripStack ? -70 : -224, 0, 28)}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, 32)} sizeConstraint={new UDim2(1, 0, 0, 17)}
 								/>
+								<Text
+									value={formatReward(mission.Reward)}
+									size={11}
+									color={Palette.mint}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, stack ? 66 : 48)} sizeConstraint={new UDim2(1, 0, 0, 17)}
+								/>
+							</frame>
+							<frame Size={UDim2.fromOffset(130, 36)} Position={new UDim2(1, -144, 0.5, -18)} BackgroundTransparency={1}>
 								<Button
-									text={locked ? `Need lv ${expedition.RequiredLevel}` : busy ? "Crew away" : "LAUNCH"}
-									onClick={() => dispatch("LaunchExpedition", { Id: expedition.Id })}
-									color={expedition.Color}
-									textColor={Palette.ink}
-									size={tripStack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(200, 46)}
-									position={tripStack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -210, 0.5, -23)}
-									disabled={!can}
+									text={isLocked ? `LVL ${mission.RequiredLevel}` : isRunning ? "IN FLIGHT" : activeId !== "" ? "BUSY" : "LAUNCH"}
+									icon="World"
+									onClick={() => {
+										if (!isLocked && activeId === "") {
+											sendAction(`Launch_${mission.Id}`, "LaunchExpedition", { Id: mission.Id });
+										}
+									}}
+									color={isLocked || activeId !== "" ? Palette.panelRaised : Palette.cyan}
+									textColor={isLocked || activeId !== "" ? Palette.muted : Palette.ink}
+									size={UDim2.fromScale(1, 1)}
+									loading={pendingKey === `Launch_${mission.Id}`}
 									reducedMotion={reducedMotion}
-									highlight={can}
 								/>
-							</Panel>
-						);
-					}}
-				/>
-			</TabPane>
-		);
-	}
+							</frame>
+						</frame>
+					);
+				})}
+			</Panel>
+		</TabPane>
+	);
 
-	const artifactsPane = tab === "Artifacts" && (
+	// --------------------------------------------------------------------------------------------
+	// TAB 4: ARTIFACTS (RELIQUARY)
+	// --------------------------------------------------------------------------------------------
+	const artifactsTab = (
 		<TabPane tabKey="Artifacts" reducedMotion={reducedMotion}>
 			<Panel
-				size={new UDim2(1, 0, 0, artifactHeroH)}
-				accent={Palette.violet}
-				background={Palette.panelRaised}
+				size={new UDim2(1, 0, 0, 0)}
+				autoHeight={true}
+				accent={Palette.mango}
+				background={Palette.panel}
 				padding={14}
-				layoutOrder={nextOrder()}
+				layoutOrder={1}
 				reducedMotion={reducedMotion}
 			>
-				<Text
-					value={`Relics  ${ownedArtifacts}/${ops.Artifacts.size()}`}
-					size={20}
-					color={Palette.cream}
-					weight={Enum.FontWeight.Heavy}
-					fit={true}
-					minSize={14}
-					sizeConstraint={new UDim2(1, 0, 0, 28)}
-				/>
-				<Text
-					value="Equip one relic. Duplicates add spark fragments for upgrades."
-					size={12}
-					color={Palette.muted}
-					fit={true}
-					minSize={9}
-					position={UDim2.fromOffset(0, 34)}
-					sizeConstraint={new UDim2(1, 0, 0, 20)}
-				/>
-				<Meter
-					value={ownedArtifacts / math.max(1, ops.Artifacts.size())}
-					color={Palette.violet}
-					reducedMotion={reducedMotion}
-					position={UDim2.fromOffset(0, 68)}
-					size={new UDim2(1, 0, 0, 8)}
-				/>
+				<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1}>
+					<uigridlayout
+						CellSize={new UDim2(stack ? 1 : 0.5, -6, 0, 110)}
+						CellPadding={UDim2.fromOffset(8, 8)}
+						SortOrder={Enum.SortOrder.LayoutOrder}
+					/>
+					{ops.Artifacts.map((art, idx) => {
+						const stateArt = command.Artifacts[art.Id];
+						const level = stateArt?.Level ?? 0;
+						const fragments = stateArt?.Fragments ?? 0;
+						const isOwned = stateArt !== undefined;
+						const isEquipped = command.EquippedArtifact === art.Id;
+
+						return (
+							<frame
+								key={art.Id}
+								BackgroundColor3={Palette.panelSoft}
+								BackgroundTransparency={0.2}
+								BorderSizePixel={0}
+								LayoutOrder={idx + 1}
+							>
+								<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
+								<uistroke Color={isEquipped ? Palette.mint : isOwned ? art.Color ?? Palette.mango : Palette.lineSoft} Thickness={1} Transparency={0.5} />
+								<frame Size={UDim2.fromOffset(48, 48)} Position={UDim2.fromOffset(12, 12)} BackgroundTransparency={1}>
+									<IconTile
+										kind={artifactIcon(art.Id)}
+										accent={art.Color ?? Palette.mango}
+										size={UDim2.fromScale(1, 1)}
+										reducedMotion={reducedMotion}
+									/>
+								</frame>
+								<frame Size={new UDim2(1, -180, 1, 0)} Position={UDim2.fromOffset(68, 0)} BackgroundTransparency={1}>
+									<Text
+										value={art.Name}
+										size={13}
+										color={isOwned ? Palette.cream : Palette.muted}
+										weight={Enum.FontWeight.Heavy}
+										align={Enum.TextXAlignment.Left}
+										position={UDim2.fromOffset(0, 10)} sizeConstraint={new UDim2(1, 0, 0, 19)}
+									/>
+									<Text
+										value={isOwned ? artifactEffect(art, level) : "Not yet discovered"}
+										size={11}
+										color={Palette.creamSoft}
+										align={Enum.TextXAlignment.Left}
+										position={UDim2.fromOffset(0, 32)} sizeConstraint={new UDim2(1, 0, 0, 17)}
+									/>
+									<Text
+										value={isOwned ? `RANK ${level}  ·  ${fragments} FRAGMENTS` : "Find on orbital expeditions"}
+										size={11}
+										color={Palette.muted}
+										align={Enum.TextXAlignment.Left}
+										position={UDim2.fromOffset(0, 54)} sizeConstraint={new UDim2(1, 0, 0, 17)}
+									/>
+								</frame>
+								<frame Size={UDim2.fromOffset(100, 34)} Position={new UDim2(1, -112, 0.5, -17)} BackgroundTransparency={1}>
+									{isOwned ? (
+										<Button
+											text={isEquipped ? "ACTIVE" : "EQUIP"}
+											onClick={() => {
+												if (!isEquipped) {
+													sendAction(`Art_${art.Id}`, "EquipArtifact", { Id: art.Id });
+												}
+											}}
+											color={isEquipped ? Palette.mint : Palette.panelRaised}
+											textColor={isEquipped ? Palette.ink : Palette.cream}
+											size={UDim2.fromScale(1, 1)}
+											reducedMotion={reducedMotion}
+										/>
+									) : (
+										<Badge filled={true} value="LOCKED" accent={Palette.panelRaised} size={UDim2.fromScale(1, 1)} />
+									)}
+								</frame>
+							</frame>
+						);
+					})}
+				</frame>
 			</Panel>
-			<VirtualGrid
-				scrollRef={scrollRef}
-				count={ops.Artifacts.size()}
-				columns={1}
-				cellHeight={artifactRowH}
-				gap={Layout.panelGap}
-				layoutOrder={nextOrder()}
-				itemKey={(index: number) => {
-					const artifact = ops.Artifacts[index] as ArtifactDef | undefined;
-					return artifact !== undefined ? artifact.Id : `artifact-${index}`;
-				}}
-				renderItem={(index: number) => {
-					const artifact = ops.Artifacts[index] as ArtifactDef | undefined;
-					if (artifact === undefined) {
-						return undefined;
-					}
-					const owned = command.Artifacts[artifact.Id];
-					const equipped = command.EquippedArtifact === artifact.Id;
-					const fragmentCost = owned ? 4 + owned.Level * 2 : 0;
-					const dustCost = owned ? 8 * owned.Level : 0;
-					const canUpgrade =
-						owned !== undefined && owned.Level < 10 && owned.Fragments >= fragmentCost && gteFlux(state.Stardust as Flux, dustCost);
-					return (
-						<Panel
-							size={new UDim2(1, 0, 0, artifactRowH)}
-							accent={owned ? artifact.Color : Palette.lineSoft}
-							background={owned ? Palette.panel : Palette.panelSoft}
-							padding={14}
-							reducedMotion={reducedMotion}
-						>
-							<frame
-								key="ElementTile"
-								Size={UDim2.fromOffset(48, 48)}
-								Position={UDim2.fromOffset(0, tripStack ? 5 : 17)}
-								BackgroundColor3={Palette.void}
-								BackgroundTransparency={0.15}
-								BorderSizePixel={0}
-								ClipsDescendants={true}
-							>
-								<uicorner CornerRadius={new UDim(0, 14)} />
-								<uistroke
-									Color={owned ? (elementSheet(artifact.Element) ?? { Color: artifact.Color }).Color : Palette.lineSoft}
-									Transparency={equipped ? 0 : 0.45}
-									Thickness={equipped ? 2 : 1}
-								/>
-								<ElementFx
-									element={artifact.Element}
-									size={UDim2.fromOffset(48, 48)}
-									position={UDim2.fromScale(0.5, 0.5)}
-									// undiscovered relics show a dim still of their element
-									still={!owned}
-									transparency={owned ? 0 : 0.7}
-									reducedMotion={reducedMotion}
-									// discovering the relic reveals its companion
-									reaction="reveal"
-									reactionKey={owned !== undefined}
-								/>
-							</frame>
-							<Text
-								value={
-									owned
-										? `${artifact.Rarity}  ·  ${(elementSheet(artifact.Element) ?? { Label: "" }).Label}  ·  Lv ${owned.Level}/10`
-										: artifact.Rarity
-								}
-								size={11}
-								color={owned ? artifact.Color : Palette.muted}
-								weight={Enum.FontWeight.Bold}
-								fit={true}
-								minSize={9}
-								position={UDim2.fromOffset(58, 4)}
-								sizeConstraint={new UDim2(1, tripStack ? -70 : -286, 0, 16)}
-							/>
-							<Text
-								value={owned ? artifact.Name : "Mystery relic"}
-								size={17}
-								color={Palette.cream}
-								weight={Enum.FontWeight.Heavy}
-								fit={true}
-								minSize={12}
-								position={UDim2.fromOffset(58, 24)}
-								sizeConstraint={new UDim2(1, tripStack ? -70 : -286, 0, 24)}
-							/>
-							<Text
-								value={
-									owned
-										? `${artifactEffect(artifact, owned.Level)}  ·  ${owned.Fragments}/${fragmentCost} sparks`
-										: "Finish its expedition to discover it."
-								}
-								size={11}
-								color={Palette.muted}
-								fit={true}
-								minSize={9}
-								position={UDim2.fromOffset(58, 52)}
-								sizeConstraint={new UDim2(1, tripStack ? -70 : -286, 0, 18)}
-							/>
-							<frame
-								Size={tripStack ? new UDim2(1, 0, 0, TapTarget) : UDim2.fromOffset(260, 46)}
-								Position={tripStack ? new UDim2(0, 0, 1, -(TapTarget + 8)) : new UDim2(1, -270, 0.5, -23)}
-								BackgroundTransparency={1}
-								BorderSizePixel={0}
-							>
-								<Button
-									text={equipped ? "IN USE" : "EQUIP"}
-									onClick={() => dispatch("EquipArtifact", { Id: artifact.Id })}
-									color={artifact.Color}
-									textColor={Palette.ink}
-									size={new UDim2(0.5, -4, 1, 0)}
-									disabled={!owned || equipped}
-									reducedMotion={reducedMotion}
-								/>
-								<Button
-									text={!owned ? "—" : owned.Level >= 10 ? "MAX" : `${dustCost} dust`}
-									onClick={() => dispatch("UpgradeArtifact", { Id: artifact.Id })}
-									color={Palette.mango}
-									textColor={Palette.ink}
-									size={new UDim2(0.5, -4, 1, 0)}
-									position={new UDim2(0.5, 4, 0, 0)}
-									disabled={!canUpgrade}
-									reducedMotion={reducedMotion}
-									highlight={canUpgrade}
-								/>
-							</frame>
-						</Panel>
-					);
-				}}
-			/>
 		</TabPane>
 	);
 
-	const seasonPane = tab === "Season" && (
+	// --------------------------------------------------------------------------------------------
+	// TAB 5: SEASON TRACK (RANK TRACK)
+	// --------------------------------------------------------------------------------------------
+	const seasonTab = (
 		<TabPane tabKey="Season" reducedMotion={reducedMotion}>
 			<Panel
-				size={new UDim2(1, 0, 0, seasonHeroH)}
+				size={new UDim2(1, 0, 0, stack ? 130 : 110)}
 				accent={Palette.mango}
 				background={Palette.panelRaised}
-				padding={20}
-				layoutOrder={nextOrder()}
+				padding={14}
+				layoutOrder={1}
 				reducedMotion={reducedMotion}
 			>
-				<Text value={ops.SeasonName} size={22} color={Palette.mango} weight={Enum.FontWeight.Heavy} fit={false} sizeConstraint={new UDim2(1, 0, 0, 28)} />
-				<Text
-					value={compactNumber(command.SeasonXP)}
-					size={14}
-					color={Palette.muted}
-					fit={false}
-					position={UDim2.fromOffset(0, 36)}
-					sizeConstraint={new UDim2(1, 0, 0, 18)}
-				/>
-				<Meter value={seasonFill} color={Palette.mango} reducedMotion={reducedMotion} position={UDim2.fromOffset(0, 64)} size={new UDim2(1, 0, 0, 9)} />
-				<Text
-					value={seasonStatus}
-					size={12}
-					color={Palette.creamSoft}
-					fit={false}
-					position={UDim2.fromOffset(0, 82)}
-					sizeConstraint={new UDim2(1, 0, 0, 18)}
-				/>
-				<Text
-					value={passStatus}
-					size={12}
-					color={passOwned ? Palette.mango : Palette.muted}
-					fit={true}
-					minSize={10}
-					position={UDim2.fromOffset(0, 104)}
-					sizeConstraint={new UDim2(1, 0, 0, 18)}
-				/>
+				<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
+					<SectionLabel value={ops.SeasonName ?? "GALACTIC SEASON DIRECTIVE"} color={Palette.mango} />
+					<Text
+						value={`SEASON XP: ${compactNumber(command.SeasonXP)}  ·  ${passOwned ? "SEASON PASS VIP ACTIVE" : "STANDARD TRACK"}`}
+						size={13}
+						color={Palette.cream}
+						weight={Enum.FontWeight.Heavy}
+						position={UDim2.fromOffset(0, 20)} sizeConstraint={new UDim2(1, 0, 0, 19)}
+						align={Enum.TextXAlignment.Left}
+					/>
+					<frame Size={new UDim2(1, 0, 0, 10)} Position={UDim2.fromOffset(0, 48)} BackgroundTransparency={1}>
+						<Meter value={seasonFill} color={Palette.mango} size={UDim2.fromScale(1, 1)} reducedMotion={reducedMotion} />
+					</frame>
+				</frame>
 			</Panel>
-			<VirtualGrid
-				scrollRef={scrollRef}
-				count={ops.SeasonTiers.size()}
-				columns={1}
-				cellHeight={seasonRowH}
-				gap={Layout.panelGap}
-				overscanRows={softMotion ? 0 : 1}
-				layoutOrder={nextOrder()}
-				itemKey={(index: number) => {
-					const tier = ops.SeasonTiers[index] as SeasonTier | undefined;
-					return tier !== undefined ? tostring(tier.Tier) : `tier-${index}`;
-				}}
-				renderItem={(index: number) => {
-					const tier = ops.SeasonTiers[index] as SeasonTier | undefined;
-					if (tier === undefined) {
-						return undefined;
-					}
-					const unlocked = command.SeasonXP >= tier.RequiredXP;
-					const claimed = command.SeasonClaims[tostring(tier.Tier)] === true;
-					const major = tier.Tier % 5 === 0;
-					const passClaimed = premiumClaims[tostring(tier.Tier)] === true;
-					const passReady = passOwned && unlocked && !passClaimed;
-					const claimRef = unlocked && (!claimed || passReady) && tier.Tier === firstReadySeasonTier ? claimHostRef : undefined;
-					const passButton = (
-						<Button
-							text={passClaimed ? "Done" : !passOwned || unlocked ? "Pass" : "Locked"}
-							onClick={() => sendPending(`pass:${tier.Tier}`, "ClaimSeasonPremium", { Tier: tier.Tier })}
-							{...pendingProps(`pass:${tier.Tier}`)}
-							color={Palette.mango}
-							textColor={Palette.ink}
-							size={UDim2.fromScale(1, 1)}
-							disabled={!passReady}
-							reducedMotion={reducedMotion}
-							highlight={passReady}
-						/>
-					);
-					const freeButton = (
-						<Button
-							text={claimed ? "Done" : unlocked ? "Open" : "Locked"}
-							onClick={() => sendPending(`season:${tier.Tier}`, "ClaimSeasonTier", { Tier: tier.Tier })}
-							{...pendingProps(`season:${tier.Tier}`)}
-							color={major ? Palette.mango : Palette.green}
-							textColor={Palette.ink}
-							size={UDim2.fromScale(1, 1)}
-							disabled={claimed || !unlocked}
-							reducedMotion={reducedMotion}
-							highlight={unlocked && !claimed}
-						/>
-					);
-					const claimButton = (
-						<>
-							<frame Size={new UDim2(0.5, -4, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
-								{freeButton}
-							</frame>
-							<frame Size={new UDim2(0.5, -4, 1, 0)} Position={new UDim2(0.5, 4, 0, 0)} BackgroundTransparency={1} BorderSizePixel={0}>
-								{passButton}
-							</frame>
-						</>
-					);
+
+			{/* Season Tier Reward Nodes */}
+			<Panel
+				size={new UDim2(1, 0, 0, 0)}
+				autoHeight={true}
+				accent={Palette.violet}
+				background={Palette.panel}
+				padding={14}
+				layoutOrder={2}
+				reducedMotion={reducedMotion}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 8)} />
+				<SectionLabel value="PROGRESSION TIERS" color={Palette.violet} />
+				{ops.SeasonTiers.map((tier, idx) => {
+					const isUnlocked = command.SeasonXP >= tier.RequiredXP;
+					const isClaimed = command.SeasonClaims[tostring(tier.Tier)] === true;
+					const canClaim = isUnlocked && !isClaimed;
+
 					return (
-						<Panel
-							size={new UDim2(1, 0, 0, seasonRowH)}
-							accent={major ? Palette.mango : unlocked ? Palette.green : Palette.lineSoft}
-							background={major ? Palette.panelRaised : Palette.panel}
-							padding={18}
-							reducedMotion={reducedMotion}
+						<frame
+							key={`Tier_${tier.Tier}`}
+							Size={new UDim2(1, 0, 0, 60)}
+							BackgroundColor3={Palette.panelSoft}
+							BackgroundTransparency={0.2}
+							BorderSizePixel={0}
+							LayoutOrder={idx + 1}
 						>
-							<frame
-								Size={UDim2.fromOffset(56, 56)}
-								BackgroundColor3={claimed ? Palette.green : unlocked ? Palette.mango : Palette.panelSoft}
-								BorderSizePixel={0}
-							>
-								<uicorner CornerRadius={new UDim(1, 0)} />
+							<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
+							<uistroke Color={canClaim ? Palette.mango : Palette.lineSoft} Thickness={1} Transparency={0.5} />
+							<frame Size={new UDim2(1, -140, 1, 0)} Position={UDim2.fromOffset(14, 0)} BackgroundTransparency={1}>
 								<Text
-									value={"%02d".format(tier.Tier)}
-									size={20}
-									color={claimed || unlocked ? Palette.ink : Palette.muted}
+									value={`TIER ${tier.Tier}  ·  ${DescribeGenerated.seasonTierName(tier.Tier)}`}
+									size={12}
+									color={Palette.cream}
 									weight={Enum.FontWeight.Heavy}
-									fit={false}
-									align={Enum.TextXAlignment.Center}
-									sizeConstraint={UDim2.fromScale(1, 1)}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, 10)} sizeConstraint={new UDim2(1, 0, 0, 18)}
+								/>
+								<Text
+									value={formatReward(tier.Reward)}
+									size={11}
+									color={Palette.mint}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, 30)} sizeConstraint={new UDim2(1, 0, 0, 17)}
 								/>
 							</frame>
-							<Text
-								value={DescribeGenerated.seasonTierName(tier.Tier)}
-								size={14}
-								color={major ? Palette.mango : Palette.cream}
-								weight={Enum.FontWeight.Heavy}
-								fit={true}
-								minSize={11}
-								position={UDim2.fromOffset(72, 8)}
-								sizeConstraint={new UDim2(1, stack ? -(72 + 24) : -250, 0, 20)}
-							/>
-							<Text
-								value={formatReward(tier.Reward)}
-								size={12}
-								color={Palette.muted}
-								wrap={true}
-								fit={true}
-								minSize={9}
-								position={UDim2.fromOffset(72, 32)}
-								sizeConstraint={new UDim2(1, stack ? -(72 + 24) : -250, 0, 28)}
-							/>
-							<Text
-								value={formatReward(SeasonPremium.Reward(tier.Tier))}
-								size={11}
-								color={passOwned ? Palette.mango : Palette.muted}
-								fit={true}
-								minSize={9}
-								position={UDim2.fromOffset(72, 62)}
-								sizeConstraint={new UDim2(1, stack ? -(72 + 24) : -250, 0, 16)}
-							/>
-							<Meter
-								value={meterFill(command.SeasonXP, tier.RequiredXP, claimed || unlocked)}
-								color={major ? Palette.mango : Palette.green}
-								reducedMotion={reducedMotion}
-								position={UDim2.fromOffset(72, stack ? 86 : 100)}
-								size={new UDim2(1, stack ? -84 : -250, 0, 7)}
-							/>
-							{stack ? (
-								<frame
-									key="CommandClaimActions"
-									Size={new UDim2(1, -24, 0, TapTarget)}
-									Position={new UDim2(0, 12, 1, -(TapTarget + 8))}
-									BackgroundTransparency={1}
-									BorderSizePixel={0}
-									ClipsDescendants={false}
-									ref={claimRef}
-								>
-									{claimButton}
-								</frame>
-							) : (
-								<>
-									<frame
-										key="CommandClaimActions"
-										Size={UDim2.fromOffset(236, 44)}
-										Position={new UDim2(1, -244, 0.5, -22)}
-										BackgroundTransparency={1}
-										BorderSizePixel={0}
-										ClipsDescendants={false}
-										ref={claimRef}
-									>
-										{claimButton}
-									</frame>
-								</>
-							)}
-						</Panel>
+							<frame Size={UDim2.fromOffset(110, 34)} Position={new UDim2(1, -124, 0.5, -17)} BackgroundTransparency={1}>
+								<Button
+									text={isClaimed ? "CLAIMED" : canClaim ? "CLAIM" : `${compactNumber(tier.RequiredXP)} XP`}
+									onClick={() => {
+										if (canClaim) {
+											sendAction(`Tier_${tier.Tier}`, "ClaimSeasonTier", { Tier: tier.Tier });
+										}
+									}}
+									color={canClaim ? Palette.mango : Palette.panelRaised}
+									textColor={canClaim ? Palette.ink : Palette.muted}
+									size={UDim2.fromScale(1, 1)}
+									loading={pendingKey === `Tier_${tier.Tier}`}
+									reducedMotion={reducedMotion}
+								/>
+							</frame>
+						</frame>
 					);
-				}}
-			/>
+				})}
+			</Panel>
 		</TabPane>
 	);
 
-	const bodyPane = (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} Active={false}>
-			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Layout.panelGap)} />
-			{overviewPane}
-			{expeditionsPane}
-			{artifactsPane}
-			{seasonPane}
-		</frame>
+	// --------------------------------------------------------------------------------------------
+	// TAB 6: CREW QUARTERS
+	// --------------------------------------------------------------------------------------------
+	const crewTab = (
+		<TabPane tabKey="Crew" reducedMotion={reducedMotion}>
+			<Panel
+				size={new UDim2(1, 0, 0, 0)}
+				autoHeight={true}
+				accent={Palette.cyan}
+				background={Palette.panel}
+				padding={14}
+				layoutOrder={1}
+				reducedMotion={reducedMotion}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+				<SectionLabel value="FLEET OFFICERS & STATIONS" color={Palette.cyan} />
+				{CREW_ROLES.map((role, idx) => {
+					const level = command.Crew[role] ?? 1;
+					const conf = ops.Crew[role] ?? { Name: role, Color: Palette.cyan, BaseCost: 100, MaxLevel: 20 };
+					const cost = crewCost(conf.BaseCost, level);
+					const canUpgrade = level < conf.MaxLevel;
+
+					return (
+						<frame
+							key={role}
+							Size={new UDim2(1, 0, 0, 84)}
+							BackgroundColor3={Palette.panelSoft}
+							BackgroundTransparency={0.2}
+							BorderSizePixel={0}
+							LayoutOrder={idx + 1}
+						>
+							<uicorner CornerRadius={new UDim(0, Layout.buttonRadius)} />
+							<uistroke Color={conf.Color ?? Palette.cyan} Thickness={1} Transparency={0.5} />
+							<frame Size={new UDim2(1, -150, 1, 0)} Position={UDim2.fromOffset(14, 0)} BackgroundTransparency={1}>
+								<Text
+									value={`${conf.Name.upper()}  ·  RANK ${level}`}
+									size={13}
+									color={Palette.cream}
+									weight={Enum.FontWeight.Heavy}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, 10)} sizeConstraint={new UDim2(1, 0, 0, 19)}
+								/>
+								<Text
+									value={CREW_PERKS[role] ?? "Enhances fleet operations"}
+									size={11}
+									color={Palette.creamSoft}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, 32)} sizeConstraint={new UDim2(1, 0, 0, 17)}
+								/>
+								<Text
+									value={canUpgrade ? `Promotion cost: ${cost} Signals` : "Max rank reached"}
+									size={11}
+									color={Palette.muted}
+									align={Enum.TextXAlignment.Left}
+									position={UDim2.fromOffset(0, 52)} sizeConstraint={new UDim2(1, 0, 0, 17)}
+								/>
+							</frame>
+							<frame Size={UDim2.fromOffset(120, 36)} Position={new UDim2(1, -134, 0.5, -18)} BackgroundTransparency={1}>
+								<Button
+									text={canUpgrade ? "PROMOTE" : "MAXED"}
+									icon="Crew"
+									onClick={() => {
+										if (canUpgrade) {
+											sendAction(`Crew_${role}`, "UpgradeCrew", { Role: role });
+										}
+									}}
+									color={canUpgrade ? Palette.cyan : Palette.panelRaised}
+									textColor={canUpgrade ? Palette.ink : Palette.muted}
+									size={UDim2.fromScale(1, 1)}
+									loading={pendingKey === `Crew_${role}`}
+									reducedMotion={reducedMotion}
+								/>
+							</frame>
+						</frame>
+					);
+				})}
+			</Panel>
+		</TabPane>
 	);
-	const bodyIntrinsic = useFillList ? tabHeroH + listContent + Layout.panelGap : tabContent;
+
 	return (
-		<PageScaffold
-			hostRef={scrollRef}
-			gap={Layout.panelGap}
-			tailPad={commandTail}
-			scrollBarColor={Palette.cyan}
-			scrollBarThickness={4}
-			sections={[
-				{ id: "header", height: headerH, element: header },
-				{ id: "tabs", height: tabsH, element: tabsRow },
-				{ id: "body", fill: true, minHeight: 200, height: bodyIntrinsic, element: bodyPane },
-			]}
-		/>
+		<AutoPage accent={Palette.cyan} scrollRef={scrollRef}>
+			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} BorderSizePixel={0}>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, Layout.panelGap)} />
+				{tabRail}
+				{tab === "Overview" && overviewTab}
+				{tab === "Titles" && titlesTab}
+				{tab === "Expeditions" && expeditionsTab}
+				{tab === "Artifacts" && artifactsTab}
+				{tab === "Season" && seasonTab}
+				{tab === "Crew" && crewTab}
+			</frame>
+		</AutoPage>
 	);
 }
 
-export function CommandView(props: CommandProps) {
-	const { state, config } = props;
-	const ops = config.Operations;
-	const command = state.Command;
-	const [tab] = React.useState("Overview");
-	useServerClock(tab === "Expeditions");
-	const scrollRef = React.useRef<ScrollingFrame>();
-	React.useEffect(() => {
-		const frame = scrollRef.current;
-		if (frame) {
-			frame.CanvasPosition = new Vector2(0, 0);
-		}
-	}, [tab]);
-	if (!ops || !command) {
-		return (
-			<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1}>
-				<Text value="Loading your crew…" size={16} color={Palette.muted} align={Enum.TextXAlignment.Center} sizeConstraint={UDim2.fromScale(1, 1)} />
-			</frame>
-		);
-	}
-	return <CommandViewReady {...props} />;
-}
+export default CommandView;

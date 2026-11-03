@@ -36,7 +36,20 @@ type Context<T> = React.Context<T>;
 const AstralForge = script.Parent!;
 
 function kitMember(kit: string, member: string): unknown {
-	return (require(AstralForge.FindFirstChild(kit)! as ModuleScript) as LuaKit)(member);
+	const target = AstralForge.WaitForChild(kit);
+	if (target.IsA("ModuleScript")) {
+		const loaded = require(target) as LuaKit | Record<string, unknown>;
+		if (typeIs(loaded, "function")) {
+			return (loaded as LuaKit)(member);
+		} else if (typeIs(loaded, "table") && member in loaded) {
+			return (loaded as Record<string, unknown>)[member];
+		}
+	}
+	const child = target.WaitForChild(member);
+	if (child.IsA("ModuleScript")) {
+		return require(child);
+	}
+	return child;
 }
 
 function loadReact(): typeof import("@rbxts/react") {
@@ -1185,18 +1198,25 @@ __defs["pageScaffold"] = () => {
 	const planFittedHeights = (__load("pageScaffoldPlan") as ScaffoldPlanModule).planFittedHeights;
 	const planOverflow = (__load("pageScaffoldPlan") as ScaffoldPlanModule).planOverflow;
 	const PageScrollContext = (__load("scrolling") as ScrollingModule).PageScrollContext;
+	const liveAntilag = (kitMember("MotionKit", "antilagState") as { live: { entrance: boolean; tier: number } }).live;
+	const useDrivenSpring = (kitMember("MotionKit", "motion") as typeof import("./MotionKit/motion")).useDrivenSpring;
 	const h = React.createElement as unknown as LooseCreate;
 
 	// sections rise into place one after another when a page opens (once; layout changes don't replay it)
 	// while a section is still rising it is tagged LayoutInMotion so the layout guard ignores the
 	// few frames where it slides through its neighbour
 	function sectionEntrance(index: number, riseRef: MutableRefObject<GuiObject | undefined>): Binding<number> {
-		const [amount, setAmount] = React.useBinding(0);
+		// on a slow machine sections are simply there (no rise, no per-frame listener)
+		const [amount, setAmount] = React.useBinding(liveAntilag.entrance ? 0 : 1);
 		React.useEffect(() => {
-			const start = os.clock() + math.min(index, 8) * 0.055;
+			if (!liveAntilag.entrance) {
+				return undefined;
+			}
+			// the last section used to land ~0.9s after navigating; now ~0.7s
+			const start = os.clock() + math.min(index, 8) * 0.04;
 			riseRef.current?.SetAttribute("LayoutInMotion", true);
 			const connection = game.GetService("RunService").RenderStepped.Connect(() => {
-				const t = math.clamp((os.clock() - start) / 0.45, 0, 1);
+				const t = math.clamp((os.clock() - start) / 0.38, 0, 1);
 				setAmount(t);
 				if (t >= 1) {
 					connection.Disconnect();
@@ -1240,11 +1260,42 @@ __defs["pageScaffold"] = () => {
 		);
 		const riseRef = React.useRef<GuiObject>();
 		const entrance = sectionEntrance(props.layoutOrder ?? 0, riseRef);
+		// layout glide: when something above this section grows, shrinks or appears, the section starts
+		// from where it was and springs into its new place instead of teleporting there
+		const [glide, glider] = useDrivenSpring(5.5, 0.9, 0, undefined, () => riseRef.current?.SetAttribute("LayoutInMotion", undefined));
+		const hostRef = React.useRef<Frame>();
+		React.useEffect(() => {
+			const host = hostRef.current;
+			const scroller = host?.FindFirstAncestorWhichIsA("ScrollingFrame");
+			if (host === undefined || scroller === undefined) {
+				return undefined;
+			}
+			// position on the canvas: scrolling and the page slide move the canvas, not this
+			const canvasY = () => host.AbsolutePosition.Y - scroller.AbsolutePosition.Y + scroller.CanvasPosition.Y;
+			let lastY = canvasY();
+			const moved = host.GetPropertyChangedSignal("AbsolutePosition").Connect(() => {
+				const y = canvasY();
+				const delta = y - lastY;
+				lastY = y;
+				if (math.abs(delta) < 1 || math.abs(delta) > 1600) {
+					return;
+				}
+				riseRef.current?.SetAttribute("LayoutInMotion", true);
+				glider.kick(-delta);
+			});
+			return () => moved.Disconnect();
+		}, []);
+		const risePosition = React.joinBindings([entrance, glide]).map((values: unknown[]) =>
+			UDim2.fromOffset(0, math.round((1 - easeOutBackSoft(values[0] as number)) * 18 + (values[1] as number))),
+		);
 		return h(
 			"frame",
 			{
 				Name: tostring(props.id ?? "PageSection"),
-				ref: sectionRef,
+				ref: (host: Frame | undefined) => {
+					hostRef.current = host;
+					sectionRef(host);
+				},
 				Size: new UDim2(1, 0, 0, math.max(0, props.height)),
 				BackgroundTransparency: 1,
 				BorderSizePixel: 0,
@@ -1259,7 +1310,7 @@ __defs["pageScaffold"] = () => {
 					Size: UDim2.fromScale(1, 1),
 					BackgroundTransparency: 1,
 					BorderSizePixel: 0,
-					Position: entrance.map((t: number) => UDim2.fromOffset(0, math.round((1 - easeOutBackSoft(t)) * 22))),
+					Position: risePosition,
 				},
 				props.element,
 			),
@@ -1344,6 +1395,20 @@ __defs["pageScaffold"] = () => {
 		const usable = available > 0 ? math.max(1, available - inset * 2) : 0;
 		const overflowing = planOverflow(sections, usable, gap, tailPad);
 		const [fillContent, setFillContent] = React.useState(0);
+		// opening a long page used to build every section in one frame: the first few mount at once, the rest follow
+		// a frame at a time (their slots keep the same height, so the scroll size and positions never change)
+		const [mounted, setMounted] = React.useState(liveAntilag.tier >= 2 ? 4 : 2);
+		React.useEffect(() => {
+			if (mounted >= sections.size()) {
+				return undefined;
+			}
+			// slow machines get smaller steps with a little air between them
+			const lean = liveAntilag.tier < 2;
+			const job = task.delay(lean ? 0.03 : 0, () => setMounted((value) => value + (lean || value < 12 ? 1 : 3)));
+			return () => {
+				pcall(task.cancel, job);
+			};
+		});
 		const reportFill = React.useCallback((height: number) => {
 			const rounded = math.max(0, math.ceil(height));
 			setFillContent((current) => (current === rounded ? current : rounded));
@@ -1357,6 +1422,17 @@ __defs["pageScaffold"] = () => {
 				report: reportFill,
 			};
 		}, [overflowing, hostRef]);
+		// every other section gets the page scroller too, so a list it embeds (embedded={true}) windows
+		// against the page scroll; without it such a list had no host and built every row on open.
+		// It never reports a fill height and never auto-embeds, so only lists that ask are affected.
+		const passiveContext = React.useMemo((): ScrollHostContext => {
+			return {
+				hostRef,
+				sectionRef: fillSectionRef,
+				overflowing: false,
+				report: () => {},
+			};
+		}, [hostRef]);
 		let planSections = sections;
 		if (overflowing && fillContent > 0) {
 			const grown: ScaffoldSection[] = table.create(sections.size());
@@ -1387,6 +1463,15 @@ __defs["pageScaffold"] = () => {
 			: undefined;
 		const _newValue: unknown[] = table.create(sections.size());
 		const _callback_2 = (section: ScaffoldSection, index: number) => {
+			if (index >= mounted && section.fill !== true) {
+				return h("frame", {
+					key: section.id,
+					Size: new UDim2(1, 0, 0, math.max(0, (fittedHeights[index] as number | undefined) ?? 0)),
+					LayoutOrder: index,
+					BackgroundTransparency: 1,
+					BorderSizePixel: 0,
+				});
+			}
 			const _attributes: Record<string, unknown> = {
 				key: section.id,
 				id: section.id,
@@ -1397,10 +1482,11 @@ __defs["pageScaffold"] = () => {
 			}
 			_attributes.height = _result_3;
 			_attributes.layoutOrder = index;
-			_attributes.element =
-				section.fill === true
-					? h(PageScrollContext.Provider, { value: scrollContext }, section.element)
-					: section.element;
+			_attributes.element = h(
+				PageScrollContext.Provider,
+				{ value: section.fill === true ? scrollContext : passiveContext },
+				section.element,
+			);
 			if (section.fill === true) {
 				_attributes.frameRef = fillSectionRef;
 			}

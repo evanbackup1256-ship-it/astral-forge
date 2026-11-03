@@ -24,6 +24,7 @@ export const MORE_ROUTES: ReadonlyArray<RouteDef> = table.freeze([
 	{ id: "Bazaar", label: "Black Market", eyebrow: "Stock and supplies", icon: "Shop.2", accentKey: "violet" },
 	{ id: "Boosts", label: "Boosts", eyebrow: "Timed multipliers", icon: "Boost.7", accentKey: "pink" },
 	{ id: "Worlds", label: "Worlds", eyebrow: "Zones", icon: "World.2", accentKey: "mint" },
+	{ id: "Reaches", label: "The Reaches", eyebrow: "Ore and the Warden", icon: "World.3", accentKey: "mango" },
 	{ id: "Lab", label: "Lab", eyebrow: "Orders", icon: "Lab.2", accentKey: "mint" },
 	{ id: "StarGrid", label: "Specializations", eyebrow: "Forge builds", icon: "Forge.4", accentKey: "mango" },
 	{ id: "Ascension", label: "Ascension", eyebrow: "Final rebirth", icon: "Rebirth.4", accentKey: "mango" },

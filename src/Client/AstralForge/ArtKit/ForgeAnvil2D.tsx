@@ -1,3 +1,4 @@
+import { clamp01 } from "../CoreKit/easing";
 import React from "@rbxts/react";
 import { ImageSprite, SpriteClip2 } from "./SpriteClip2";
 import { FORGE_RIG_ART_SCALE, FORGE_RIG_LOOP_SECONDS, ForgeRig2D, ForgeRig2DProps } from "./ForgeRig2D";
@@ -35,9 +36,6 @@ const FINALE_IMPACT_END = 1;
 
 function assetUri(id: number) {
 	return `rbxassetid://${id}`;
-}
-function clamp01(value: number) {
-	return math.clamp(value, 0, 1);
 }
 function range(value: number, start: number, finish: number) {
 	return clamp01((value - start) / math.max(0.001, finish - start));

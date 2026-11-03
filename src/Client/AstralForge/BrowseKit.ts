@@ -208,8 +208,8 @@ Kit.useBrowse = function (config: BrowseConfig): BrowseState {
 	return browse;
 };
 
-// For pages with their own filter logic: a search string that is remembered per page and
-// that Quick Find deep links fill in. Returns query, setQuery like useState.
+// For pages with their own filter logic: a search string that is remembered per page.
+// Returns query, setQuery like useState.
 Kit.useLinkedQuery = function (
 	id: string,
 	initial?: string,
@@ -232,7 +232,7 @@ Kit.useLinkedQuery = function (
 	return $tuple(query, setQuery);
 };
 
-// A tab that Quick Find can open directly (links carry the tab id as `category`).
+// A tab a page can be opened on directly (links carry the tab id as `category`).
 // An explicit `preferred` tab (a prop from the caller) wins over the last linked one.
 Kit.useLinkedTab = function (
 	id: string,

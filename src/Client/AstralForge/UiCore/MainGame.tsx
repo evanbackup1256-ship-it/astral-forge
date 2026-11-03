@@ -37,10 +37,12 @@ import { ClientActions, getActiveClientStore, useClientDispatch, useClientSelect
 import { preloadMountedGame, warmClientModules } from "../ClientRuntime/assetPreloader";
 import { useClientIntegrityProbe } from "../ClientRuntime/clientIntegrity";
 import { AntilagProvider } from "../MotionKit/antilag";
+import { live as liveAntilag } from "../MotionKit/antilagState";
 import { MotionSettings, MotionSettingsContext } from "../MotionKit/motion";
 import { AutoScale } from "../MotionKit/autoScale";
 import { POP_SECONDS } from "./effects";
 import { AdminPrankOverlay, HudPrankStage, Prank } from "./AdminPrankOverlay";
+import { AdminShowOverlay, SHOW_KINDS } from "./AdminShow";
 import * as LevelMoments from "./levelMoments";
 import * as ServerEventsUi from "./serverEventsUi";
 import * as RebirthCeremony from "./RebirthCeremony";
@@ -48,9 +50,29 @@ import { Shell, pausePassivePaints } from "./AppShellChrome";
 import { LooseComponent, LooseProps } from "./ui";
 
 const AstralForge = script.Parent!.Parent!;
-const load = <T extends unknown>(name: string): T => require(AstralForge.WaitForChild(name) as ModuleScript) as T;
-const loadKit = <T extends unknown>(kit: string, member: string): T =>
-	(require(AstralForge.WaitForChild(kit) as ModuleScript) as (member: string) => T)(member);
+const load = <T extends unknown>(name: string): T => {
+	const target = AstralForge.WaitForChild(name);
+	if (target.IsA("ModuleScript")) {
+		return require(target) as T;
+	}
+	return target as unknown as T;
+};
+const loadKit = <T extends unknown>(kit: string, member: string): T => {
+	const target = AstralForge.WaitForChild(kit);
+	if (target.IsA("ModuleScript")) {
+		const loader = require(target) as ((member: string) => T) | Record<string, unknown>;
+		if (typeIs(loader, "function")) {
+			return (loader as (member: string) => T)(member);
+		} else if (typeIs(loader, "table") && member in loader) {
+			return (loader as Record<string, unknown>)[member] as T;
+		}
+	}
+	const item = target.WaitForChild(member);
+	if (item.IsA("ModuleScript")) {
+		return require(item) as T;
+	}
+	return item as unknown as T;
+};
 
 interface AudioApi extends AudioMixerApi {
 	setFurnaceHeat(this: void, heat: number): void;
@@ -411,7 +433,8 @@ export function MainGame(_param: MainGameProps) {
 			if (tradeHot) {
 				lastTradeEpoch.current = tradeEpoch;
 			}
-			const passivePaintInterval = UserInputService.TouchEnabled ? 0.7 : 0.45;
+			// passive state repaints thin out as the antilag tier drops (3x apart at the lowest)
+			const passivePaintInterval = (UserInputService.TouchEnabled ? 0.7 : 0.45) * liveAntilag.paintScale;
 			if (pausePassivePaints.current && !revisionChanged && !tradeHot) {
 				return true;
 			}
@@ -913,6 +936,11 @@ export function MainGame(_param: MainGameProps) {
 				if (response.Combo !== undefined && response.ComboMultiplier !== undefined) {
 					applyComboReadout(response.Combo, response.ComboMultiplier, response.ComboMax ?? 12, response.ComboWindow ?? 1.8);
 				}
+			} else if (action === "OreAct") {
+				// the Reaches page answers strikes and mining with its own popups; only a foundry upgrade gets a notice
+				if ((response as unknown as { Upgrade?: unknown }).Upgrade !== undefined) {
+					addNotice("Ore Foundry", response.message ?? "Upgraded.", "Success", false);
+				}
 			} else if (action === "PulseAnomaly") {
 				Audio.play("reactorPulse");
 			} else if (action === "ClaimAnomalyDirective" || action === "ClaimAnomalyMilestone") {
@@ -1242,12 +1270,21 @@ export function MainGame(_param: MainGameProps) {
 				} else if (kind === "DomainExpansion" && tonumber(value.UserId) !== Players.LocalPlayer.UserId) {
 					Audio.play("domainImpact");
 					addNotice("Domain nearby", `Someone opened Domain ${math.floor(tonumber(value.Rank) ?? 1)}.`, "Special");
+				} else if (kind === "WardenFelled") {
+					Audio.play("domainImpact");
+					Juice.flash(Palette.violet, 0.2);
+					const top = value.Top === true ? " You hit hardest: 3 of that is the top striker's cut." : "";
+					addNotice("Rift Warden felled", `+${tostring(value.Starsteel ?? 0)} Starsteel, +${tostring(value.Stardust ?? 0)} Stardust.${top}`, "Special");
 				} else if (kind === "AdminPrank") {
 					const prankKind = tostring(value.Kind ?? "Jumpscare");
 					const duration = math.clamp(tonumber(value.Duration) ?? 6, 2, 20);
 					const caption = tostring(value.Caption ?? "");
-					setAdminPrank({ kind: prankKind, endsAt: os.clock() + duration, caption, duration });
-					Audio.play("adminExecute");
+					if (prankKind === "ClearEffects") {
+						setAdminPrank(undefined);
+					} else {
+						setAdminPrank({ kind: prankKind, endsAt: os.clock() + duration, caption, duration });
+						Audio.play("adminExecute");
+					}
 				}
 			}
 		});
@@ -1511,7 +1548,6 @@ export function MainGame(_param: MainGameProps) {
 			panelHoverScale: ((state?.Settings.PanelHover as number | undefined) ?? 1) >= 0.5 ? 1 : 0,
 			panelEntranceScale: ((state?.Settings.PanelEntrances as number | undefined) ?? 1) >= 0.5 ? 1 : 0,
 			titleScale: ((state?.Settings.AnimatedTitles as number | undefined) ?? 1) >= 0.5 ? 1 : 0,
-			iconScale: ((state?.Settings.IconAnimations as number | undefined) ?? 1) >= 0.5 ? 1 : 0,
 			numberScale: ((state?.Settings.NumberAnimations as number | undefined) ?? 1) >= 0.5 ? 1 : 0,
 			boldText: (state?.Settings.BoldText as number | undefined) ?? 0,
 		} as MotionSettings;
@@ -1521,7 +1557,6 @@ export function MainGame(_param: MainGameProps) {
 		state?.Settings.AnimatedTitles,
 		state?.Settings.BoldText,
 		state?.Settings.ButtonShimmers,
-		state?.Settings.IconAnimations,
 		state?.Settings.NumberAnimations,
 		state?.Settings.PanelEntrances,
 		state?.Settings.PanelHover,
@@ -1575,7 +1610,8 @@ export function MainGame(_param: MainGameProps) {
 				<HudPrankStage prank={adminPrank} reducedMotion={false}>
 					{domainContent}
 				</HudPrankStage>
-				{adminPrank !== undefined && <AdminPrankOverlay prank={adminPrank} reducedMotion={false} onClose={clearAdminPrank} />}
+				{adminPrank !== undefined && SHOW_KINDS[adminPrank.kind] === true && <AdminShowOverlay key={`${adminPrank.kind}${adminPrank.endsAt}`} prank={adminPrank} onClose={clearAdminPrank} />}
+				{adminPrank !== undefined && SHOW_KINDS[adminPrank.kind] !== true && <AdminPrankOverlay prank={adminPrank} reducedMotion={false} onClose={clearAdminPrank} />}
 				{!externalBoot && bootVisible && (
 					<MotionSettingsContext.Provider value={Boot.BOOT_MOTION}>
 						{React.createElement(Boot.BootScreen, {

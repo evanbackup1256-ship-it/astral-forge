@@ -1,13 +1,14 @@
 // Filter chips: one row of squared tabs sharing a single sliding "plate" that marks the
 // active filter. The plate is measured from the real chip frames, so labels of any width
 // work, and it moves on two springs (a quick lead edge and a lagging tail) so a switch
-// reads as the plate being pulled across rather than a colour swap. Counts sit in a small
-// notched tag at the chip's right edge. Idle rows cost nothing: springs settle and stop.
+// reads as the plate being pulled across rather than a colour swap. The plate sits 1px inside the row so its stroke is never clipped by the scroll frame. Counts are not drawn: a bare
+// number beside a filter name never said what it counted, so a filter with nothing in it just
+// dims. Idle rows cost nothing: springs settle and stop.
 import React from "@rbxts/react";
 import ArtKit = require("../ArtKit");
 import { useFlipperSpring } from "../MotionKit/motion";
 import { joinTuple } from "../lua";
-import { Palette, contrastOn, darken, lighten } from "../CoreKit/theme";
+import { Palette, darken, lighten } from "../CoreKit/theme";
 
 type LooseComponent = React.FunctionComponent<Record<string, unknown>>;
 const Icon = (ArtKit("Icon") as { Icon: LooseComponent }).Icon;
@@ -40,7 +41,6 @@ function FilterChip(props: ChipProps) {
 	const { option, count, selected, accent, zIndex } = props;
 	const empty = count === 0 && !selected;
 	const ink = selected ? Palette.cream : empty ? Palette.muted : hovered ? Palette.cream : Palette.creamSoft;
-	const hasCount = count !== undefined;
 	return (
 		<textbutton
 			ref={(frame: TextButton | undefined) => props.chipRef(option.id, frame)}
@@ -63,7 +63,7 @@ function FilterChip(props: ChipProps) {
 			}}
 		>
 			<uicorner CornerRadius={new UDim(0, RADIUS)} />
-			<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, hasCount ? 5 : 12)} />
+			<uipadding PaddingLeft={new UDim(0, 12)} PaddingRight={new UDim(0, 12)} />
 			<uilistlayout
 				FillDirection={Enum.FillDirection.Horizontal}
 				VerticalAlignment={Enum.VerticalAlignment.Center}
@@ -86,31 +86,6 @@ function FilterChip(props: ChipProps) {
 				LayoutOrder={1}
 				ZIndex={zIndex + 3}
 			/>
-			{hasCount && (
-				<frame
-					Size={UDim2.fromOffset(0, 20)}
-					AutomaticSize={Enum.AutomaticSize.X}
-					BackgroundColor3={selected ? accent : Palette.ink}
-					BackgroundTransparency={selected ? 0.05 : empty ? 0.7 : 0.4}
-					BorderSizePixel={0}
-					LayoutOrder={2}
-					ZIndex={zIndex + 3}
-				>
-					<uicorner CornerRadius={new UDim(0, 4)} />
-					<uipadding PaddingLeft={new UDim(0, 6)} PaddingRight={new UDim(0, 6)} />
-					<uisizeconstraint MinSize={new Vector2(20, 20)} />
-					<textlabel
-						Size={UDim2.fromScale(0, 1)}
-						AutomaticSize={Enum.AutomaticSize.X}
-						BackgroundTransparency={1}
-						Text={tostring(count)}
-						TextSize={12}
-						FontFace={new Font(BUILDER, Enum.FontWeight.Bold)}
-						TextColor3={selected ? contrastOn(accent) : empty ? Palette.muted : Palette.creamSoft}
-						ZIndex={zIndex + 4}
-					/>
-				</frame>
-			)}
 		</textbutton>
 	);
 }
@@ -121,8 +96,8 @@ function SelectionPlate(props: { left: number; width: number; visible: boolean; 
 	const tail = useFlipperSpring(props.left, false, 420, 34);
 	const width = useFlipperSpring(props.width, false, 700, 40);
 	const span = joinTuple<[number, number, number]>(lead, tail, width);
-	const position = span.map(([a, b]) => UDim2.fromOffset(math.min(a, b), 0));
-	const size = span.map(([a, b, w]) => UDim2.fromOffset(w + math.abs(a - b), FILTER_CHIP_H));
+	const position = span.map(([a, b]) => UDim2.fromOffset(math.min(a, b) + 1, 1));
+	const size = span.map(([a, b, w]) => UDim2.fromOffset(math.max(0, w + math.abs(a - b) - 2), FILTER_CHIP_H - 2));
 	const accent = props.accent;
 	return (
 		<frame

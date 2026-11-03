@@ -40,6 +40,7 @@ const PAGE_SUITES: Record<string, string> = {
 	// ---- v8 C: Expedition Board ----
 	ExpeditionsView: "PagesProgress",
 	// ---- end v8 C: Expedition Board ----
+	ReachesView: "PagesProgress",
 };
 
 interface Thenable {
@@ -150,6 +151,7 @@ const ROUTES: Record<string, Route | undefined> = {
 	Admin: { view: "AdminView" },
 	ForgePath: { view: "ForgePathView" },
 	Expeditions: { view: "ExpeditionsView" },
+	Reaches: { view: "ReachesView", bare: true },
 };
 
 // Chat and Crew take their own props rather than the shared base.

@@ -19,12 +19,14 @@ const CATEGORY_ACCESS: Record<string, Role[]> = {
 	Items: ["Developer"],
 	Resets: ["Developer"],
 	Troll: ["Developer"],
+	Effects: ["Developer"],
 	LiveOps: ["Developer"],
 	Moderation: ["Developer", "Moderator"],
 };
 
 const COMMAND_ALLOW: Record<string, Role[]> = {
 	InspectMarket: ["Moderator", "Support"],
+	Whisper: ["Support"],
 	ResetTutorial: ["Moderator", "Support"],
 	ShowUpdates: ["Moderator", "Support"],
 	ResetSettings: ["Support"],

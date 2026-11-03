@@ -84,11 +84,11 @@ function RailButtonImpl(_param: RailButtonProps) {
 	const fill = emphasis.map((raw) => (disabled ? Palette.panelRaised : Palette.panel.Lerp(Palette.panelSoft, math.clamp(raw, 0, 1))));
 	const fillTransparency = emphasis.map((raw) => {
 		const amount = math.clamp(raw, 0, 1);
-		return 0.34 - amount * 0.34;
+		return 1 - math.min(amount, 0.5) * 0.36;
 	});
 	const strokeTransparency = emphasis.map((raw) => {
 		const amount = math.clamp(raw, 0, 1);
-		return math.clamp(0.82 - amount * 0.62, 0.18, 0.85);
+		return amount > 0.9 ? 1 : 1 - math.clamp(amount, 0, 0.4) * 1.1;
 	});
 	const markerSize = emphasis.map((raw) => {
 		const amount = math.clamp(raw, 0, 1);
@@ -213,7 +213,7 @@ function RailButtonImpl(_param: RailButtonProps) {
 					"frame",
 					{
 						Size: new UDim2(1, -4, 1, -2),
-						Position: press.map((amount) => new UDim2(0, 2, 0, 1 + math.round(amount * (touchChrome ? 2 : 1)))),
+						Position: press.map((amount) => new UDim2(0, 2, 0, 1 + amount * (touchChrome ? 2 : 1))),
 						BackgroundColor3: fill,
 						BackgroundTransparency: fillTransparency,
 						BorderSizePixel: 0,
@@ -305,6 +305,9 @@ function RailButtonImpl(_param: RailButtonProps) {
 						h(CountBadge, {
 							count: badge,
 							zIndex: 12,
+							compact: true,
+							position: new UDim2(1, -10, 0.5, 0),
+							anchorPoint: new Vector2(1, 0.5),
 						}),
 				),
 			),
@@ -404,7 +407,7 @@ function MoreDockButtonImpl(_param: MoreDockButtonProps) {
 	});
 	const iconPosition = selection.map((raw) => {
 		const selected = math.clamp(raw, 0, 1);
-		return fill ? new UDim2(0.5, 0, 0, 3 - math.round(selected * 2)) : new UDim2(0, iconX, 0.5, -math.round(selected));
+		return fill ? new UDim2(0.5, 0, 0, 3 - selected * 2) : new UDim2(0, iconX, 0.5, -selected);
 	});
 	const iconFill = selection.map((raw) =>
 		disabled ? Palette.panelSoft : Palette.panelRaised.Lerp(darken(entry.accent, 0.64), math.clamp(raw, 0, 1)),
@@ -456,7 +459,7 @@ function MoreDockButtonImpl(_param: MoreDockButtonProps) {
 				"frame",
 				{
 					Size: chrome.surfaceSize,
-					Position: chrome.offsetY.map((amount) => new UDim2(0.5, 0, 0.5, math.round(amount))),
+					Position: chrome.offsetY.map((amount) => new UDim2(0.5, 0, 0.5, amount)),
 					AnchorPoint: new Vector2(0.5, 0.5),
 					Rotation: chrome.tilt,
 					BackgroundTransparency: 1,
@@ -799,7 +802,7 @@ function MoreCell(_param: {
 				"frame",
 				{
 					Size: chrome.surfaceSize,
-					Position: chrome.offsetY.map((amount) => new UDim2(0.5, 0, 0.5, math.round(amount))),
+					Position: chrome.offsetY.map((amount) => new UDim2(0.5, 0, 0.5, amount)),
 					AnchorPoint: new Vector2(0.5, 0.5),
 					Rotation: chrome.tilt,
 					BackgroundColor3: active ? darken(entry.accent, 0.7) : Palette.panelRaised,
@@ -1233,8 +1236,6 @@ function NavGroup(_param: NavGroupProps) {
 		};
 		const headerChildren: Record<string, unknown> = {};
 		const showBadge = !open && badgeTotal > 0;
-		const badgeW = badgeTotal > 99 ? 20 : badgeTotal >= 10 ? 16 : 14;
-		const countShift = showBadge && !collapsed ? badgeW + 6 : 0;
 		if (collapsed) {
 			// the collapsed header is ~38px wide: a short name, with the waiting count folded into it
 			// (a separate badge would leave the name no room)
@@ -1281,16 +1282,8 @@ function NavGroup(_param: NavGroupProps) {
 				color: hasActive ? selectionAccent : Palette.muted,
 				position: new UDim2(0, 12, 0.5, 0),
 			});
-			headerChildren.count = h(Text, {
-				value: tostring(entries.size()),
-				size: 10,
-				color: Palette.muted,
-				weight: Enum.FontWeight.Bold,
-				align: Enum.TextXAlignment.Right,
-				fit: false,
-				position: new UDim2(1, -40 - countShift, 0, 0),
-				sizeConstraint: new UDim2(0, 32, 1, 0),
-			});
+			// no tally of how many pages the group holds: a bare number there never said what it counted.
+			// The badge on the right (things waiting) is the only number a header shows.
 			headerChildren.rule = h("frame", {
 				Size: new UDim2(1, -16, 0, 1),
 				Position: new UDim2(0, 8, 1, -1),
@@ -1313,7 +1306,7 @@ function NavGroup(_param: NavGroupProps) {
 			{
 				Size: new UDim2(1, 0, 0, headerHeight),
 				BackgroundColor3: Palette.panelSoft,
-				BackgroundTransparency: hover.map((amount) => 1 - math.clamp(amount, 0, 1) * 0.55),
+				BackgroundTransparency: hover.map((amount) => 1 - math.clamp(amount, 0, 1) * 0.3),
 				BorderSizePixel: 0,
 				AutoButtonColor: false,
 				Text: "",
@@ -1345,8 +1338,8 @@ function NavGroup(_param: NavGroupProps) {
 				Position: selectionSpan.map((values) =>
 					UDim2.fromOffset(2, NAV_BODY_PAD + math.round(math.min(values[0], values[1])) + 2),
 				),
-				BackgroundColor3: Palette.panelSoft,
-				BackgroundTransparency: 0.2,
+				BackgroundColor3: darken(selectionAccent, 0.7),
+				BackgroundTransparency: 0.06,
 				BorderSizePixel: 0,
 				ZIndex: 1,
 			},
@@ -1354,15 +1347,27 @@ function NavGroup(_param: NavGroupProps) {
 				CornerRadius: new UDim(0, Radius.md),
 			}),
 			h("uigradient", {
-				Color: surfaceGradient(Palette.panelSoft, 0.9),
-				Rotation: 90,
+				Color: new ColorSequence([
+					new ColorSequenceKeypoint(0, lighten(darken(selectionAccent, 0.62), 0.04)),
+					new ColorSequenceKeypoint(1, Palette.panel),
+				]),
+				Transparency: new NumberSequence([new NumberSequenceKeypoint(0, 0), new NumberSequenceKeypoint(1, 0.55)]),
+				Rotation: 0,
 			}),
+			// heat: the plate glows while it travels between rows and cools when it lands
+			h("frame", {
+				Size: UDim2.fromScale(1, 1),
+				BackgroundColor3: lighten(selectionAccent, 0.3),
+				BackgroundTransparency: selectionSpan.map((values) => 1 - math.clamp(math.abs(values[0] - values[1]) / stride, 0, 1) * 0.28),
+				BorderSizePixel: 0,
+				ZIndex: 0,
+			}, h("uicorner", { CornerRadius: new UDim(0, Radius.md) })),
 			h(
 				"uistroke",
 				{
 					Color: selectionAccent,
 					Thickness: 1,
-					Transparency: 0.38,
+					Transparency: 0.5,
 					ApplyStrokeMode: Enum.ApplyStrokeMode.Border,
 					LineJoinMode: Enum.LineJoinMode.Round,
 				},

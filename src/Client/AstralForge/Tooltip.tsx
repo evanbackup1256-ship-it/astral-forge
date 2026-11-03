@@ -1,6 +1,6 @@
 import { isTouchOnly } from "./CoreKit/inputLayer";
-// Tooltips: one bubble for the whole game, drawn as a small Surface by <TooltipProvider> (mounted
-// once at the UI root) in its own top-layer ScreenGui.
+// Tooltips: one bubble for the whole game, drawn by <TooltipProvider> (mounted once at the UI
+// root) in its own top-layer ScreenGui.
 //
 // Targets call useTooltip(content) and merge the returned handlers into their Event table
 // (mergeEvents keeps the target's own handlers). Content is a string or { title, body, hint,
@@ -8,15 +8,15 @@ import { isTouchOnly } from "./CoreKit/inputLayer";
 //   mouse    rest on the target (0.45s; 0.08s right after another tip closed)
 //   gamepad  selection rests on it (0.7s; 0.25s warm)
 //   touch    long press (0.45s), stays 1.6s after lifting; sliding 12px cancels it
-// Lists that move their own highlight (Quick Find) call showTooltipFor instead.
 // Any key, B, the wheel, or a tap/click outside the target closes it. The bubble goes above the
 // target, else below, right, left, and is clamped inside the device safe area.
 import React from "@rbxts/react";
 import ReactRoblox from "@rbxts/react-roblox";
 import { InteractionFeedback } from "./CoreKit/interaction";
-import { Palette } from "./CoreKit/theme";
-import { revealOffset, usePresence } from "./MotionKit/motion";
-import { Surface, SurfaceText } from "./UiCore/surface";
+import { Palette, Radius } from "./CoreKit/theme";
+import { visibleObstacles } from "./MotionKit/choreography";
+import { usePresence } from "./MotionKit/motion";
+import { surfaceFont, SurfaceType } from "./UiCore/surface";
 
 const Players = game.GetService("Players");
 const RunService = game.GetService("RunService");
@@ -39,6 +39,11 @@ const TOUCH_SLOP = 12;
 const GAP = 8;
 const EDGE = 10;
 const BUBBLE_PAD = 12;
+// pixels the bubble travels while it arrives, from the side it sits on
+const SLIDE = 6;
+const FONT_TITLE = surfaceFont(Enum.FontWeight.SemiBold);
+const FONT_BODY = surfaceFont(Enum.FontWeight.Medium);
+const FONT_KEY = surfaceFont(Enum.FontWeight.Bold);
 
 // names for icon-only buttons, by icon concept ("Close.24" -> "Close")
 const ICON_NAMES: { [concept: string]: string } = {
@@ -163,19 +168,6 @@ function openAfter(id: number, target: GuiObject, read: () => TooltipContent | u
 		}
 		notify();
 	});
-}
-
-/** Show a tip beside `target` after the gamepad delay; returns a function that takes it away. */
-export function showTooltipFor(target: GuiObject, content: TooltipContent): () => void {
-	const id = newId();
-	openAfter(id, target, () => content, warm() ? Timing.padWarm : Timing.pad);
-	return () => {
-		if (store.open !== undefined && store.open.id === id) {
-			close(id);
-		} else if (store.open === undefined) {
-			stopTimer();
-		}
-	};
 }
 
 function screenRect(target: GuiObject): LuaTuple<[Vector2, Vector2]> {
@@ -366,8 +358,12 @@ function screenSize(): Vector2 {
 	return camera !== undefined ? camera.ViewportSize : new Vector2(1280, 720);
 }
 
-// above, else below, right, left; slid along that side and clamped inside the safe area
-function place(targetPos: Vector2, targetSize: Vector2, size: Vector2): Vector2 {
+// above, else below, right, left; slid along that side and clamped inside the safe area. Also
+// returns which way the bubble sits from its target (up, down, right, left): the entrance slides
+// in from that side.
+const AWAY = [new Vector2(0, -1), new Vector2(0, 1), new Vector2(1, 0), new Vector2(-1, 0)];
+
+function place(targetPos: Vector2, targetSize: Vector2, size: Vector2): LuaTuple<[Vector2, Vector2]> {
 	const view = screenSize();
 	const safe = safeArea !== undefined && safeArea.Parent !== undefined ? safeArea : undefined;
 	const low = safe !== undefined ? safe.AbsolutePosition : Vector2.zero;
@@ -386,12 +382,23 @@ function place(targetPos: Vector2, targetSize: Vector2, size: Vector2): Vector2 
 		new Vector2(targetPos.X + targetSize.X + GAP, midY),
 		new Vector2(targetPos.X - GAP - size.X, midY),
 	];
-	for (const spot of options) {
-		if (spot.X >= left && spot.Y >= top && spot.X + size.X <= right && spot.Y + size.Y <= bottom) {
-			return spot;
+	// other floating UI (the trade-return pill ...) is in the way: the tip takes a side that doesn't cover it
+	const blocked = (spot: Vector2): boolean => {
+		for (const obstacle of visibleObstacles()) {
+			const [at, extent] = screenRect(obstacle);
+			if (spot.X < at.X + extent.X && spot.X + size.X > at.X && spot.Y < at.Y + extent.Y && spot.Y + size.Y > at.Y) {
+				return true;
+			}
+		}
+		return false;
+	};
+	for (let i = 0; i < options.size(); i++) {
+		const spot = options[i];
+		if (spot.X >= left && spot.Y >= top && spot.X + size.X <= right && spot.Y + size.Y <= bottom && !blocked(spot)) {
+			return $tuple(spot, AWAY[i]);
 		}
 	}
-	return new Vector2(clampX(options[0].X), clampY(options[0].Y));
+	return $tuple(new Vector2(clampX(options[0].X), clampY(options[0].Y)), AWAY[0]);
 }
 
 // ── Provider ───────────────────────────────────────────────────────────────────
@@ -402,15 +409,22 @@ export interface TooltipProviderProps {
 	children?: React.ReactNode;
 }
 
-// enters and leaves with the game's panel presence (usePresence), like every other panel
+// The bubble: the game's raised plate with a hairline edge, nothing else. It enters and leaves with
+// the game's panel presence (usePresence), like every other panel: it slides in from the side it
+// sits on while it fades up, and the body copy lands a beat after the title. Reduced Motion drops the
+// slide and the beat. A shortcut hint is a key cap on the title row; an accent is a small dot.
 function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean; onGone: (id: number) => void }) {
 	const tip = props.tip;
 	const data = tip.data;
-	const [spot, setSpot] = React.useBinding(new Vector2(-1000, -1000));
+	const calm = props.reducedMotion;
+	// parked on screen (and invisible: appear is 0) until the first measure, so the layout guard never
+	// sees a bubble outside the viewport
+	const [spot, setSpot] = React.useBinding(new Vector2(EDGE, EDGE));
+	const [away, setAway] = React.useBinding(AWAY[0]);
 	// waits a frame so AutomaticSize has measured before the bubble shows
 	const [ready, setReady] = React.useState(false);
-	const [presence, , beginExit] = usePresence(props.reducedMotion);
-	const appear = presence.map((a) => (ready ? a : 0));
+	const [presence, , beginExit] = usePresence(calm);
+	const appear = React.useMemo(() => presence.map((a) => (ready ? math.clamp(a, 0, 1) : 0)), [presence, ready]);
 	const onGone = props.onGone;
 	React.useEffect(() => {
 		if (props.leaving) {
@@ -421,6 +435,9 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 	React.useEffect(() => {
 		const target = tip.target;
 		let frames = 0;
+		let lastPos = Vector2.zero;
+		let lastSize = Vector2.zero;
+		let lastOwn = Vector2.zero;
 		const connection = RunService.RenderStepped.Connect(() => {
 			if (!target.IsDescendantOf(game) || !target.Visible) {
 				close(tip.id);
@@ -431,8 +448,17 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 			}
 			const bubble = bubbleRef.current;
 			const [pos, size] = screenRect(target);
-			const at = place(pos, size, bubble !== undefined ? bubble.AbsoluteSize : Vector2.zero);
+			const own = bubble !== undefined ? bubble.AbsoluteSize : Vector2.zero;
+			// only re-place when the target moved or the bubble resized
+			if (frames >= 2 && pos === lastPos && size === lastSize && own === lastOwn) {
+				return;
+			}
+			lastPos = pos;
+			lastSize = size;
+			lastOwn = own;
+			const [at, side] = place(pos, size, own);
 			setSpot(new Vector2(math.round(at.X), math.round(at.Y)));
+			setAway(side);
 			frames += 1;
 			if (frames === 2) {
 				setReady(true);
@@ -442,61 +468,129 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 	}, [tip.target, props.leaving]);
 	const narrow = screenSize().X < 700;
 	const maxW = math.max(120, math.min(narrow ? 220 : 280, screenSize().X - EDGE * 2 - BUBBLE_PAD * 2));
-	const fade = appear.map((a) => 1 - math.clamp(a, 0, 1));
+	const titleFade = appear.map((a) => 1 - a);
+	const bodyFade = calm ? titleFade : appear.map((a) => 1 - math.clamp((a - 0.3) / 0.7, 0, 1));
 	const hasTitle = data.title !== undefined && data.title !== "";
+	const hasBody = data.body !== undefined && data.body !== "";
+	const hasHint = data.hint !== undefined && data.hint !== "";
+	const accent = data.accent;
+
 	return (
-		<Surface
-			frameRef={bubbleRef}
-			autoSize={true}
-			padding={BUBBLE_PAD}
-			appear={appear}
-			accent={data.accent}
-			position={React.joinBindings({ spot, appear }).map((v) => UDim2.fromOffset(v.spot.X, v.spot.Y + revealOffset(v.appear)))}
+		<frame
+			ref={bubbleRef}
+			AutomaticSize={Enum.AutomaticSize.XY}
+			BackgroundColor3={Palette.panelRaised}
+			BackgroundTransparency={appear.map((a) => 1 - a * 0.97)}
+			BorderSizePixel={0}
+			ZIndex={9100}
+			Position={React.joinBindings({ spot, away, appear }).map((v) => {
+				const slide = calm ? 0 : (1 - v.appear) * SLIDE;
+				return UDim2.fromOffset(v.spot.X - v.away.X * slide, v.spot.Y - v.away.Y * slide);
+			})}
 		>
-			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
-			{hasTitle && (
-				<SurfaceText text={data.title!} type="title" autoSize={true} wrap={true} maxWidth={maxW} transparency={fade} order={1} />
-			)}
-			{hasTitle && (
-				// a short hand-drawn rule under the title instead of another label
-				<frame
-					LayoutOrder={2}
-					Size={UDim2.fromOffset(18, 2)}
-					BackgroundColor3={data.accent ?? Palette.mango}
-					BackgroundTransparency={appear.map((a) => 1 - 0.85 * math.clamp(a, 0, 1))}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
+			<uicorner CornerRadius={new UDim(0, Radius.md)} />
+			<uistroke
+				ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
+				Thickness={1}
+				Color={Palette.lineSoft}
+				Transparency={appear.map((a) => 1 - a * 0.65)}
+			/>
+			<uipadding
+				PaddingLeft={new UDim(0, BUBBLE_PAD)}
+				PaddingRight={new UDim(0, BUBBLE_PAD)}
+				PaddingTop={new UDim(0, 8)}
+				PaddingBottom={new UDim(0, 8)}
+			/>
+			<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} FillDirection={Enum.FillDirection.Vertical} />
+
+			{(hasTitle || hasHint) && (
+				<frame AutomaticSize={Enum.AutomaticSize.XY} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={1}>
+					<uilistlayout
+						SortOrder={Enum.SortOrder.LayoutOrder}
+						Padding={new UDim(0, 8)}
+						FillDirection={Enum.FillDirection.Horizontal}
+						VerticalAlignment={Enum.VerticalAlignment.Center}
+					/>
+					{accent !== undefined && (
+						<frame
+							Size={UDim2.fromOffset(6, 6)}
+							BackgroundColor3={accent}
+							BackgroundTransparency={titleFade}
+							BorderSizePixel={0}
+							LayoutOrder={1}
+							ZIndex={9101}
+						>
+							<uicorner CornerRadius={new UDim(1, 0)} />
+						</frame>
+					)}
+					{hasTitle && (
+						<textlabel
+							AutomaticSize={Enum.AutomaticSize.XY}
+							BackgroundTransparency={1}
+							BorderSizePixel={0}
+							LayoutOrder={2}
+							Text={data.title!}
+							TextSize={SurfaceType.body.size}
+							TextColor3={Palette.cream}
+							TextTransparency={titleFade}
+							FontFace={FONT_TITLE}
+							TextXAlignment={Enum.TextXAlignment.Left}
+							TextWrapped={true}
+							ZIndex={9101}
+						>
+							<uisizeconstraint MaxSize={new Vector2(maxW, math.huge)} />
+						</textlabel>
+					)}
+					{hasHint && (
+						<frame
+							AutomaticSize={Enum.AutomaticSize.XY}
+							BackgroundColor3={Palette.panelSoft}
+							BackgroundTransparency={appear.map((a) => 1 - a * 0.85)}
+							BorderSizePixel={0}
+							LayoutOrder={3}
+							ZIndex={9101}
+						>
+							<uicorner CornerRadius={new UDim(0, 4)} />
+							<uistroke ApplyStrokeMode={Enum.ApplyStrokeMode.Border} Thickness={1} Color={Palette.lineSoft} Transparency={appear.map((a) => 1 - a * 0.5)} />
+							<uipadding PaddingLeft={new UDim(0, 6)} PaddingRight={new UDim(0, 6)} PaddingTop={new UDim(0, 2)} PaddingBottom={new UDim(0, 2)} />
+							<textlabel
+								AutomaticSize={Enum.AutomaticSize.XY}
+								BackgroundTransparency={1}
+								BorderSizePixel={0}
+								Text={data.hint!}
+								TextSize={SurfaceType.hint.size}
+								TextColor3={Palette.creamSoft}
+								TextTransparency={titleFade}
+								FontFace={FONT_KEY}
+								ZIndex={9102}
+							/>
+						</frame>
+					)}
 				</frame>
 			)}
-			{data.body !== undefined && data.body !== "" && (
-				<SurfaceText
-					text={data.body}
-					type="body"
-					color={hasTitle ? Palette.creamSoft : Palette.cream}
-					autoSize={true}
-					wrap={true}
-					maxWidth={maxW}
-					transparency={fade}
-					order={3}
-				/>
+
+			{hasBody && (
+				<frame AutomaticSize={Enum.AutomaticSize.XY} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={2}>
+					<textlabel
+						AutomaticSize={Enum.AutomaticSize.XY}
+						BackgroundTransparency={1}
+						BorderSizePixel={0}
+						Text={data.body!}
+						TextSize={SurfaceType.small.size}
+						TextColor3={Palette.muted}
+						TextTransparency={bodyFade}
+						FontFace={FONT_BODY}
+						TextXAlignment={Enum.TextXAlignment.Left}
+						TextWrapped={true}
+						ZIndex={9101}
+					>
+						<uisizeconstraint MaxSize={new Vector2(maxW, math.huge)} />
+					</textlabel>
+				</frame>
 			)}
-			{data.hint !== undefined && data.hint !== "" && (
-				<SurfaceText
-					text={data.hint}
-					type="hint"
-					color={Palette.muted}
-					autoSize={true}
-					wrap={true}
-					maxWidth={maxW}
-					transparency={fade}
-					order={4}
-				/>
-			)}
-		</Surface>
+		</frame>
 	);
 }
-
 export function TooltipProvider(props: TooltipProviderProps) {
 	const [open, setOpen] = React.useState<OpenTip | undefined>(store.open);
 	// the last tip stays mounted while it plays its exit

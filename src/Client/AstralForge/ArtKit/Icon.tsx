@@ -1,10 +1,8 @@
 import React from "@rbxts/react";
-import { useExitPresence, useMotionSettings } from "../MotionKit/motion";
-import { Palette } from "../CoreKit/theme";
-import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
+import { useExitPresence } from "../MotionKit/motion";
+import { Palette, relativeLuminance } from "../CoreKit/theme";
 import IconManifest = require("../IconManifest");
-
-const RunService = game.GetService("RunService");
+import IconParts = require("../IconParts");
 
 function fadeWithPresence(local_: number | React.Binding<number>, presence: React.Binding<number>): React.Binding<number> {
 	if (typeIs(local_, "number")) {
@@ -14,10 +12,15 @@ function fadeWithPresence(local_: number | React.Binding<number>, presence: Reac
 }
 
 export const VECTOR_ICON_ATLAS = "rbxassetid://139083324249955";
-export const GAME_ICON_ASSET = "rbxassetid://77239367431949";
-export const WORDMARK_ASSET = "rbxassetid://75854849112049";
-export const COMPACT_MARK_ASSET = "rbxassetid://93834740732329";
-export const LOCKUP_ASSET = "rbxassetid://94028186779182";
+export const GAME_ICON_ASSET = "rbxassetid://121817586227688";
+export const WORDMARK_ASSET = "rbxassetid://86009183337926";
+export const COMPACT_MARK_ASSET = "rbxassetid://89091028537454";
+export const LOCKUP_ASSET = "rbxassetid://101461082924090";
+// the layered badge (tools/assetgen/build_logo_v2.py): empty until the art is uploaded, and the lockup then
+// falls back to the single COMPACT_MARK_ASSET image with no moving parts
+export const MARK_BASE_ASSET = "rbxassetid://111299914966503";
+export const MARK_STAR_ASSET = "rbxassetid://71928764282310";
+export const MARK_GLOW_ASSET = "rbxassetid://72727781584028";
 export const VECTOR_ICON_CELL = 128;
 export const VECTOR_ICON_COLUMNS = 8;
 export const VECTOR_ICON_INDEX: Record<string, number> = {
@@ -288,42 +291,10 @@ export function PlayerMark({
 	);
 }
 
-// Every icon id (a concept, a dot, then its use) has its own art in IconManifest: a body and a
-// light layer that moves (spin, pulse, twinkle, bob, beat or a glint sweep). One shared clock
-// drives every mounted icon at 30 fps; reduced motion holds them still. Ids that aren't drawn yet
-// fall back to their concept's base icon, then to the old vector atlas.
-const [iconClock, setIconClock] = React.createBinding(0);
-let iconUsers = 0;
-let iconConnection: RBXScriptConnection | undefined;
-let iconLast = 0;
-
-function useIconClock(enabled: boolean): React.Binding<number> {
-	React.useEffect(() => {
-		if (!enabled) {
-			return undefined;
-		}
-		iconUsers += 1;
-		if (iconConnection === undefined) {
-			iconConnection = RunService.Heartbeat.Connect(() => {
-				const now = os.clock();
-				if (now - iconLast >= 1 / 30) {
-					iconLast = now;
-					setIconClock(now);
-				}
-			});
-		}
-		return () => {
-			iconUsers -= 1;
-			if (iconUsers <= 0 && iconConnection !== undefined) {
-				iconConnection.Disconnect();
-				iconConnection = undefined;
-				iconUsers = 0;
-			}
-		};
-	}, [enabled]);
-	return iconClock;
-}
-
+// Every icon id (a concept, a dot, then its use) has its own art in IconManifest: a body cell and a
+// light cell. Icons draw the body cell only and never move. The light cell carries the twinkle
+// sparkle that used to animate; frozen, it sits as a stray mark beside the art. Ids that aren't
+// drawn yet fall back to their concept's base icon, then to the old vector atlas.
 function conceptOf(kind: unknown): string {
 	return typeIs(kind, "string") ? ((kind.match("^[^.]+")[0] as string | undefined) ?? kind) : "Guide";
 }
@@ -331,39 +302,164 @@ export { conceptOf as iconConcept };
 
 type IconEntry = NonNullable<(typeof IconManifest.Icons)[string]>;
 
-function artFor(kind: unknown): LuaTuple<[IconEntry?, string?, string?]> {
+function artFor(kind: unknown): LuaTuple<[IconEntry?, string?]> {
 	const icons = IconManifest.Icons;
 	const entry = icons[kind as string] ?? icons[conceptOf(kind)];
 	if (entry === undefined) {
 		return $tuple(undefined);
 	}
 	const sheet = IconManifest.Sheets[entry.b[0]] as string | undefined;
-	const lightSheet = IconManifest.Sheets[entry.l[0]] as string | undefined;
-	if (sheet === undefined || sheet === "" || lightSheet === undefined || lightSheet === "") {
+	if (sheet === undefined || sheet === "") {
 		return $tuple(undefined);
 	}
-	return $tuple(entry, sheet, lightSheet);
+	return $tuple(entry, sheet);
 }
 
 export interface IconProps {
 	kind: unknown;
 	size?: number;
-	spin?: boolean;
-	hoverAmount?: React.Binding<number>;
 	position?: UDim2;
 	anchorPoint?: Vector2;
 	color?: Color3;
 	accent?: Color3;
+	// icons no longer animate; callers written for the old motion may still pass these
+	spin?: boolean;
+	hoverAmount?: React.Binding<number>;
+}
+
+// ── Composed icons ─────────────────────────────────────────────────────────────
+// Once the v2 sheets are uploaded (tools/assetgen/icons_v2.py --activate fills IconParts.Sheets), an
+// icon is stacked from a few small parts instead of being one baked sprite:
+//   plate   a grayscale sprite multiplied by the accent: dark base, accent rim
+//   glyph   the concept's pictogram, or for a generated machine/study its noun (Loom, Lattice ...)
+//   pips    tier marks along the foot
+//   mark    a small emblem top right: the modifier (Aether, Folded ...), or for a numbered id the
+//           id's own emblem, so "Forge.7" and "Forge.8" differ
+// Every generated machine and study is noun + modifier + tier + its own hue, so each is unique.
+// Control icons (close, back, check ...) are one white sprite tinted with the label beside them.
+type PartCell = [sheet: number, x: number, y: number];
+const partsLive = IconParts.Sheets[0] !== undefined && IconParts.Sheets[0] !== "";
+
+interface Composed {
+	control?: PartCell;
+	plate?: PartCell;
+	accent?: Color3;
+	glyph?: PartCell;
+	mark?: PartCell;
+	// the emblem is ~44% of the icon: below this drawn size it is a smudge, not a symbol, so it is left out
+	markMinSize?: number;
+	pips?: PartCell;
+}
+
+function textHash(text: string): number {
+	let hash = 0;
+	for (let i = 1; i <= text.size(); i++) {
+		hash = (hash * 31 + string.byte(text, i)[0]) % 100003;
+	}
+	return hash;
+}
+
+// The colour a plate takes. A caller that knows the icon's context (the nav rail passes its page's accent,
+// or muted when the page is not the current one) is trusted, so an icon is paired with the colour of
+// what it sits in. A hint that is not a plain colour (a binding) or is too dark to read as an accent
+// (ink on a button) is ignored and the concept's own colour is used.
+function plateAccent(hint: unknown, concept: string): Color3 {
+	if (typeOf(hint) === "Color3" && relativeLuminance(hint as Color3) > 0.22) {
+		return hint as Color3;
+	}
+	return semanticIconColor(concept);
+}
+
+function composedFor(kind: unknown, hint?: unknown): Composed | undefined {
+	if (!partsLive || !typeIs(kind, "string")) {
+		return undefined;
+	}
+	const thing = IconParts.Things[kind];
+	if (thing !== undefined) {
+		const noun = IconParts.Noun[thing[0]];
+		if (noun === undefined) {
+			return undefined;
+		}
+		return {
+			plate: IconParts.Plate[thing[4] === 1 ? "round" : "square"],
+			accent: Color3.fromHSV(thing[3] / 360, 0.5, 0.95),
+			glyph: noun,
+			mark: IconParts.Mark[thing[1]],
+			markMinSize: 32,
+			pips: thing[2] > 1 ? IconParts.Pips[thing[2] - 1] : undefined,
+		};
+	}
+	const concept = conceptOf(kind);
+	const control = IconParts.Control[concept];
+	if (control !== undefined) {
+		return { control };
+	}
+	const glyph = IconParts.Glyph[concept];
+	if (glyph === undefined) {
+		return undefined;
+	}
+	// "Forge.7": the number (or any other tail) picks the emblem
+	const tail = kind.sub(concept.size() + 2);
+	let mark: PartCell | undefined;
+	if (tail !== "") {
+		const order = IconParts.MarkOrder;
+		const number = tonumber(tail);
+		const index = number !== undefined ? (math.floor(number) - 1) % order.size() : textHash(tail) % order.size();
+		mark = IconParts.Mark[order[index]];
+	}
+	return {
+		plate: IconParts.Plate[IconParts.Round[concept] === true ? "round" : "square"],
+		accent: plateAccent(hint, concept),
+		glyph,
+		mark,
+		markMinSize: 44,
+	};
+}
+
+function PartImage(props: { cell: PartCell; z: number; tint?: Color3; size?: UDim2; position?: UDim2 }) {
+	const cell = IconParts.Cell;
+	return (
+		<imagelabel
+			Size={props.size ?? UDim2.fromScale(1, 1)}
+			Position={props.position}
+			BackgroundTransparency={1}
+			BorderSizePixel={0}
+			Image={IconParts.Sheets[props.cell[0]]}
+			ImageColor3={props.tint}
+			ImageRectOffset={new Vector2(props.cell[1], props.cell[2])}
+			ImageRectSize={new Vector2(cell, cell)}
+			ZIndex={props.z}
+		/>
+	);
+}
+
+function ComposedIcon(props: { plan: Composed; size: number; position?: UDim2; anchorPoint?: Vector2; color?: Color3 }) {
+	const { plan, size } = props;
+	const box = UDim2.fromOffset(size, size);
+	if (plan.control !== undefined) {
+		return (
+			<frame Size={box} Position={props.position} AnchorPoint={props.anchorPoint} BackgroundTransparency={1} BorderSizePixel={0}>
+				<PartImage cell={plan.control} z={1} tint={props.color ?? Palette.cream} />
+			</frame>
+		);
+	}
+	return (
+		<frame Size={box} Position={props.position} AnchorPoint={props.anchorPoint} BackgroundTransparency={1} BorderSizePixel={0}>
+			{plan.plate !== undefined && <PartImage cell={plan.plate} z={1} tint={plan.accent} />}
+			{plan.glyph !== undefined && <PartImage cell={plan.glyph} z={2} />}
+			{plan.pips !== undefined && <PartImage cell={plan.pips} z={3} />}
+			{plan.mark !== undefined && size >= (plan.markMinSize ?? 0) && <PartImage cell={plan.mark} z={4} size={UDim2.fromScale(0.44, 0.44)} position={UDim2.fromScale(0.58, 0)} />}
+		</frame>
+	);
 }
 
 export function Icon(props: IconProps) {
-	const { kind, size = 28, spin = true, hoverAmount, position, anchorPoint } = props;
-	const settings = useMotionSettings();
-	const motionScale = settings.motionScale ?? 1;
-	const [entry, sheet, lightSheet] = artFor(kind);
-	const still = motionScale < 0.05 || settings.reducedMotion === true;
-	const paused = React.useContext(UiEffectsPausedContext);
-	const clock = useIconClock(entry !== undefined && !still && !paused);
+	const { kind, size = 28, position, anchorPoint } = props;
+	const composed = composedFor(kind, props.accent);
+	if (composed !== undefined) {
+		return <ComposedIcon plan={composed} size={size} position={position} anchorPoint={anchorPoint} color={props.color} />;
+	}
+	const [entry, sheet] = artFor(kind);
 	if (entry === undefined) {
 		// not drawn yet: the old flat glyph
 		return (
@@ -373,96 +469,16 @@ export function Icon(props: IconProps) {
 		);
 	}
 	const cell = IconManifest.Cell;
-	const anim = entry.a;
-	const phase = entry.p * 10;
-	const speed = entry.s * (spin ? 1 : 0.5);
-	const hover = hoverAmount;
-	const t = (now: number) => (now + phase) * speed;
-	const lift =
-		anim === "bob"
-			? clock.map((now) => new UDim2(0.5, 0, 0.5, math.sin(t(now) * 2.2) * size * 0.04))
-			: UDim2.fromScale(0.5, 0.5);
-	let scale = clock.map((now) => {
-		let s = 1;
-		if (anim === "beat") {
-			const q = (t(now) * 0.8) % 1;
-			s += q < 0.12 ? math.sin((q / 0.12) * math.pi) * 0.07 : 0;
-		} else if (anim === "pulse") {
-			s += math.sin(t(now) * 3) * 0.025;
-		}
-		return s;
-	});
-	if (hover !== undefined) {
-		scale = React.joinBindings([scale, hover]).map((v) => v[0] + math.clamp(v[1], 0, 1) * 0.06);
-	}
-	const lightTransparency = clock.map((now) => {
-		const x = t(now);
-		if (anim === "pulse") {
-			return 0.3 - math.sin(x * 3) * 0.3;
-		} else if (anim === "twinkle") {
-			return math.clamp(0.15 + math.sin(x * 5.3) * 0.25 + math.sin(x * 8.1) * 0.2, 0, 0.9);
-		}
-		return 0.12;
-	});
-	const light = (
-		<imagelabel
-			Size={UDim2.fromScale(1, 1)}
-			Position={UDim2.fromScale(0.5, 0.5)}
-			AnchorPoint={new Vector2(0.5, 0.5)}
-			BackgroundTransparency={1}
-			Image={lightSheet}
-			ImageRectOffset={new Vector2(entry.l[1], entry.l[2])}
-			ImageRectSize={new Vector2(cell, cell)}
-			ImageTransparency={still ? 0.12 : lightTransparency}
-			Rotation={anim === "spin" && !still ? clock.map((now) => (t(now) * 36) % 360) : 0}
-			ZIndex={2}
-		>
-			{anim === "shine" && !still && (
-				<uigradient
-					// a glint crossing the light layer every few seconds
-					Transparency={
-						new NumberSequence([
-							new NumberSequenceKeypoint(0, 0.55),
-							new NumberSequenceKeypoint(0.45, 0.55),
-							new NumberSequenceKeypoint(0.5, 0),
-							new NumberSequenceKeypoint(0.55, 0.55),
-							new NumberSequenceKeypoint(1, 0.55),
-						])
-					}
-					Rotation={35}
-					Offset={clock.map((now) => {
-						const q = (t(now) * 0.35) % 1;
-						return new Vector2(-1 + q * 2.6, 0);
-					})}
-				/>
-			)}
-		</imagelabel>
-	);
 	return (
-		<frame
+		<imagelabel
 			Size={UDim2.fromOffset(size, size)}
 			Position={position}
 			AnchorPoint={anchorPoint}
 			BackgroundTransparency={1}
 			BorderSizePixel={0}
-		>
-			<frame
-				Size={UDim2.fromScale(1, 1)}
-				Position={still ? UDim2.fromScale(0.5, 0.5) : lift}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				BackgroundTransparency={1}
-			>
-				<uiscale Scale={still ? 1 : scale} />
-				<imagelabel
-					Size={UDim2.fromScale(1, 1)}
-					BackgroundTransparency={1}
-					Image={sheet}
-					ImageRectOffset={new Vector2(entry.b[1], entry.b[2])}
-					ImageRectSize={new Vector2(cell, cell)}
-					ZIndex={1}
-				/>
-				{light}
-			</frame>
-		</frame>
+			Image={sheet}
+			ImageRectOffset={new Vector2(entry.b[1], entry.b[2])}
+			ImageRectSize={new Vector2(cell, cell)}
+		/>
 	);
 }

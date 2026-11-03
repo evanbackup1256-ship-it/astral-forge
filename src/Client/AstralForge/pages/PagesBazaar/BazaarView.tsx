@@ -443,6 +443,18 @@ function BazaarView(props: BazaarProps) {
 	const [note, setNote] = React.useState("");
 	const [busy, setBusy] = React.useState(false);
 	const [width, setWidth] = React.useState(320);
+	// the offer cards are what makes this page slow to open: the first row mounts at once, the rest follow a few frames apart, one card at a time
+	const [cardsUp, setCardsUp] = React.useState(3);
+	const cardTotal = React.useRef(0);
+	React.useEffect(() => {
+		if (cardsUp >= cardTotal.current) {
+			return undefined;
+		}
+		const job = task.delay(0.03, () => setCardsUp((value) => value + 1));
+		return () => {
+			pcall(task.cancel, job);
+		};
+	});
 	// tab hosts reserve one row when SegmentedTabs draws as a phone strip
 	const categoriesH = (Ui.useSegmentedHeight as unknown as (count: number, columns: number, rowH: number, gap: number) => number)(
 		CATEGORIES.size(), math.max(1, math.min(4, math.floor((width + 6) / 130))), 48, 6);
@@ -1117,13 +1129,14 @@ function BazaarView(props: BazaarProps) {
 		return a.Name < b.Name;
 	});
 	const cardColumns = math.max(1, math.min(3, math.floor((width + 12) / 300)));
+	cardTotal.current = offers.size();
 	const cardHeight = 346;
 	const gap = 12;
 	for (let first = 0; first < offers.size(); first += cardColumns) {
 		const cards: Record<string, React.Element> = {};
 		for (let offset = 0; offset <= cardColumns - 1; offset++) {
 			const offer = offers[first + offset];
-			if (!offer) {
+			if (!offer || first + offset >= cardsUp) {
 				break;
 			}
 			const quantity = amount === "Three" ? 3 : amount === "Shelf" ? math.clamp(offer.Left, 1, 8) : 1;

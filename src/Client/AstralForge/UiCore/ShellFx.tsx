@@ -3,6 +3,7 @@ import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, lighten } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
+import { useClaim, useObstacle } from "../MotionKit/choreography";
 import { useClock, useEntrance, usePulse } from "../MotionKit/motion";
 import Fx = require("../MotionKit/vfxMath");
 import { Button } from "./ui";
@@ -54,6 +55,9 @@ export function TradeReturnPill(props: { stack?: boolean; bottomPad: number; red
 	const width = stack ? 176 : 198;
 	const height = stack ? 48 : 46;
 	const tradeReturnHostRef = React.useRef<Frame>();
+	// the page makes room for the pill while it is up (it glides up and back), and tooltips keep clear of it
+	useClaim("trade-return", "bottom", height + (stack ? 10 : 16) + 8);
+	useObstacle(tradeReturnHostRef);
 	React.useEffect(() => {
 		if (!UserInputService.GamepadEnabled) {
 			return undefined;

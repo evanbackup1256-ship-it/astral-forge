@@ -218,10 +218,11 @@ function TimedTimeline({ entries, played, dispatch, columns, reducedMotion }: Ti
 					size={13}
 					color={entry.Claimed ? Palette.muted : Palette.cream}
 					weight={Enum.FontWeight.Bold}
+					wrap={true}
 					fit={true}
 					minSize={9}
 					position={UDim2.fromOffset(10, 26)}
-					sizeConstraint={new UDim2(1, -20, 0, 18)}
+					sizeConstraint={new UDim2(1, -20, 0, 30)}
 				/>
 				{ready ? (
 					<Button
@@ -272,7 +273,7 @@ function ShortcutTile(props: ShortcutTileProps) {
 	return (
 		<frame LayoutOrder={props.layoutOrder} BackgroundTransparency={1} BorderSizePixel={0}>
 			<Button
-				text={badged ? tostring(props.badge) : props.label}
+				text={badged ? `${props.label} · ${props.badge} ready` : props.label}
 				icon={props.icon}
 				onClick={props.onClick}
 				color={badged ? props.accent : Palette.panelSoft}
@@ -398,7 +399,7 @@ export function RewardsView({ state, dispatch, navigate, reducedMotion }: Reward
 			clips={false}
 		>
 			<Text
-				value={readyCount > 0 ? tostring(readyCount) : Browse.shortDuration(resetIn)}
+				value={readyCount > 0 ? `${readyCount} reward${readyCount === 1 ? "" : "s"} ready to claim` : `Rewards reset in ${Browse.shortDuration(resetIn)}`}
 				size={stack ? 26 : 30}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}

@@ -1,4 +1,5 @@
-﻿// Server events on screen: the island carries the live readout, the screen gets each event's own
+import { easeOut } from "../CoreKit/easing";
+// Server events on screen: the island carries the live readout, the screen gets each event's own
 // weather, Falling Stars and Supply Drop put things to grab on screen, and a panel explains the
 // event in full with its live standings.
 import React from "@rbxts/react";
@@ -14,7 +15,13 @@ const RunService = game.GetService("RunService");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 
 const AstralForge = script.Parent!.Parent!;
-const loadKit = (name: string) => require(AstralForge.WaitForChild(name) as ModuleScript) as (member: string) => unknown;
+const loadKit = (name: string) => {
+	const kitInstance = AstralForge.WaitForChild(name);
+	if (kitInstance.IsA("ModuleScript")) {
+		return require(kitInstance as ModuleScript) as (member: string) => unknown;
+	}
+	return (member: string) => require(kitInstance.WaitForChild(member) as ModuleScript);
+};
 
 interface AudioApi {
 	play(name: string): void;
@@ -130,10 +137,6 @@ function hash01(i: number, salt: number) {
 	const x = math.sin(i * 12.9898 + salt * 78.233) * 43758.5453;
 	return x - math.floor(x);
 }
-function easeOut(t: number) {
-	const u = 1 - math.clamp(t, 0, 1);
-	return 1 - u * u * u;
-}
 function serverNow() {
 	return game.GetService("Workspace").GetServerTimeNow();
 }
@@ -239,7 +242,7 @@ function Particle(p: ParticleProps) {
 			{
 				Size: clock.map((t) => {
 					const q = ((t + (i * period) / 3) % period) / period;
-					const s = 120 + q * math.max(w, ht) * 0.9;
+					const s = 120 + q * math.max(w, ht) * 0.62;
 					return UDim2.fromOffset(s, s);
 				}),
 				Position: UDim2.fromScale(i % 2 === 0 ? 0 : 1, 1),
@@ -250,8 +253,8 @@ function Particle(p: ParticleProps) {
 			h("uicorner", { CornerRadius: new UDim(1, 0) }),
 			h("uistroke", {
 				Color: color,
-				Thickness: 2,
-				Transparency: clock.map((t) => 0.35 + (((t + (i * period) / 3) % period) / period) * 0.65),
+				Thickness: 1.5,
+				Transparency: clock.map((t) => 0.62 + (((t + (i * period) / 3) % period) / period) ** 0.6 * 0.38),
 			}),
 		);
 	} else if (style.kind === "suns") {
@@ -319,7 +322,11 @@ function Sky(props: { eventId?: string; clock: React.Binding<number>; color: Col
 	if (style === undefined) {
 		return undefined;
 	}
-	const budget = antilag.tier <= 1 ? 0.45 : antilag.allowAmbient === false ? 0.7 : 1;
+	if (antilag.allowAmbient === false) {
+		// a slow machine skips the ambient sky; the event banner and its rewards still show
+		return undefined;
+	}
+	const budget = antilag.tier <= 2 ? 0.6 : 1;
 	const count = style.kind === "pulse" || style.kind === "suns" ? style.count : math.max(1, math.floor(style.count * budget));
 	const particles: Record<string, unknown> = {};
 	for (let i = 1; i <= count; i++) {

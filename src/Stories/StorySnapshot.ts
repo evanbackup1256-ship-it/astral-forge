@@ -3320,7 +3320,6 @@ const snapshot: Record<string, unknown> = {
 		HideOtherPlots: false,
 		HighContrast: 1,
 		HoverSounds: 1,
-		IconAnimations: 1,
 		LargeTouchTargets: 1,
 		MobileAutoHideDock: 1,
 		MobileButtonSpacing: 0.5,

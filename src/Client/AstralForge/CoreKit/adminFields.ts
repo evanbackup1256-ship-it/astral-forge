@@ -16,6 +16,16 @@ export interface CommandFields {
 	overridesTarget: boolean;
 }
 
+/** The server's description of one command's amount: AdminCommandSchema.describe. */
+export interface InputRule {
+	Mode?: string;
+	UsesAmount?: boolean;
+	Minimum?: number;
+	Maximum?: number;
+	Integer?: boolean;
+	Summary?: string;
+}
+
 export const ADMIN_REASONS: Choice[] = [
 	{ id: "Owner gameplay administration", label: "Owner gameplay administration" },
 	{ id: "Balance correction", label: "Balance correction" },
@@ -25,6 +35,8 @@ export const ADMIN_REASONS: Choice[] = [
 	{ id: "Player request", label: "Player request" },
 	{ id: "Bug recovery", label: "Bug recovery" },
 	{ id: "Trade settle recovery", label: "Trade settle recovery" },
+	{ id: "Community event", label: "Community event" },
+	{ id: "Staff showcase", label: "Staff showcase" },
 ];
 
 const KICK_REASONS: Choice[] = [
@@ -63,13 +75,15 @@ export function reasonsFor(command: string, category?: string): Choice[] {
 		return GLOBAL_BAN_REASONS;
 	}
 	const preferred =
-		category === "Troll"
+		category === "Troll" || category === "Effects"
 			? "Troll / joke"
 			: category === "Moderation"
 				? "Moderation action"
 				: category === "Resets"
 					? "Owner gameplay administration"
-					: "Playtest grant";
+					: category === "LiveOps"
+						? "Community event"
+						: "Playtest grant";
 	return [...ADMIN_REASONS.filter((entry) => entry.id === preferred), ...ADMIN_REASONS.filter((entry) => entry.id !== preferred)];
 }
 
@@ -155,7 +169,7 @@ const REBIRTHS = namedAmounts(
 	],
 	"Rebirth",
 );
-const DURATION = namedAmounts(
+export const DURATION = namedAmounts(
 	[
 		{ id: "3", label: "3 seconds" },
 		{ id: "6", label: "6 seconds" },
@@ -187,6 +201,66 @@ const GLOBAL_BAN = namedAmounts(
 	],
 	"Lock",
 );
+const HOURS = namedAmounts(
+	[
+		{ id: "1", label: "1 hour of production" },
+		{ id: "2", label: "2 hours" },
+		{ id: "6", label: "6 hours" },
+		{ id: "12", label: "12 hours" },
+		{ id: "24", label: "1 day" },
+		{ id: "72", label: "3 days" },
+		{ id: "168", label: "1 week" },
+	],
+	"Timer",
+);
+const GIFT_AMOUNTS = namedAmounts(
+	[
+		{ id: "1", label: "1 each" },
+		{ id: "5", label: "5 each" },
+		{ id: "10", label: "10 each" },
+		{ id: "100", label: "100 each" },
+		{ id: "1000", label: "1,000 each" },
+		{ id: "100000", label: "100,000 each" },
+		{ id: "1000000", label: "1 million each" },
+	],
+	"Gift",
+);
+const GIFT_CURRENCIES = [
+	pick("Flux", "Flux", "Flux"),
+	pick("Cores", "Cores", "Core"),
+	pick("Stardust", "Stardust", "Dust"),
+	pick("FreeSpins", "Free spins", "Wheel"),
+];
+export const SHOW_EFFECT_CHOICES: Choice[] = [
+	pick("Fireworks", "Fireworks"),
+	pick("Aurora", "Aurora ribbons"),
+	pick("Starfall", "Shooting stars"),
+	pick("MatrixRain", "Code rain"),
+	pick("Glitch", "Signal glitch"),
+	pick("Heartbeat", "Heartbeat vignette"),
+	pick("Snowfall", "Snowfall"),
+	pick("Letterbox", "Cinematic letterbox"),
+	pick("ClearEffects", "Clear every effect"),
+];
+export const LETTERBOX_CAPTION_CHOICES: Choice[] = [
+	pick("ACT ONE", "ACT ONE"),
+	pick("MEANWHILE", "MEANWHILE"),
+	pick("TO BE CONTINUED", "TO BE CONTINUED"),
+	pick("THE FORGE AWAKENS", "THE FORGE AWAKENS"),
+	pick("FIVE MINUTES LATER", "FIVE MINUTES LATER"),
+];
+const KIT_CHOICES = [
+	pick("Starter", "Starter kit", "Crate"),
+	pick("Builder", "Builder kit", "Crate"),
+	pick("Veteran", "Veteran kit", "Crate"),
+	pick("Playtest", "Playtest kit", "Crate"),
+];
+const SPOTLIGHT_CHOICES = [
+	pick("PlayerOfTheHour", "Player of the hour"),
+	pick("BuilderOfTheDay", "Builder of the day"),
+	pick("CommunityHero", "Community hero"),
+	pick("GoodSport", "Good sport"),
+];
 const CLOWNS = [
 	pick("CLOWN", "CLOWN"),
 	pick("JESTER", "JESTER"),
@@ -309,9 +383,7 @@ const GRANT_COUNT_COMMANDS = new Set([
 	"GrantEchoCharge",
 ]);
 
-const TIMED_PRANKS = new Set(["Blind", "Jumpscare", "ConfettiStorm", "LoadingForever", "BlueScreen", "LowBattery", "UpdateForced"]);
-
-export function fieldsFor(command: string, config?: AdminConfig, banned?: BanEntry[]): CommandFields {
+export function fieldsFor(command: string, config?: AdminConfig, banned?: BanEntry[], rule?: InputRule): CommandFields {
 	if (command === "SetFlux" || command === "SetVault") {
 		return pack([{ id: "0", label: "Set to zero" }, ...FLUX], "Exact value");
 	}
@@ -379,11 +451,30 @@ export function fieldsFor(command: string, config?: AdminConfig, banned?: BanEnt
 	if (command === "SetZone") {
 		return pack(zoneChoices(config), "Unlock through");
 	}
+	if (command === "FastForward") {
+		return pack(HOURS, "How far ahead");
+	}
+	if (command === "ApplyKit") {
+		return pack([], "", KIT_CHOICES, "Which kit");
+	}
+	if (command === "Spotlight") {
+		return pack([], "", SPOTLIGHT_CHOICES, "Which title");
+	}
+	if (command === "ServerGift") {
+		return pack(GIFT_AMOUNTS, "How much per player", GIFT_CURRENCIES, "Which currency");
+	}
+	if (command === "ServerShow") {
+		return pack(DURATION, "How long", SHOW_EFFECT_CHOICES, "Which effect");
+	}
+	if (command === "Letterbox") {
+		return pack(DURATION, "How long", LETTERBOX_CAPTION_CHOICES, "Caption");
+	}
+	if (command === "ClearEffects") {
+		// a World command takes a duration; clearing has no use for one, so the console sends the minimum
+		return { ...NONE, defaultAmount: "3" };
+	}
 	if (command === "ClownTitle") {
 		return pack(DURATION, "How long", CLOWNS, "Splash text");
-	}
-	if (TIMED_PRANKS.has(command) || command.find("Hud")[0] !== undefined || command.find("Fake")[0] !== undefined) {
-		return pack(DURATION, "How long");
 	}
 	if (command === "Kick") {
 		return NONE;
@@ -396,6 +487,10 @@ export function fieldsFor(command: string, config?: AdminConfig, banned?: BanEnt
 	}
 	if (command === "Unban") {
 		return pack(banChoices(banned ?? []), "Who to unban", undefined, undefined, true);
+	}
+	// everything else follows the amount rule the server described: timed effects get a duration list
+	if (rule !== undefined && rule.UsesAmount === true) {
+		return rule.Mode === "duration" ? pack(DURATION, "How long") : pack(COUNTS, "How many");
 	}
 	return NONE;
 }

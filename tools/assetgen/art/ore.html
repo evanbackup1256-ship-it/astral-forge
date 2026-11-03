@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><script src="common.js"></script></head>
+<body>
+<script>
+// An ore outcrop drawn like a plate from a mineralogy book: a cluster of faceted crystals rising out of host rock,
+// three tones per crystal and engraved edges, the rock stippled. spent=1 draws the same outcrop mined out:
+// sheared stumps, chips on the ground. ore=emberite | voidglass | starsteel.
+const ore = query("ore", "emberite");
+const spent = query("spent", "0") === "1";
+const S = 512, CX = 256;
+const TINT = {
+	emberite: { light: PAL.emberLight, mid: PAL.ember, dark: "#6e3220", seed: 31, tall: 1.0 },
+	voidglass: { light: PAL.voidLight, mid: PAL.voidglass, dark: "#3f355e", seed: 57, tall: 1.15 },
+	starsteel: { light: PAL.steelLight, mid: PAL.starsteel, dark: "#4b5d67", seed: 83, tall: 0.9 },
+}[ore];
+const R = rng(TINT.seed);
+const LINE = PAL.parchment;
+const pts = (list) => list.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+let defs = `${hatchDefs("hatch", LINE, 5, 45, 0.9)}${hatchDefs("fine", LINE, 3.5, -30, 0.6)}${grainDefs("worn", 0.8, TINT.seed)}`;
+
+function prism(x, y, length, width, angle, cut) {
+	const len = cut ? length * (0.22 + R() * 0.12) : length;
+	const a = ((angle - 90) * Math.PI) / 180, n = a + Math.PI / 2;
+	const P = (along, across) => [x + Math.cos(a) * along + Math.cos(n) * across, y + Math.sin(a) * along + Math.sin(n) * across];
+	const w = width / 2;
+	const b0 = P(0, -w), b1 = P(0, w), m = P(0, w * 0.15);
+	const s0 = P(len * 0.8, -w), s1 = P(len * 0.8, w), sm = P(len * 0.8, w * 0.15);
+	const top = cut ? [P(len, -w * 0.4), P(len * 1.04, w * 0.2), P(len * 0.94, w * 0.7)] : [P(len, w * 0.05)];
+	let g = "";
+	if (cut) {
+		// sheared face: flat, a little lighter, hatched
+		g += `<polygon points="${pts([b0, s0, ...top, s1, b1])}" fill="${TINT.mid}"/>`;
+		g += `<polygon points="${pts([s0, ...top, s1])}" fill="${TINT.light}"/>`;
+		g += `<polygon points="${pts([s0, ...top, s1])}" fill="url(#fine)" opacity="0.35"/>`;
+	} else {
+		g += `<polygon points="${pts([b0, m, sm, top[0], s0])}" fill="${TINT.light}"/>`;
+		g += `<polygon points="${pts([m, b1, s1, top[0], sm])}" fill="${TINT.mid}"/>`;
+		g += `<polygon points="${pts([m, b1, s1, sm])}" fill="url(#hatch)" opacity="0.3"/>`;
+		g += `<line x1="${m[0]}" y1="${m[1]}" x2="${sm[0]}" y2="${sm[1]}" stroke="${LINE}" stroke-width="1" opacity="0.75"/>`;
+		g += `<line x1="${sm[0]}" y1="${sm[1]}" x2="${top[0][0]}" y2="${top[0][1]}" stroke="${LINE}" stroke-width="1" opacity="0.75"/>`;
+		g += `<line x1="${s0[0]}" y1="${s0[1]}" x2="${s1[0]}" y2="${s1[1]}" stroke="${LINE}" stroke-width="0.9" opacity="0.5"/>`;
+	}
+	g += `<polygon points="${pts([b0, s0, ...top, s1, b1])}" fill="none" stroke="${LINE}" stroke-width="1.8" stroke-linejoin="round"/>`;
+	return g;
+}
+
+let art = "";
+// host rock: an irregular mound, stippled, hatched on its shadow side
+const rock = [];
+for (let i = 0; i <= 14; i++) {
+	const t = i / 14, x = 70 + t * 372;
+	const y = 420 - Math.sin(t * Math.PI) * (70 + R() * 26);
+	rock.push([x, y]);
+}
+rock.push([450, 452], [62, 452]);
+defs += `<clipPath id="rockClip"><polygon points="${pts(rock)}"/></clipPath>`;
+art += `<ellipse cx="${CX}" cy="452" rx="214" ry="22" fill="url(#hatch)" opacity="0.4"/>`;
+art += `<polygon points="${pts(rock)}" fill="${PAL.iron}"/>`;
+let dots = "";
+for (let i = 0; i < 900; i++) dots += `<circle cx="${(60 + R() * 392).toFixed(1)}" cy="${(320 + R() * 135).toFixed(1)}" r="${(0.5 + R() * 1).toFixed(2)}" fill="${LINE}" opacity="${(0.08 + R() * 0.2).toFixed(2)}"/>`;
+art += `<g clip-path="url(#rockClip)">${dots}<rect x="${CX + 30}" y="300" width="200" height="160" fill="url(#hatch)" opacity="0.3"/></g>`;
+art += `<polygon points="${pts(rock)}" fill="none" stroke="${LINE}" stroke-width="2" stroke-linejoin="round"/>`;
+// fracture lines in the rock
+for (let i = 0; i < 4; i++) {
+	const x = 120 + R() * 270, y = 400 + R() * 40;
+	art += `<polyline points="${pts([[x, y], [x + 14 + R() * 10, y - 8 - R() * 10], [x + 30 + R() * 10, y - 4]])}" fill="none" stroke="${LINE}" stroke-width="1" opacity="0.5"/>`;
+}
+
+// the crystals, drawn back to front
+// an off-centre, uneven cluster: one dominant crystal, a crossing pair, small ones at odd angles; each ore jitters
+// the layout with its own seed so the three specimens are not the same drawing in three colours
+const cluster = [
+	[300, 372, 120, 28, 38], [196, 380, 118, 30, -34], [236, 366, 236, 50, -7], [268, 364, 176, 38, 17],
+	[176, 396, 76, 20, -62], [340, 392, 70, 22, 58], [214, 372, 150, 32, 12], [312, 384, 92, 22, -14],
+];
+for (const [x, y, l, w, a] of cluster) {
+	const jx = (R() - 0.5) * 22, ja = (R() - 0.5) * 14, jl = 0.82 + R() * 0.36;
+	art += prism(x + jx, y, l * TINT.tall * jl, w * (0.85 + R() * 0.3), a + ja, spent);
+}
+if (spent) {
+	// chips knocked loose
+	for (let i = 0; i < 8; i++) {
+		const x = 110 + R() * 290, y = 440 + R() * 14, s = 6 + R() * 8;
+		art += `<polygon points="${pts([[x, y], [x + s, y - s * 0.6], [x + s * 1.4, y + 2], [x + s * 0.3, y + 3]])}" fill="${TINT.mid}" stroke="${LINE}" stroke-width="1"/>`;
+	}
+}
+mount(`<defs>${defs}</defs><g filter="url(#worn)">${art}</g>`, S, S);
+</script>
+</body>
+</html>

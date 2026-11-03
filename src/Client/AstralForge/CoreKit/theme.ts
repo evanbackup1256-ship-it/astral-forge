@@ -107,16 +107,6 @@ export const TypeScale = {
 	display: { size: 34, weight: Enum.FontWeight.Heavy },
 } as const;
 
-/**
- * The "forged plate" look: a panel is a slab with a cool 1px bevel catching light on its top edge,
- * a darker foot, and depth from a wide soft shadow instead of outlines.
- */
-export const Bevel = {
-	topLight: 0.9,
-	topLightHot: 0.78,
-	footShade: 0.82,
-} as const;
-
 /** One subtle elevation: a soft ambient shadow. The key shadow is kept for API shape but is invisible. */
 export const Elevation = {
 	ambientSpread: 12,
@@ -134,7 +124,6 @@ export const Chrome = {
 	buttonShadow: 0.82,
 	railStrokeIdle: 1,
 	railStrokeActive: 0.55,
-	accentHairline: 0.45,
 	meterTrack: 0.3,
 };
 
@@ -261,19 +250,29 @@ export function contrastRatio(first: Color3, second: Color3): number {
 	return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05);
 }
 
-// whichever of the light and dark text colours reads better. (Light and dark break even around a
-// luminance of 0.18, not 0.45: mid-tone fills like sky blue, pink or gold need dark text.)
+// Light text unless the fill is clearly light. By the raw ratio light and dark text break even at a
+// luminance of 0.18, but dark text on a mid-tone blue or violet passes the number and still looks
+// like dark-on-dark; perceptually the break-even is nearer 0.30. So dark text has to win by a margin.
+const DARK_TEXT_MARGIN = 2.2;
 export function contrastOn(background: Color3): Color3 {
-	return contrastRatio(background, Palette.ink) > contrastRatio(background, Palette.cream) ? Palette.ink : Palette.cream;
+	return contrastRatio(background, Palette.ink) > contrastRatio(background, Palette.cream) * DARK_TEXT_MARGIN
+		? Palette.ink
+		: Palette.cream;
 }
 
 // keep the preferred colour if it reads; otherwise tint it toward whichever end reads better,
 // and if even the tint fails, use that end outright
 export function ensureContrast(background: Color3, preferred: Color3, minimum = 4.5): Color3 {
-	if (contrastRatio(background, preferred) >= minimum) {
+	const towards = contrastOn(background);
+	// a dark preferred colour on a fill that wants light text is dark-on-dark even when the ratio
+	// passes (ink on a mid-blue), so it never survives there
+	const darkOnDark = towards === Palette.cream && relativeLuminance(preferred) < 0.15;
+	if (!darkOnDark && contrastRatio(background, preferred) >= minimum) {
 		return preferred;
 	}
-	const towards = contrastOn(background);
+	if (darkOnDark) {
+		return towards;
+	}
 	const tinted = preferred.Lerp(towards, 0.62);
 	if (contrastRatio(background, tinted) >= minimum) {
 		return tinted;

@@ -86,8 +86,9 @@ for _, needle in {
 	assert(string.find(titleFx, needle, 1, true), "titleFx missing: " .. needle)
 end
 
-local page = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau")
-assert(string.find(page, "string.upper(titleTier(props.fx))", 1, true), "title cards show the rarity tier")
+-- title cards live in the Command Center's wardrobe tab
+local page = fs.readFile("src/Client/AstralForge/pages/PagesSystem/CommandView.tsx")
+assert(string.find(page, "titleTier(", 1, true) and string.find(page, ".upper()", 1, true), "title cards show the rarity tier")
 assert(not string.find(page, "))} EFFECT`", 1, true), "generic EFFECT label removed")
 
 print(`[TEST] title tiers & looks: {#kinds} effects across 5 tiers, 8 per-char anim modes, zero background effects`)

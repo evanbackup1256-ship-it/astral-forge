@@ -14,6 +14,7 @@ import {
 	useTokenEntrance,
 	useViewport,
 } from "../MotionKit/motion";
+import { beginFocus } from "../MotionKit/focus";
 import * as PageTransition from "../MotionKit/pageTransition";
 import { featureNames, openRoadmap, progressFraction, readLevelState, tierAccent } from "./levelRoadmap";
 import {
@@ -567,13 +568,22 @@ export function Workspace(_param: WorkspaceProps) {
 	const animatedEnter = useTokenEntrance(page, reducedMotion, PageTransition.ENTER_SECONDS);
 	const settledEnter = React.useMemo(() => React.createBinding(1)[0], []);
 	const enter = pageMotionCalm ? settledEnter : animatedEnter;
-	const pageTrack = React.useRef<{ page: string; direction: 1 | -1 }>();
+	const pageTrack = React.useRef<{ page: string; direction: 1 | -1; span: number }>();
 	if (pageTrack.current === undefined) {
-		pageTrack.current = { page: page, direction: 1 };
+		pageTrack.current = { page: page, direction: 1, span: 1 };
 	} else if (pageTrack.current.page !== page) {
-		pageTrack.current = { page: page, direction: PageTransition.direction(pageTrack.current.page, page, pageOrderFor(chrome.stack)) };
+		const order = pageOrderFor(chrome.stack);
+		pageTrack.current = {
+			page: page,
+			direction: PageTransition.direction(pageTrack.current.page, page, order),
+			span: PageTransition.span(pageTrack.current.page, page, order),
+		};
 	}
 	const pageDirection = pageTrack.current.direction;
+	// the page change has the stage: ambient motion (idle glints) waits until it has settled
+	React.useEffect(() => {
+		beginFocus(PageTransition.ENTER_SECONDS + 0.3);
+	}, [page]);
 	const shellPresence = useExitPresence();
 	const pagePresence = React.useMemo(() => composePresence(shellPresence, enter), [shellPresence, enter]);
 	const [entranceLock, setEntranceLock] = React.useState({
@@ -655,7 +665,8 @@ export function Workspace(_param: WorkspaceProps) {
 		};
 	}, [ready, page]);
 	const slideAxis = chrome.stack ? ("x" as const) : ("y" as const);
-	const slideDistance = PageTransition.distance(chrome.stack, softMotion);
+	// a jump across the nav sweeps farther than a step to the next page
+	const slideDistance = PageTransition.distance(chrome.stack, softMotion) * pageTrack.current.span;
 	const contentPosition = enter.map((amount) => {
 		const [dx, dy] = PageTransition.offset(amount, pageDirection, slideAxis, slideDistance);
 		return new UDim2(0, inset + dx, 0, headerHeight + unlockH + inset + dy);

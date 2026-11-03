@@ -627,7 +627,7 @@ export function ActiveBoostIcon(_param: {
 	}).map((values) => {
 		const offset = values.offset;
 		const amount = values.reveal;
-		return new UDim2(0.5, 0, 0.5, math.round(offset + (1 - math.clamp(amount, 0, 1)) * 6));
+		return new UDim2(0.5, 0, 0.5, offset + (1 - math.clamp(amount, 0, 1)) * 6);
 	});
 	const hoverFill = chrome.hoverAmount.map((amount) => Palette.panelRaised.Lerp(darken(boost.Color, 0.72), math.clamp(amount, 0, 1) * 0.24));
 	const [runningLow, setRunningLow] = React.useState(() => endsAt - Workspace.GetServerTimeNow() <= boost.Duration * 0.15);
@@ -1252,13 +1252,11 @@ function TopBarImpl(_param: TopBarProps) {
 	const feedbackControlGap = shortRow ? 6 : 8;
 	const showFeedbackControl = !(stacked && width < 360);
 	const feedbackControlW = !showFeedbackControl ? 0 : micro || stacked || width < 1480 ? SHELL_CHROME.topbarControl : 116;
-	const searchControlW = width < 340 ? 0 : micro || stacked || width < 1280 ? SHELL_CHROME.topbarControl : 112;
-	const controlsBeforeSearch =
+	const controlsW =
 		SHELL_CHROME.topbarControl +
 		playerControlGap +
 		playerControlW +
 		(showFeedbackControl ? feedbackControlGap + feedbackControlW : 0);
-	const controlsW = controlsBeforeSearch + (searchControlW > 0 ? feedbackControlGap + searchControlW : 0);
 	const fixedSingleRow =
 		edgePad * 2 +
 		(logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) +
@@ -1783,38 +1781,7 @@ function TopBarImpl(_param: TopBarProps) {
 					}),
 				}),
 			),
-		searchControlW > 0 &&
-			h(
-				"frame",
-				{
-					Name: "QuickFindButton",
-					Size: UDim2.fromOffset(searchControlW, SHELL_CHROME.topbarControl),
-					Position: new UDim2(1, -(controlsRight + controlsW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
-					BackgroundTransparency: 1,
-					ZIndex: 22,
-				},
-				h(Button, {
-					text: searchControlW > SHELL_CHROME.topbarControl ? "FIND" : "",
-					icon: "Search.12",
-					tooltip: {
-						title: "Find",
-						body: "Jump to any page, machine, setting or command by typing its name.",
-						hint: "Ctrl+K",
-					},
-					onClick: () => {
-						(require(AstralForge.WaitForChild("QuickFind") as ModuleScript) as { open(this: void): void }).open();
-					},
-					color: Palette.panelSoft,
-					textColor: Palette.cream,
-					size: UDim2.fromScale(1, 1),
-					reducedMotion: reducedMotion,
-					motion: resolvePressMotion({
-						text: searchControlW > SHELL_CHROME.topbarControl ? "FIND" : "",
-						icon: "Search.13",
-						size: UDim2.fromOffset(searchControlW, SHELL_CHROME.topbarControl),
-					}),
-				}),
-			),
+
 	);
 }
 

@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><script src="common.js"></script></head>
+<body>
+<script>
+// The Rift Warden as a bestiary plate: a hunched sentinel of chiselled boulders with crystal erupting from one
+// shoulder, drawn in pale engraved line on dark iron, shade by hatching and stone by stipple.
+// state=idle (violet crystal), windup (rust: the right fist raised, cracks lit), down (a heap of rubble, dulled).
+const state = query("state", "idle");
+const S = 1024, CX = 512, GROUND = 900;
+const ACCENT = {
+	idle: { mid: PAL.voidglass, light: PAL.voidLight, dark: "#463c68" },
+	windup: { mid: PAL.rust, light: PAL.rustLight, dark: "#5e271b" },
+	down: { mid: "#5d5a55", light: PAL.parchmentDim, dark: "#33312d" },
+}[state];
+const LINE = PAL.parchment;
+const pts = (list) => list.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+let defs = `${hatchDefs("hatch", LINE, 6, 45, 1)}${hatchDefs("cross", LINE, 6, -45, 1)}${hatchDefs("fine", LINE, 4, 60, 0.7)}${grainDefs("worn", 0.75, 9)}`;
+let clip = 0;
+
+// a chiselled boulder: points around an ellipse, jittered, with a few flat cuts so it reads as worked stone
+function boulder(cx, cy, rx, ry, seed, tilt = 0) {
+	const R = rng(seed);
+	const n = 11 + Math.floor(R() * 5);
+	const out = [];
+	for (let i = 0; i < n; i++) {
+		const a = (i / n) * Math.PI * 2 + (R() - 0.5) * 0.35 + tilt;
+		const k = 0.86 + R() * 0.2;
+		out.push([cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k]);
+	}
+	return out;
+}
+
+// draw a boulder: iron, stipple, hatch on the side away from the light (upper left), engraved edge, chisel marks
+function stone(points, seed, options = {}) {
+	clip += 1;
+	const id = `s${clip}`;
+	const R = rng(seed * 7 + 3);
+	defs += `<clipPath id="${id}"><polygon points="${pts(points)}"/></clipPath>`;
+	const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+	const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+	let inner = "";
+	const count = Math.floor(((x1 - x0) * (y1 - y0)) / 210);
+	for (let i = 0; i < count; i++) {
+		inner += `<circle cx="${(x0 + R() * (x1 - x0)).toFixed(1)}" cy="${(y0 + R() * (y1 - y0)).toFixed(1)}" r="${(0.5 + R() * 0.9).toFixed(2)}" fill="${LINE}" opacity="${(0.07 + R() * 0.17).toFixed(2)}"/>`;
+	}
+	// light from the upper left: the lower right third is hatched, its far edge cross-hatched
+	const sx = x0 + (x1 - x0) * 0.55, sy = y0 + (y1 - y0) * 0.35;
+	inner += `<polygon points="${pts([[sx, y0 - 10], [x1 + 10, y0 - 10], [x1 + 10, y1 + 10], [x0 - 10, y1 + 10], [x0 - 10, sy + (y1 - y0) * 0.45]])}" fill="url(#hatch)" opacity="0.3"/>`;
+	inner += `<polygon points="${pts([[x1 - (x1 - x0) * 0.18, y0], [x1 + 10, y0], [x1 + 10, y1 + 10], [x0 + (x1 - x0) * 0.5, y1 + 10]])}" fill="url(#cross)" opacity="0.26"/>`;
+	// chisel marks
+	for (let i = 0; i < 3; i++) {
+		const x = x0 + (0.2 + R() * 0.6) * (x1 - x0), y = y0 + (0.2 + R() * 0.6) * (y1 - y0);
+		inner += `<polyline points="${pts([[x, y], [x + 10 + R() * 14, y + (R() - 0.5) * 12], [x + 18 + R() * 16, y + 6 + R() * 8]])}" fill="none" stroke="${LINE}" stroke-width="1" opacity="0.55"/>`;
+	}
+	let g = `<polygon points="${pts(points)}" fill="${PAL.iron}"/><g clip-path="url(#${id})">${inner}${options.inside ?? ""}</g>`;
+	g += `<polygon points="${pts(points)}" fill="none" stroke="${LINE}" stroke-width="2.2" stroke-linejoin="round"/>`;
+	return g;
+}
+
+// a crystal prism growing out of (x, y)
+function crystal(x, y, length, width, angle, broken, seed) {
+	const R = rng(seed);
+	const len = broken ? length * (0.25 + R() * 0.15) : length;
+	const a = ((angle - 90) * Math.PI) / 180, n = a + Math.PI / 2;
+	const P = (along, across) => [x + Math.cos(a) * along + Math.cos(n) * across, y + Math.sin(a) * along + Math.sin(n) * across];
+	const w = width / 2, lean = (R() - 0.5) * 0.3;
+	const b0 = P(0, -w), b1 = P(0, w), m = P(0, w * lean);
+	const s0 = P(len * 0.8, -w * 0.94), s1 = P(len * 0.8, w * 0.94), sm = P(len * 0.8, w * lean);
+	const tip = broken ? [P(len, -w * 0.5), P(len * 1.05, w * 0.1), P(len * 0.95, w * 0.6)] : [P(len, w * (R() - 0.5) * 0.4)];
+	let g = "";
+	if (broken) {
+		g += `<polygon points="${pts([b0, s0, ...tip, s1, b1])}" fill="${ACCENT.mid}"/>`;
+		g += `<polygon points="${pts([s0, ...tip, s1])}" fill="${ACCENT.light}"/>`;
+	} else {
+		g += `<polygon points="${pts([b0, m, sm, tip[0], s0])}" fill="${ACCENT.light}"/>`;
+		g += `<polygon points="${pts([m, b1, s1, tip[0], sm])}" fill="${ACCENT.mid}"/>`;
+		g += `<polygon points="${pts([m, b1, s1, sm])}" fill="url(#fine)" opacity="0.3"/>`;
+		g += `<polyline points="${pts([m, sm, tip[0]])}" fill="none" stroke="${LINE}" stroke-width="1" opacity="0.8"/>`;
+	}
+	g += `<polygon points="${pts([b0, s0, ...tip, s1, b1])}" fill="none" stroke="${LINE}" stroke-width="1.8" stroke-linejoin="round"/>`;
+	return g;
+}
+
+let art = "";
+const down = state === "down";
+const windup = state === "windup";
+
+// ground line and shadow
+art += `<ellipse cx="${CX}" cy="${GROUND}" rx="${down ? 330 : 270}" ry="30" fill="url(#hatch)" opacity="0.38"/>`;
+art += `<line x1="110" y1="${GROUND}" x2="914" y2="${GROUND}" stroke="${LINE}" stroke-width="1.3" opacity="0.45"/>`;
+{
+	const R = rng(77);
+	for (let i = 0; i < 10; i++) {
+		const x = 150 + R() * 720, w = 8 + R() * 18;
+		art += `<polygon points="${pts([[x, GROUND], [x + w * 0.25, GROUND - w * 0.55], [x + w * 0.75, GROUND - w * 0.7], [x + w, GROUND]])}" fill="${PAL.iron}" stroke="${LINE}" stroke-width="1.1"/>`;
+	}
+}
+
+if (!down) {
+	// crystals erupting from the left shoulder and back (drawn first, behind)
+	[[372, 380, 250, 48, -38, 1], [404, 352, 300, 58, -18, 2], [446, 344, 200, 42, -2, 3], [336, 420, 170, 36, -58, 4], [470, 352, 140, 30, 16, 5]].forEach(
+		([x, y, l, w, a, s]) => (art += crystal(x, y, l, w, a, false, s)),
+	);
+	// legs: short and heavy
+	art += stone(boulder(440, 800, 64, 82, 11), 11) + stone(boulder(596, 806, 66, 78, 12), 12);
+	art += stone(boulder(430, 880, 78, 26, 13), 13) + stone(boulder(604, 882, 80, 26, 14), 14);
+	// the body: a great shoulder mass over a deep chest
+	const coreInside = (() => {
+		const core = [[512, 530], [554, 582], [512, 640], [470, 582]];
+		let c = `<polygon points="${pts(core)}" fill="${ACCENT.mid}"/>`;
+		c += `<polygon points="${pts([[512, 530], [554, 582], [512, 582]])}" fill="${ACCENT.light}"/>`;
+		c += `<polygon points="${pts([[470, 582], [512, 582], [512, 640]])}" fill="${ACCENT.dark}"/>`;
+		c += `<polygon points="${pts(core)}" fill="none" stroke="${LINE}" stroke-width="2"/>`;
+		c += `<line x1="470" y1="582" x2="554" y2="582" stroke="${LINE}" stroke-width="1"/><line x1="512" y1="530" x2="512" y2="640" stroke="${LINE}" stroke-width="1"/>`;
+		if (windup) {
+			for (const crack of [[[512, 530], [496, 500], [516, 470]], [[554, 582], [604, 566], [646, 592]], [[512, 640], [528, 682], [510, 712]], [[470, 582], [424, 600], [384, 580]]]) {
+				c += `<polyline points="${pts(crack)}" fill="none" stroke="${ACCENT.light}" stroke-width="3.2" stroke-linejoin="round"/>`;
+			}
+		}
+		return c;
+	})();
+	art += stone(boulder(512, 560, 168, 160, 21), 21, { inside: coreInside });
+	art += stone(boulder(512, 418, 238, 100, 22, 0.1), 22);
+	// arms: the left hangs to the knee; the right hangs, or is raised overhead in the wind-up
+	art += stone(boulder(300, 470, 62, 84, 31, 0.4), 31) + stone(boulder(274, 620, 54, 86, 32), 32) + stone(boulder(270, 748, 78, 66, 33), 33);
+	if (windup) {
+		art += stone(boulder(716, 400, 62, 80, 41, -0.6), 41) + stone(boulder(744, 270, 54, 84, 42, 0.3), 42) + stone(boulder(724, 150, 86, 70, 43), 43);
+		art += crystal(764, 236, 90, 24, 40, false, 44);
+	} else {
+		art += stone(boulder(724, 470, 62, 84, 41, -0.4), 41) + stone(boulder(752, 620, 56, 88, 42), 42) + stone(boulder(758, 752, 86, 70, 43), 43);
+		art += crystal(780, 600, 90, 24, 52, false, 44);
+	}
+	// the head, sunk between the shoulders, two slit eyes
+	const eyes = `<polygon points="${pts([[476, 318], [504, 312], [502, 324], [478, 328]])}" fill="${ACCENT.light}"/><polygon points="${pts([[522, 312], [550, 318], [548, 328], [524, 324]])}" fill="${ACCENT.light}"/>`;
+	art += stone(boulder(512, 316, 70, 54, 51), 51, { inside: eyes });
+} else {
+	// felled: a heap of rubble, the crystals sheared off, the head rolled clear
+	art += stone(boulder(512, 820, 230, 86, 61, 0.05), 61);
+	art += stone(boulder(380, 846, 86, 56, 62), 62) + stone(boulder(650, 842, 96, 60, 63), 63);
+	art += stone(boulder(470, 742, 100, 62, 64, -0.2), 64) + stone(boulder(590, 750, 90, 58, 65, 0.3), 65);
+	[[440, 712, 220, 48, -32, 71], [500, 700, 260, 58, -8, 72], [560, 712, 180, 40, 18, 73], [396, 740, 150, 34, -54, 74]].forEach(
+		([x, y, l, w, a, s]) => (art += crystal(x, y, l, w, a, true, s)),
+	);
+	const deadEyes = `<polygon points="${pts([[744, 852], [770, 848], [768, 858], [746, 862]])}" fill="${ACCENT.light}"/>`;
+	art += stone(boulder(760, 860, 66, 46, 66, 0.6), 66, { inside: deadEyes });
+	const R = rng(90);
+	for (let i = 0; i < 8; i++) art += crystal(200 + R() * 620, GROUND, 40 + R() * 40, 12 + R() * 10, -70 + R() * 140, true, 100 + i);
+}
+
+mount(`<defs>${defs}</defs><g filter="url(#worn)">${art}</g>`, S, S);
+</script>
+</body>
+</html>

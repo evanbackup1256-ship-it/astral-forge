@@ -3675,7 +3675,7 @@ function StoreFront(props: StoreFrontProps) {
 	const softMotion = props.reducedMotion;
 	const linked = BrowseModel.recall("Shop");
 	const [section, setSection] = React.useState(props.initialSection ?? linked?.category ?? "Daily");
-	// Quick Find opens a section directly ("crates", "codex", "skins" ...)
+	// a section can be opened directly ("crates", "codex", "skins" ...)
 	React.useEffect(() => {
 		return BrowseModel.listen("Shop", (entry) => {
 			if (entry.category !== undefined) {

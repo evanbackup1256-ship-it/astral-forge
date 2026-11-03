@@ -1,4 +1,5 @@
-import { seedAntilagFromBoot } from "../MotionKit/antilag";
+import { seedAntilagFromDevice } from "../MotionKit/antilag";
+import { DeviceProfile } from "../../../Shared/AstralForge/Shared/AntilagGovernor";
 import { FORGE_ASSET_MANIFEST } from "../ArtKit/ForgeAnvil2D";
 import { GAME_ICON_ASSET, VECTOR_ICON_ATLAS } from "../ArtKit/Icon";
 import { ClientLog } from "../CoreKit/log";
@@ -19,7 +20,10 @@ const Workspace = game.GetService("Workspace");
 
 interface LedgerApi {
 	part(this: void, id: string, label: string, done: number, total: number, detail?: string): void;
+	finish(this: void, id: string, label: string, detail?: string): void;
 }
+const TIER_NAMES = ["Potato", "Lean", "Trimmed", "Full"];
+const Stats = game.GetService("Stats");
 const Ledger = (require(script.Parent!.Parent!.FindFirstChild("BootKit") as ModuleScript) as (name: string) => LedgerApi)(
 	"BootLedger",
 );
@@ -270,15 +274,34 @@ function collectConfigContent(seen: Seen, target: Item[]) {
 	}
 }
 
-function sampleFrameRate(seconds = 0.55): number {
+function graphicsSlider(): number {
+	const [ok, level] = pcall(() => UserSettings().GetService("UserGameSettings").SavedQualityLevel);
+	if (!ok || level === Enum.SavedQualitySetting.Automatic) {
+		return 0;
+	}
+	return level.Value;
+}
+
+function profileDevice(seconds: number): DeviceProfile {
 	const started = os.clock();
-	let frames = 0;
+	const frames: number[] = [];
 	while (os.clock() - started < seconds) {
-		RunService.Heartbeat.Wait();
-		frames += 1;
+		frames.push(RunService.Heartbeat.Wait()[0]);
 	}
 	const elapsed = math.max(0.08, os.clock() - started);
-	return frames / elapsed;
+	frames.sort();
+	const p95 = frames.size() > 0 ? frames[math.min(frames.size() - 1, math.floor(frames.size() * 0.95))] : 1 / 30;
+	const player = Players.LocalPlayer;
+	const [pingOk, ping] = pcall(() => player.GetNetworkPing());
+	const [memOk, memory] = pcall(() => Stats.GetTotalMemoryUsageMb());
+	return {
+		fps: frames.size() / elapsed,
+		p95Ms: p95 * 1000,
+		pingMs: pingOk ? ping * 1000 : 0,
+		memoryMb: memOk ? memory : 0,
+		graphics: graphicsSlider(),
+		constrained: UserInputService.TouchEnabled,
+	};
 }
 
 function preloadMountedGame(
@@ -331,8 +354,18 @@ function preloadMountedGame(
 		count(queue);
 		const warmupTotal = 0;
 		onProgress?.(0, math.max(1, queue.size() + warmupTotal));
-		const measured = sampleFrameRate(UserInputService.TouchEnabled ? 0.25 : 0.35);
-		seedAntilagFromBoot(measured);
+		Ledger.part("code", "tune", 0, 1, "Tuning for this device");
+		const device = profileDevice(UserInputService.TouchEnabled ? 0.8 : 1);
+		const tier = seedAntilagFromDevice(device);
+		Ledger.finish("code", "tune", `Tuned: ${TIER_NAMES[tier] ?? "Full"}`);
+		ClientLog.info("perf", "device tuned", {
+			Tier: tier,
+			Fps: math.floor(device.fps),
+			P95Ms: math.floor(device.p95Ms),
+			PingMs: math.floor(device.pingMs),
+			MemoryMb: math.floor(device.memoryMb),
+			Graphics: device.graphics,
+		});
 		let loaded = 0;
 		let failedBatches = 0;
 		let failedAssets = 0;

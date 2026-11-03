@@ -12,6 +12,12 @@ local function check(cond, label)
 end
 
 H.mock("Server/AstralForge/Runtime/ServerNetwork", { ServerEvents = H.Stub, ServerFunctions = H.Stub })
+-- the ranks read gets an empty page: the harness stub is callable, so looping over it never ends and errors
+H.services.DataStoreService = setmetatable({
+	GetOrderedDataStore = function()
+		return { GetSortedAsync = function() return { GetCurrentPage = function() return {} end } end }
+	end,
+}, { __index = function() return H.Stub end })
 H.env.Enum = setmetatable({}, { __index = function(_, cat)
 	return setmetatable({}, { __index = function(_, item) return cat .. "." .. item end })
 end })

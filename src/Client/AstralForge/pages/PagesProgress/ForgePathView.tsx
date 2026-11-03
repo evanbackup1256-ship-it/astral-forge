@@ -27,7 +27,7 @@ const Browse = clientModule<BrowseApi>("BrowseKit");
 
 const STEP_ROW_HEIGHT = 168;
 const STEP_ROW_HEIGHT_STACK = 224;
-const SPOTLIGHT_H = 148;
+const SPOTLIGHT_H = 152;
 const SPOTLIGHT_H_STACK = 188;
 const EMPTY_FORGE_PATH: { ClaimedSteps: number[]; XP: number } = { ClaimedSteps: [], XP: 0 };
 
@@ -196,7 +196,7 @@ function ForgePathRow({
 					reducedMotion={reducedMotion}
 				/>
 				<Text
-					value={tostring(step.Step)}
+					value={`Step ${step.Step}`}
 					size={12}
 					color={claimed ? Palette.muted : step.Color}
 					weight={Enum.FontWeight.Heavy}
@@ -247,7 +247,7 @@ function ForgePathRow({
 						/>
 					) : (
 						<Button
-							text={ready ? "Claim" : locked ? "Locked" : "XP"}
+							text={ready ? "Claim" : locked ? "Locked" : "Need more XP"}
 							icon={ready ? "Check.4" : undefined}
 							onClick={() => onClaim(step.Step)}
 							color={ready ? step.Color : Palette.panelSoft}
@@ -269,7 +269,7 @@ function ForgePathRow({
 					/>
 				) : (
 					<Button
-						text={ready ? "Claim" : locked ? "Locked" : "XP"}
+						text={ready ? "Claim" : locked ? "Locked" : "Need more XP"}
 						icon={ready ? "Check.5" : undefined}
 						onClick={() => onClaim(step.Step)}
 						color={ready ? step.Color : Palette.panelSoft}
@@ -377,7 +377,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
 				fit={true}
-				position={UDim2.fromOffset(0, 8)}
+				position={UDim2.fromOffset(0, 0)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 30)}
 			/>
 			<Text
@@ -387,7 +387,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				wrap={true}
 				fit={true}
 				minSize={9}
-				position={UDim2.fromOffset(0, 46)}
+				position={UDim2.fromOffset(0, 34)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 32)}
 			/>
 			<Meter
@@ -395,7 +395,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				color={ready ? step.Color : Palette.violet}
 				reducedMotion={reducedMotion}
 				shimmer={ready}
-				position={UDim2.fromOffset(0, stack ? 96 : 92)}
+				position={UDim2.fromOffset(0, 72)}
 				size={new UDim2(1, stack ? 0 : -180, 0, 8)}
 			/>
 			<Text
@@ -403,7 +403,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 				size={10}
 				color={Palette.muted}
 				weight={Enum.FontWeight.Bold}
-				position={UDim2.fromOffset(0, stack ? 110 : 106)}
+				position={UDim2.fromOffset(0, 84)}
 				sizeConstraint={new UDim2(1, stack ? 0 : -180, 0, 16)}
 			/>
 			{stack ? (
@@ -417,7 +417,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 					ref={claimHostRef}
 				>
 					<Button
-						text={ready ? "Claim" : "XP"}
+						text={ready ? "Claim" : needXp ? "Need more XP" : "Locked"}
 						icon={ready ? "Check.7" : undefined}
 						onClick={() => onClaim(step.Step)}
 						color={ready ? step.Color : Palette.panelSoft}
@@ -439,7 +439,7 @@ function SpotlightPanel({ step, xp, ready, complete, guide, onClaim, reducedMoti
 					ref={claimHostRef}
 				>
 					<Button
-						text={ready ? "Claim" : "XP"}
+						text={ready ? "Claim" : needXp ? "Need more XP" : "Locked"}
 						icon={ready ? "Check.8" : undefined}
 						onClick={() => onClaim(step.Step)}
 						color={ready ? step.Color : Palette.panelSoft}
@@ -592,9 +592,9 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 								size={stack ? 16 : 18}
 								color={Palette.cream}
 								weight={Enum.FontWeight.Heavy}
+								wrap={true}
 								fit={true}
 								minSize={10}
-								wrap={true}
 								position={UDim2.fromOffset(stack ? 0 : 72, stack ? 64 : 6)}
 								sizeConstraint={new UDim2(1, stack ? -8 : -292, 0, 44)}
 							/>
@@ -624,7 +624,7 @@ function ForgePathViewComponent({ state, config, dispatch, reducedMotion }: Forg
 									BorderSizePixel={0}
 								>
 									<Text
-										value={`${compactNumber(forgePath.XP)}`}
+										value={`${compactNumber(forgePath.XP)} XP`}
 										size={34}
 										color={Palette.violet}
 										weight={Enum.FontWeight.Heavy}

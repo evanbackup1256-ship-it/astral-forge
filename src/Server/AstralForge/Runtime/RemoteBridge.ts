@@ -48,6 +48,7 @@ export class RemoteBridge implements OnInit {
 
 	onInit() {
 		ModuleLog.AttachTelemetry(this.telemetry);
+		ModuleLog.StartDiagnostics();
 		const astralRoot = requiredChild(ReplicatedStorage, "AstralForge", "Folder", 30) as Folder;
 		const sharedRoot = requiredChild(astralRoot, "Shared", "Folder", 15) as Folder;
 		const protocol = ModuleLog.Require(

@@ -113,7 +113,7 @@ function MilestoneRowImpl({ achievement, dispatch, reducedMotion, position, stac
 			/>
 			{reward !== "" && (
 				<frame
-					Size={UDim2.fromOffset(math.min(220, reward.size() * 7 + 24), 20)}
+					Size={UDim2.fromOffset(math.min(stack ? 220 : 430, reward.size() * 7 + 24), 20)}
 					Position={UDim2.fromOffset(56, stack ? 66 : 56)}
 					BackgroundColor3={Palette.ink}
 					BorderSizePixel={0}

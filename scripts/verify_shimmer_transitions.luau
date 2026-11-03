@@ -76,9 +76,16 @@ assert(Page.distance(true, true) < Page.distance(true, false) and Page.distance(
 assert(Page.veilTransparency(1) == 1 and Page.veilTransparency(0) < 0.5, "veil covers the swap and clears")
 assert(Page.veilTransparency(0.5) > 0.85, "veil is mostly gone by half way")
 
+-- a jump across the nav sweeps farther than a step to the next page
+local wide = { "A", "B", "C", "D", "E", "F", "G", "H", "I" }
+assert(Page.span("A", "B", wide) == 1, "a neighbouring page travels the base distance")
+assert(Page.span("A", "E", wide) > Page.span("A", "C", wide) and Page.span("A", "C", wide) > 1, "a longer jump travels farther")
+assert(Page.span("A", "I", wide) <= 1.6, "the sweep is capped")
+assert(Page.span("Nowhere", "B", wide) == 1, "unknown pages count as a neighbour")
+
 -- Wiring
 local workspace = fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
-for _, needle in { 'Name = "PageVeil"', "PageTransition.offset(amount, pageDirection, slideAxis, slideDistance)", "pageOrderFor(chrome.stack)" } do
+for _, needle in { 'Name = "PageVeil"', "PageTransition.offset(amount, pageDirection, slideAxis, slideDistance)", "pageOrderFor(chrome.stack)", "PageTransition.span(" } do
 	assert(string.find(workspace, needle, 1, true), "workspace has " .. needle)
 end
 local ui = fs.readFile("src/Client/AstralForge/UiCore.luau#ui")

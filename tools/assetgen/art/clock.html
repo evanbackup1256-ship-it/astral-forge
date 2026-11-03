@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><script src="common.js"></script></head>
+<body>
+<script>
+// The loading screen's clock: a skeleton clock in engraved brass, one part per image so each can move on its own.
+//   dial      chapter ring, minute track, Roman numerals and an openwork centre the movement shows through
+//   wheel     the great wheel (40 teeth, crossed spokes)        pinion  the small wheel it drives (24 teeth)
+//   escape    the escape wheel (15 hooked teeth) that steps on every tick
+//   hour / minute   blued-steel Breguet hands, pointing up (12 o'clock), pivot at the image centre
+//   second    a slender needle with a ring counterweight, rust red
+//   cap       the domed screw over the arbor
+// Wheels and hands are drawn centred on their own axis; the game places and turns them.
+const part = query("part", "dial");
+const LINE = PAL.parchment;
+const BLUE = "#3a5f9e", BLUE_LIGHT = "#9bb8e6", BLUE_DARK = "#1a2944", BLUE_EDGE = "#c9d6ee";
+const pts = (list) => list.map((p) => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(" ");
+let defs = `${grainDefs("worn", 0.8, 17)}${hatchDefs("hatch", PAL.brassDark, 4, 35, 1)}${hatchDefs("hatchLight", LINE, 5, -40, 0.8)}`;
+let svg = "", S = 1024;
+
+// a clock wheel: teeth with rounded tips, a rim, a hub, and curved crossings (spokes) cut out of the plate
+function wheel(c, r, teeth, spokes, hooked) {
+	let g = "";
+	const toothDepth = r * (hooked ? 0.16 : 0.09);
+	let path = "";
+	for (let i = 0; i < teeth; i++) {
+		const a0 = (i / teeth) * 360, a1 = ((i + 0.38) / teeth) * 360, a2 = ((i + 0.62) / teeth) * 360, a3 = ((i + 1) / teeth) * 360;
+		const [x0, y0] = polar(c, c, r - toothDepth, a0);
+		const [x1, y1] = polar(c, c, r, hooked ? a1 + 4 : a1);
+		const [x2, y2] = polar(c, c, r, hooked ? a1 + 9 : a2);
+		const [x3, y3] = polar(c, c, r - toothDepth, hooked ? a2 + 2 : a3);
+		path += `${i === 0 ? "M" : "L"} ${x0.toFixed(2)} ${y0.toFixed(2)} L ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)} L ${x3.toFixed(2)} ${y3.toFixed(2)} `;
+	}
+	path += "Z";
+	// the plate: teeth + rim, with the crossings cut out (even-odd)
+	const rimInner = r - toothDepth - r * 0.1;
+	let cut = "";
+	for (let s = 0; s < spokes; s++) {
+		const a = (s / spokes) * 360, b = ((s + 1) / spokes) * 360, w = 360 / spokes * 0.16;
+		const [ox1, oy1] = polar(c, c, rimInner, a + w), [ox2, oy2] = polar(c, c, rimInner, b - w);
+		const [ix1, iy1] = polar(c, c, r * 0.24, a + w * 2.2), [ix2, iy2] = polar(c, c, r * 0.24, b - w * 2.2);
+		cut += ` M ${ix1} ${iy1} L ${ox1} ${oy1} A ${rimInner} ${rimInner} 0 0 1 ${ox2} ${oy2} L ${ix2} ${iy2} A ${r * 0.24} ${r * 0.24} 0 0 0 ${ix1} ${iy1} Z`;
+	}
+	g += `<path d="${path}${cut}" fill="${PAL.brass}" fill-rule="evenodd" stroke="${PAL.brassDark}" stroke-width="1.6" stroke-linejoin="round"/>`;
+	g += `<path d="${path}${cut}" fill="url(#hatch)" fill-rule="evenodd" opacity="0.45"/>`;
+	g += `<circle cx="${c}" cy="${c}" r="${rimInner}" fill="none" stroke="${PAL.brassLight}" stroke-width="1.4" opacity="0.8"/>`;
+	g += `<circle cx="${c}" cy="${c}" r="${r - toothDepth}" fill="none" stroke="${PAL.brassDark}" stroke-width="1"/>`;
+	// hub and arbor
+	g += `<circle cx="${c}" cy="${c}" r="${r * 0.2}" fill="${PAL.brassLight}" stroke="${PAL.brassDark}" stroke-width="1.6"/>`;
+	g += `<circle cx="${c}" cy="${c}" r="${r * 0.12}" fill="none" stroke="${PAL.brassDark}" stroke-width="1.2"/>`;
+	g += `<circle cx="${c}" cy="${c}" r="${r * 0.05}" fill="${PAL.ink}"/>`;
+	return g;
+}
+
+// a Breguet hand pointing up from (c, c): a tapered blade with an open "pomme" ring near the tip, a tail behind
+function breguet(c, length, width, ringAt, ringR, tail) {
+	const tip = [c, c - length];
+	const ringY = c - length * ringAt;
+	let g = "";
+	const blade = [
+		[c - width * 0.5, c + tail], [c - width * 0.62, c], [c - width * 0.3, ringY + ringR * 0.9],
+		[c, ringY + ringR + 2], [c + width * 0.3, ringY + ringR * 0.9], [c + width * 0.62, c], [c + width * 0.5, c + tail],
+	];
+	const point = [[c - width * 0.32, ringY - ringR * 0.85], tip, [c + width * 0.32, ringY - ringR * 0.85], [c, ringY - ringR - 2]];
+	const draw = (shape) => `<polygon points="${pts(shape)}" fill="${BLUE}" stroke="${BLUE_EDGE}" stroke-width="2.4" stroke-linejoin="round"/>`;
+	g += draw(blade) + draw(point);
+	g += `<circle cx="${c}" cy="${ringY}" r="${ringR}" fill="none" stroke="${BLUE}" stroke-width="${ringR * 0.42}"/>`;
+	g += `<circle cx="${c}" cy="${ringY}" r="${ringR * 0.79}" fill="none" stroke="${BLUE_EDGE}" stroke-width="1.6"/>`;
+	g += `<circle cx="${c}" cy="${ringY}" r="${ringR * 1.21}" fill="none" stroke="${BLUE_EDGE}" stroke-width="1.6"/>`;
+	// the polished bevel: a light line down one side of the blade
+	g += `<polyline points="${pts([[c - width * 0.18, c - 4], [c - width * 0.12, ringY + ringR * 1.4]])}" fill="none" stroke="${BLUE_LIGHT}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>`;
+	g += `<polyline points="${pts([[c - width * 0.12, ringY - ringR * 1.3], [c - 2, c - length + 10]])}" fill="none" stroke="${BLUE_LIGHT}" stroke-width="1.6" stroke-linecap="round" opacity="0.85"/>`;
+	// the collet at the pivot
+	g += `<circle cx="${c}" cy="${c}" r="${width * 0.95}" fill="${BLUE}" stroke="${BLUE_EDGE}" stroke-width="2"/>`;
+	return g;
+}
+
+if (part === "dial") {
+	const C = 512;
+	let g = "";
+	// bezel: a reeded brass edge
+	g += `<circle cx="${C}" cy="${C}" r="500" fill="none" stroke="${PAL.brass}" stroke-width="10"/>`;
+	for (let d = 0; d < 360; d += 2) {
+		const [x1, y1] = polar(C, C, 495, d), [x2, y2] = polar(C, C, 505, d);
+		g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${PAL.brassDark}" stroke-width="1.2"/>`;
+	}
+	g += `<circle cx="${C}" cy="${C}" r="489" fill="none" stroke="${PAL.brassDark}" stroke-width="1.5"/>`;
+	// the chapter ring: a dark enamel band the numerals sit on, so the movement only shows through the centre
+	g += `<path d="M ${C} ${C - 486} A 486 486 0 1 1 ${C - 0.01} ${C - 486} Z M ${C} ${C - 338} A 338 338 0 1 0 ${C + 0.01} ${C - 338} Z" fill="${PAL.inkSoft}" fill-rule="evenodd" opacity="0.94"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="472" fill="none" stroke="${PAL.brass}" stroke-width="1.6"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="440" fill="none" stroke="${PAL.brass}" stroke-width="1.2"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="350" fill="none" stroke="${PAL.brass}" stroke-width="1.6"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="338" fill="none" stroke="${PAL.brassDark}" stroke-width="1.2"/>`;
+	// the minute track between the two outer circles: sixty ticks, longer and bolder at the hours
+	for (let m = 0; m < 60; m++) {
+		const hour = m % 5 === 0;
+		const [x1, y1] = polar(C, C, 440, m * 6), [x2, y2] = polar(C, C, hour ? 472 : 462, m * 6);
+		g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${hour ? PAL.brassLight : PAL.brass}" stroke-width="${hour ? 3 : 1.4}"/>`;
+	}
+	// Roman numerals set radially, the way they are engraved on a chapter ring
+	const hours = ["XII", "I", "II", "III", "IIII", "V", "VI", "VII", "VIII", "IX", "X", "XI"];
+	hours.forEach((h, i) => {
+		const [x, y] = polar(C, C, 392, i * 30);
+		g += `<text x="${x}" y="${y}" fill="${PAL.brassLight}" font-family="Georgia, 'Times New Roman', serif" font-size="58" letter-spacing="2" text-anchor="middle" dominant-baseline="middle" transform="rotate(${i * 30} ${x} ${y})">${h}</text>`;
+	});
+	// the openwork centre: a thin inner ring held by five curved spokes
+	g += `<circle cx="${C}" cy="${C}" r="120" fill="none" stroke="${PAL.brass}" stroke-width="5"/>`;
+	for (let s = 0; s < 5; s++) {
+		const a = s * 72 + 18;
+		const [x1, y1] = polar(C, C, 122, a), [x2, y2] = polar(C, C, 336, a + 14), [cx, cy] = polar(C, C, 240, a - 6);
+		g += `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${PAL.brass}" stroke-width="5" stroke-linecap="round"/>`;
+		g += `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${PAL.brassDark}" stroke-width="1.2" stroke-linecap="round"/>`;
+	}
+	// the maker's line along the bottom of the chapter ring
+	g += `<defs><path id="maker" d="M ${C - 300} ${C + 285} A 412 412 0 0 0 ${C + 300} ${C + 285}"/></defs>`;
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${g}</g>`;
+} else if (part === "wheel") {
+	S = 512;
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${wheel(256, 246, 40, 5, false)}</g>`;
+} else if (part === "pinion") {
+	S = 512;
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${wheel(256, 246, 24, 4, false)}</g>`;
+} else if (part === "escape") {
+	S = 512;
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${wheel(256, 246, 15, 3, true)}</g>`;
+} else if (part === "hour") {
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${breguet(512, 250, 34, 0.72, 26, 46)}</g>`;
+} else if (part === "minute") {
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${breguet(512, 370, 26, 0.8, 22, 58)}</g>`;
+} else if (part === "second") {
+	const C = 512;
+	let g = "";
+	g += `<polygon points="${pts([[C - 3.5, C + 150], [C - 2, C - 410], [C, C - 432], [C + 2, C - 410], [C + 3.5, C + 150]])}" fill="${PAL.rust}" stroke="#5e271b" stroke-width="1"/>`;
+	g += `<circle cx="${C}" cy="${C + 130}" r="24" fill="none" stroke="${PAL.rust}" stroke-width="9"/>`;
+	g += `<circle cx="${C}" cy="${C + 130}" r="24" fill="none" stroke="#5e271b" stroke-width="1.2"/>`;
+	g += `<circle cx="${C}" cy="${C}" r="16" fill="${PAL.rust}" stroke="#5e271b" stroke-width="1.4"/>`;
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${g}</g>`;
+} else if (part === "cap") {
+	S = 128;
+	svg = `<defs>${defs}<radialGradient id="dome" cx="38%" cy="34%" r="70%"><stop offset="0" stop-color="${PAL.brassLight}"/><stop offset="0.6" stop-color="${PAL.brass}"/><stop offset="1" stop-color="${PAL.brassDark}"/></radialGradient></defs>
+		<circle cx="64" cy="64" r="44" fill="url(#dome)" stroke="${PAL.brassDark}" stroke-width="2"/>
+		<line x1="40" y1="64" x2="88" y2="64" stroke="${PAL.brassDark}" stroke-width="4" stroke-linecap="round" transform="rotate(-30 64 64)"/>
+		<circle cx="64" cy="64" r="44" fill="none" stroke="${LINE}" stroke-width="1" opacity="0.35"/>`;
+}
+mount(svg, S, S);
+</script>
+</body>
+</html>

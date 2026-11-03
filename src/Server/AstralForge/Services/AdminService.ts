@@ -42,6 +42,7 @@ interface Omega {
 	Add(this: void, left: unknown, right: unknown): unknown;
 	Min(this: void, left: unknown, right: unknown): unknown;
 	Div(this: void, left: unknown, right: unknown): unknown;
+	Mul(this: void, left: unknown, right: unknown): unknown;
 }
 
 interface EconomyApi {
@@ -111,6 +112,8 @@ type CommandDef = {
 	Moderation?: boolean;
 	// runs once for the whole experience instead of on a target player
 	Global?: boolean;
+	// has its own executor in the service (messages and server-wide actions), not a profile handler
+	Direct?: boolean;
 };
 
 type HandlerResult = Dict;
@@ -278,12 +281,61 @@ const COMMANDS: Record<string, CommandDef> = table.freeze({
 	RollbackCritical: { Label: "Roll back to a journal entry (Option = entry id)", Option: true, Category: "Resets" },
 	Announce: { Label: "Announce to every server", Option: true, Category: "LiveOps", Global: true },
 	ToggleHotFlag: { Label: "Live-ops flag (Option = Name=on|off)", Option: true, Category: "LiveOps", Global: true },
-});
-const CATEGORY_RANK: Record<string, number> = { Economy: 1, Progress: 2, Items: 3, Resets: 4, Troll: 5, Moderation: 6, LiveOps: 7 };
+	// ---- control room additions
+	FastForward: { Label: "Fast-forward production (Amount = hours)", Option: false, Category: "Economy", Danger: "arm" },
+	ApplyKit: { Label: "Apply a loadout kit (Option = kit)", Option: true, Category: "Economy", Danger: "arm" },
+	Whisper: { Label: "Whisper a private note (Option = message)", Option: true, Category: "Moderation", Direct: true, Danger: "quick" },
+	Spotlight: { Label: "Put a player in the spotlight (Option = title)", Option: true, Category: "LiveOps", Direct: true, Danger: "arm" },
+	ServerGift: { Label: "Gift every player here (Option = currency)", Option: true, Category: "LiveOps", Direct: true, Danger: "arm" },
+	ServerShow: { Label: "Server-wide effect (Option = effect)", Option: true, Category: "LiveOps", Direct: true, Danger: "arm" },
+	Fireworks: { Label: "Fireworks over their screen", Option: false, Category: "Effects", World: true, Danger: "quick" },
+	Aurora: { Label: "Aurora ribbons", Option: false, Category: "Effects", World: true, Danger: "quick" },
+	Starfall: { Label: "Shooting stars", Option: false, Category: "Effects", World: true, Danger: "quick" },
+	MatrixRain: { Label: "Code rain", Option: false, Category: "Effects", World: true, Danger: "quick" },
+	Glitch: { Label: "Signal glitch", Option: false, Category: "Effects", World: true, Danger: "quick" },
+	Heartbeat: { Label: "Heartbeat vignette", Option: false, Category: "Effects", World: true, Danger: "quick" },
+	Snowfall: { Label: "Snowfall", Option: false, Category: "Effects", World: true, Danger: "quick" },
+	Letterbox: { Label: "Cinematic letterbox (Option = caption)", Option: true, Category: "Effects", World: true, Danger: "quick" },
+	ClearEffects: { Label: "Clear their screen effects", Option: false, Category: "Effects", World: true, Danger: "quick" },});
+const CATEGORY_RANK: Record<string, number> = { Economy: 1, Progress: 2, Items: 3, Resets: 4, Troll: 5, Effects: 5.5, Moderation: 6, LiveOps: 7 };
+// loadout kits: named bundles built from the existing grant handlers, so a kit can never do more than its parts
+const KITS: Record<string, Array<[string, number]>> = {
+	Starter: [["GrantFlux", 10000], ["GrantCores", 5], ["GrantStardust", 500], ["GrantFreeSpins", 3]],
+	Builder: [["GrantFlux", 1e9], ["GrantCores", 100], ["GrantStardust", 10000], ["GrantAllCrateKeys", 3], ["GrantAllBoosts", 2]],
+	Veteran: [["GrantRebirths", 10], ["GrantFlux", 1e15], ["GrantCores", 1000], ["GrantStardust", 100000], ["GrantItemEssence", 5000], ["GrantAllCrateKeys", 10], ["GrantAllBoosts", 5], ["GrantFreeSpins", 10]],
+	Playtest: [["MaxMachines", 1], ["MaxResearch", 1], ["UnlockProgression", 1], ["GrantFlux", 1e12], ["GrantCores", 500], ["GrantStardust", 50000], ["GrantAllCrateKeys", 5]],
+};
+// what ServerGift hands out, by the Option the console sends
+const GIFT_HANDLERS: Record<string, string> = { Flux: "GrantFlux", Cores: "GrantCores", Stardust: "GrantStardust", FreeSpins: "GrantFreeSpins" };
+// the screen effects ServerShow may play: a fixed list, never free text
+const SHOW_EFFECTS: Record<string, boolean> = {
+	Fireworks: true, Aurora: true, Starfall: true, MatrixRain: true, Glitch: true, Heartbeat: true, Snowfall: true, Letterbox: true, ClearEffects: true,
+};
+const SPOTLIGHT_TITLES: Record<string, string> = {
+	PlayerOfTheHour: "PLAYER OF THE HOUR",
+	BuilderOfTheDay: "BUILDER OF THE DAY",
+	CommunityHero: "COMMUNITY HERO",
+	GoodSport: "GOOD SPORT",
+};
+// Letterbox captions are chosen from this list too, so nothing typed ever reaches another player's screen unfiltered
+const LETTERBOX_CAPTIONS: Record<string, boolean> = {
+	"ACT ONE": true, "MEANWHILE": true, "TO BE CONTINUED": true, "THE FORGE AWAKENS": true, "FIVE MINUTES LATER": true,
+};
 
 function commandDanger(definition: Record<string, unknown>): string {
 	if (string.sub((definition.Label as string) ?? "", 1, 4) === "Set ") return "arm";
 	return AdminGrantMath.CommandDanger(definition);
+}
+
+function count(amount: number, noun: string): string {
+	return `${amount} ${noun}${amount === 1 ? "" : "s"}`;
+}
+
+// a label can end in a "(Option = ...)" hint for the console's typed field; messages read better without it
+function plainLabel(label: unknown): string {
+	const [withoutOption] = tostring(label).gsub("%s*%(Option = [^%)]*%)", "");
+	const [withoutAmount] = withoutOption.gsub("%s*%(Amount = [^%)]*%)", "");
+	return withoutAmount;
 }
 
 function cleanText(raw: unknown, maximum: number): string {
@@ -344,6 +396,8 @@ function applyWorld(_actor: Player, target: Player, command: string, amount: num
 		caption = "Starfall signatures are converging above the forge.";
 	} else if (command === "JumbleHud") {
 		caption = "The forge instruments slipped out of alignment.";
+	} else if (command === "Letterbox") {
+		caption = LETTERBOX_CAPTIONS[option] === true ? option : "ACT ONE";
 	}
 	firePrank(target, command, duration, caption);
 	return $tuple(true, string.format("%s in-game prank on %s for %ds.", command, target.Name, duration));
@@ -952,12 +1006,17 @@ export class AdminService {
 				return {
 					ok: true,
 					DryRun: true,
-					message: T("AdminService.PreviewSS", definition.Label, subject !== undefined ? subject.Name : tostring(targetUserId)),
-					Preview: [`${definition.Label}: ${option !== "" ? option : tostring(duration)}`],
+					message: T("AdminService.PreviewSS", plainLabel(definition.Label), subject !== undefined ? subject.Name : tostring(targetUserId)),
+					Preview: [`${plainLabel(definition.Label)}: ${option !== "" ? option : tostring(duration)}`],
 					PreviewTotal: 1,
 				};
 			}
 			return this._moderate(actor, command!, targetUserId, duration, option, reason);
+		}
+		if (definition.Direct === true) {
+			const [directAmount, directProblem] = CommandSchema.validate(command!, definition, payload.Amount, option);
+			if (directAmount === undefined) return { ok: false, error: directProblem };
+			return this._direct(actor, command!, definition, directAmount, option, reason, tonumber(payload.TargetUserId), dryRun);
 		}
 		const target = onlinePlayer(payload.TargetUserId);
 		if (target === undefined || target.Parent !== Players) return { ok: false, error: T("AdminService.TargetMustBeOnlineIn") };
@@ -974,7 +1033,7 @@ export class AdminService {
 				return {
 					ok: true,
 					DryRun: true,
-					message: T("AdminService.PreviewSPlaysOnS", definition.Label, target.Name),
+					message: T("AdminService.PreviewSPlaysOnS", plainLabel(definition.Label), target.Name),
 					Preview: [],
 					PreviewTotal: 0,
 				};
@@ -993,7 +1052,7 @@ export class AdminService {
 				DryRun: true,
 				message:
 					(total === 0
-						? `Preview: ${definition.Label} would change nothing for ${target.Name}.`
+						? `Preview: ${plainLabel(definition.Label)} would change nothing for ${target.Name}.`
 						: `Preview: ${total} saved value${total === 1 ? "" : "s"} change for ${target.Name}.`) + previewNote,
 				Preview: lines,
 				PreviewTotal: total,
@@ -1042,7 +1101,7 @@ export class AdminService {
 			ok: true,
 			message: string.format(
 				"%s applied to %s (revision %d%s).%s",
-				definition.Label,
+				plainLabel(definition.Label),
 				target.Name,
 				revision,
 				persisted ? ", saved" : ", autosave retry queued",
@@ -1068,6 +1127,88 @@ export class AdminService {
 		};
 	}
 
+	// Messages and server-wide actions: not a profile command, so no single handler owns them. Every text a player
+	// can see comes from a fixed list or passes Roblox's filter; every action is audited as one record.
+	private _direct(
+		actor: Player,
+		command: string,
+		definition: CommandDef,
+		amount: number,
+		option: string,
+		reason: string,
+		targetUserId: number | undefined,
+		dryRun: boolean,
+	): Dict {
+		const here: Player[] = [];
+		for (const candidate of Players.GetPlayers()) {
+			if (candidate.Parent === Players && this._data.Get(candidate) !== undefined) here.push(candidate);
+		}
+		const everyone: Subject = { Name: "everyone in this server", UserId: 0 };
+		const preview = (lines: string[]): Dict => ({
+			ok: true,
+			DryRun: true,
+			message: `Preview: ${plainLabel(definition.Label)}.`,
+			Preview: lines,
+			PreviewTotal: lines.size(),
+		});
+		if (command === "ServerGift") {
+			const handlerName = GIFT_HANDLERS[option];
+			const handler = handlerName !== undefined ? profileHandlers[handlerName] : undefined;
+			if (handler === undefined) return { ok: false, error: "Pick Flux, Cores, Stardust or FreeSpins." };
+			if (dryRun) return preview([`${option}: +${math.floor(amount)} each`, `${count(here.size(), "player")} online here`]);
+			let given = 0;
+			for (const player of here) {
+				const [success, result] = this._data.AtomicUpdate(player, (profile) => handler(profile, amount, ""), true, "admin:ServerGift");
+				if (success && !(typeIs(result, "table") && (result as Dict).ok === false)) {
+					given += 1;
+					this._data.Save(player, false);
+					ServerEvents.toast.fire(player, { Title: "Gift from the team", Body: `+${math.floor(amount)} ${option}`, Tone: "Special" });
+				}
+			}
+			this._record(actor, everyone, command, amount, option, reason, 0);
+			return { ok: true, message: `${given} of ${count(here.size(), "player")} received ${math.floor(amount)} ${option}.`, Admin: true };
+		}
+		if (command === "ServerShow") {
+			if (SHOW_EFFECTS[option] !== true) return { ok: false, error: "Pick one of the show effects." };
+			const seconds = math.clamp(math.floor(amount), 3, 20);
+			if (dryRun) return preview([`${option} for ${seconds}s`, count(here.size(), "screen")]);
+			for (const player of here) firePrank(player, option, seconds, "");
+			this._record(actor, everyone, command, seconds, option, reason, 0);
+			return { ok: true, message: `${option} playing on ${count(here.size(), "screen")} for ${seconds}s.`, Admin: true };
+		}
+		const target = onlinePlayer(targetUserId);
+		if (target === undefined || target.Parent !== Players) return { ok: false, error: T("AdminService.TargetMustBeOnlineIn") };
+		if (this._data.Get(target) === undefined) return { ok: false, error: T("AdminService.TargetProfileIsStillLoading") };
+		if (command === "Spotlight") {
+			const title = SPOTLIGHT_TITLES[option];
+			if (title === undefined) return { ok: false, error: "Pick one of the spotlight titles." };
+			if (dryRun) return preview([`${title}: ${target.DisplayName}`, `${count(here.size(), "player")} see it`]);
+			for (const player of here) {
+				ServerEvents.toast.fire(player, { Title: title, Body: `${target.DisplayName} is in the spotlight.`, Tone: "Special" });
+				firePrank(player, player === target ? "Aurora" : "Fireworks", 8, "");
+			}
+			this._record(actor, target, command, 0, option, reason, this._data.GetRevision(target) ?? 0);
+			return { ok: true, message: `${target.Name} is in the spotlight (${title}).`, Admin: true };
+		}
+		if (command === "Whisper") {
+			if (option.size() < 2) return { ok: false, error: "Write a short note first." };
+			if (dryRun) return preview([`To ${target.Name}: ${option}`]);
+			// text another player reads has to pass Roblox's filter for that recipient
+			const [filterOk, filtered] = pcall(() =>
+				game
+					.GetService("TextService")
+					.FilterStringAsync(option, actor.UserId, Enum.TextFilterContext.PrivateChat)
+					.GetChatForUserAsync(target.UserId),
+			);
+			if (!filterOk || !typeIs(filtered, "string") || filtered.size() < 1) {
+				return { ok: false, error: "That note could not be filtered. Try other words." };
+			}
+			ServerEvents.toast.fire(target, { Title: "Message from the team", Body: filtered, Tone: "Special" });
+			this._record(actor, target, command, 0, option, reason, this._data.GetRevision(target) ?? 0);
+			return { ok: true, message: `Whisper sent to ${target.Name}.`, Admin: true };
+		}
+		return { ok: false, error: T("AdminService.AdminCommandHasNoExecutor") };
+	}
 	private _dashboard(): Dict {
 		const rows: OpsDashboard.DashboardRow[] = [];
 		for (const player of Players.GetPlayers()) {
@@ -1114,8 +1255,8 @@ export class AdminService {
 			return {
 				ok: true,
 				DryRun: true,
-				message: T("AdminService.PreviewS", definition.Label),
-				Preview: [`${definition.Label}: ${option}`],
+				message: T("AdminService.PreviewS", plainLabel(definition.Label)),
+				Preview: [`${plainLabel(definition.Label)}: ${option}`],
 				PreviewTotal: 1,
 			};
 		}
@@ -1134,8 +1275,8 @@ export class AdminService {
 			ok: true,
 			message:
 				(published
-					? `${definition.Label}: sent to every server.`
-					: `${definition.Label}: applied here only (cross-server send failed: ${tostring(publishError)}).`) +
+					? `${plainLabel(definition.Label)}: sent to every server.`
+					: `${plainLabel(definition.Label)}: applied here only (cross-server send failed: ${tostring(publishError)}).`) +
 				(persisted ? "" : " Saving the flag failed, so servers started later will not see it."),
 			Admin: true,
 		};
@@ -1823,3 +1964,30 @@ profileHandlers.ClearAnomalyCombo = (profile, amount, option) => {
 	return { ok: true, amount: amount };
 };
 
+// ---- control room additions: loadout kits and fast-forward
+profileHandlers.ApplyKit = (profile, _amount, option) => {
+	const kit = KITS[option];
+	if (kit === undefined) return { ok: false, error: "Unknown kit. Pick Starter, Builder, Veteran or Playtest." };
+	let steps = 0;
+	for (const [handlerName, grant] of kit) {
+		const handler = profileHandlers[handlerName];
+		if (handler === undefined) continue;
+		const result = handler(profile, grant, "");
+		if (result.ok === false) return result;
+		steps += 1;
+	}
+	return { ok: true, amount: steps, note: `${option} kit: ${steps} grants.` };
+};
+profileHandlers.FastForward = (profile, hours, _option) => {
+	const whole = math.floor(hours);
+	const [ok, production] = pcall(Economy.Production, profile);
+	if (!ok) return { ok: false, error: "Production could not be read." };
+	const earned = Omega.Mul(production, whole * 3600);
+	profile.Cash = Omega.Add(profile.Cash, earned);
+	profile.RunCash = Omega.Add(profile.RunCash, earned);
+	profile.LifetimeCash = Omega.Add(profile.LifetimeCash, earned);
+	return { ok: true, amount: whole, note: `${whole}h of production credited.` };
+};
+
+// read access to the profile executors, for scripts/verify_admin_ops.luau
+export const AdminHandlers: Record<string, ProfileHandler> = profileHandlers;

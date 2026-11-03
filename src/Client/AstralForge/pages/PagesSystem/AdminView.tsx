@@ -1,153 +1,57 @@
-﻿import React from "@rbxts/react";
-import { AdminConfig, BanEntry, fieldsFor, reasonsFor } from "../../CoreKit/adminFields";
+// The owner and staff Control Room. Every command goes through the server's AdminExecute request (nonce, string
+// amount, audit reason); this page only decides what to send. Tabs: Console, Show Room, Live Ops, Telemetry, Audit.
+import React from "@rbxts/react";
+import { fieldsFor, reasonsFor } from "../../CoreKit/adminFields";
 import { compactNumber } from "../../CoreKit/format";
-import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { Palette } from "../../CoreKit/theme";
 import { useAntilag } from "../../MotionKit/antilag";
-import { useEntrance, useStagger } from "../../MotionKit/motion";
-import { AudioPlayer, BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
+import { useEntrance } from "../../MotionKit/motion";
+import { BrowseApi, clientModule, kitMember, LuauComponent } from "../luauKits";
+import { AutoPage } from "./AutoPage";
+import {
+	AdminCommand,
+	AdminPlayer,
+	catAccent,
+	CATEGORY_LABEL,
+	Chip,
+	COMMAND_ROW,
+	CommandRow,
+	headshot,
+	HoldButton,
+	PLAYER_ROW,
+	PlayerRow,
+	plainLabel,
+	Reticle,
+	ScanLine,
+	SectionTitle,
+	Stamp,
+	StatTile,
+	uptimeText,
+	useCountUp,
+	useTypewriter,
+} from "./AdminParts";
+import { AdminContext, AdminProps, LookupResult, useRunner } from "./AdminRunner";
+import { AuditTab, Col, Field, GAP, LiveOpsTab, ShowRoomTab, Split, TelemetryTab } from "./AdminTabs";
 
-const HttpService = game.GetService("HttpService");
-const UserInputService = game.GetService("UserInputService");
-const { Audio } = kitMember<{ Audio: AudioPlayer }>("AudioKit", "audio");
-const { Icon } = kitMember<{ Icon: LuauComponent }>("ArtKit", "Icon");
-const { Badge, Button, Dropdown, EmptyState, Panel, SearchField, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
+export type { AdminProps } from "./AdminRunner";
+
+const { Badge, Button, Dropdown, EmptyState, Panel, SearchField, SegmentedTabs, Text } = kitMember<Record<string, LuauComponent>>("UiCore", "ui");
 const { FlatList } = kitMember<{ FlatList: LuauComponent }>("LayoutKit", "virtualizedList");
-const { PageScaffold } = kitMember<{ PageScaffold: LuauComponent }>("LayoutKit", "pageScaffold");
 
-const GAP = 14;
-const HEADER_H = 92;
-const PLAYERS_W = 280;
-const DETAIL_W = 340;
-const CMD_MIN = 360;
-const CONSOLE_W = PLAYERS_W + DETAIL_W + CMD_MIN + GAP * 2;
-const RECENT_MIN = 200;
-const PLAYER_ROW = 56;
-const PLAYER_ROW_STRIDE = PLAYER_ROW + 6;
-const COMMAND_ROW = 48;
-const COMMAND_ROW_STRIDE = COMMAND_ROW + 6;
-const SCROLL_BAR = 4;
-const OPS_H = 236;
-const OPS_LINE = 24;
-
-const ADMIN_CATS = [
-	{ id: "All", label: "ALL" },
-	{ id: "Economy", label: "ECON" },
-	{ id: "Progress", label: "PROG" },
-	{ id: "Items", label: "ITEMS" },
-	{ id: "Resets", label: "RESET" },
-	{ id: "Troll", label: "TROLL" },
-	{ id: "Moderation", label: "MOD" },
-	{ id: "LiveOps", label: "LIVE" },
+const TABS = [
+	{ id: "Console", label: "CONSOLE" },
+	{ id: "Show", label: "SHOW ROOM" },
+	{ id: "LiveOps", label: "LIVE OPS" },
+	{ id: "Telemetry", label: "TELEMETRY" },
+	{ id: "Audit", label: "AUDIT" },
 ];
-
-interface AdminPlayer {
-	UserId: number;
-	DisplayName: string;
-	Name: string;
-	Cash?: number;
-	Vault?: number;
-	Capacity?: number;
-	Cores?: number;
-	Rebirths?: number;
-	Zone?: number;
-	Production?: number;
-	Stardust?: number;
-	Keys?: number;
-	Unlimited?: boolean;
-}
-interface AdminCommand {
-	Id: string;
-	Label: string;
-	Category?: string;
-	Danger?: string;
-	/** the server needs an Option for this command (a picked choice or typed text) */
-	NeedsOption?: boolean;
-}
-interface AuditRecord {
-	Id: string;
-	Command: string;
-	ActorName: string;
-	TargetName: string;
-}
-interface SecurityRow {
-	UserId: number;
-	Name: string;
-	Flags: number;
-	LastKind: string;
-	Score: number;
-	Level: string;
-}
-interface HotFlagRow {
-	Name: string;
-	On: boolean;
-	Description: string;
-}
-interface AnnouncementRow {
-	Text: string;
-	From: string;
-	At: number;
-}
-interface EconomySummary {
-	Players?: number;
-	TotalCash?: unknown;
-	RichestCash?: unknown;
-	MedianProduction?: number;
-	MedianRebirths?: number;
-	TotalStardust?: number;
-	TotalCores?: number;
-	TopActions?: Array<{ Action: string; Count: number }>;
-}
-interface LookupResult {
-	UserId: number;
-	Name: string;
-	Score: number;
-	Level: string;
-	Revision?: number;
-	Flags?: Array<{ At: number; Kind: string; Detail: string }>;
-	Journal?: Array<{ Id: string; At: number; Label?: string; Revision?: number }>;
-}
-interface SecurityFlagRow {
-	At: number;
-	Name: string;
-	Kind: string;
-	Detail?: string;
-	Response?: string;
-}
-interface AntiCheatRuleRow {
-	Id: string;
-	Repairs: number;
-}
-interface AdminState {
-	SecurityPlayers?: SecurityRow[];
-	SecurityFlags?: SecurityFlagRow[];
-	AntiCheatRules?: AntiCheatRuleRow[];
-	HotFlags?: HotFlagRow[];
-	Announcements?: AnnouncementRow[];
-	Economy?: EconomySummary;
-	Access?: boolean;
-	SelfUserId?: number;
-	Online?: AdminPlayer[];
-	Commands?: AdminCommand[];
-	Recent?: AuditRecord[];
-	Banned?: BanEntry[];
-	Role?: string;
-	Integrity?: { Healthy?: boolean };
-	LastAction?: { Message: string; Ok: boolean };
-}
-interface AdminResponse {
-	ok?: boolean;
-	message?: string;
-	error?: string;
-	Preview?: unknown;
-	Lookup?: LookupResult;
-}
-interface AdminProps {
-	state: { Admin?: AdminState };
-	config?: AdminConfig;
-	dispatch: (action: string, payload?: object, callback?: (response: AdminResponse) => void) => unknown;
-	reducedMotion?: boolean;
-}
+const CATEGORY_ORDER = ["Economy", "Progress", "Items", "Resets", "Troll", "Effects", "Moderation", "LiveOps"];
+// commands that act on the server or the world, not on the player picked in the roster
+const NO_TARGET = new Set(["Announce", "ToggleHotFlag", "ServerGift", "ServerShow"]);
+const WIDE_AT = 860;
+const MAX_RECENT = 6;
+const COMMAND_LIST_H = 360;
+const PLAYER_LIST_MAX_H = 300;
 
 function hayHas(hay: string, needle: string) {
 	if (needle.size() === 0) {
@@ -160,17 +64,7 @@ function hayHas(hay: string, needle: string) {
 	return clientModule<BrowseApi>("BrowseKit").matches(needle, hay);
 }
 
-function catAccent(category?: string) {
-	if (category === "Economy") return Palette.mint;
-	if (category === "Progress") return Palette.cyan;
-	if (category === "Items") return Palette.violet;
-	if (category === "Resets") return Palette.mango;
-	if (category === "Troll") return Palette.pink;
-	if (category === "Moderation") return Palette.coral;
-	return Palette.steel;
-}
-
-function commandNeedsArm(entry?: AdminCommand) {
+function needsArm(entry?: AdminCommand) {
 	if (entry === undefined) return true;
 	if (entry.Danger === "quick") return false;
 	if (entry.Danger === "arm") return true;
@@ -178,625 +72,419 @@ function commandNeedsArm(entry?: AdminCommand) {
 	return category === "Troll" || category === "Resets" || category === "Moderation";
 }
 
-function SectionTitle(props: { value: string; accent: Color3; position?: UDim2; layoutOrder?: number }) {
+function PreviewLines(props: { lines: string[]; reducedMotion: boolean }) {
+	const shown: string[] = [];
+	for (let i = 0; i < math.min(props.lines.size(), 6); i++) {
+		shown.push(props.lines[i]);
+	}
+	const typed = useTypewriter(shown.join("\n"), props.reducedMotion, 140);
 	return (
 		<Text
-			value={props.value}
-			size={10}
-			color={props.accent}
-			weight={Enum.FontWeight.Heavy}
-			fit={false}
-			position={props.position ?? UDim2.fromOffset(0, 0)}
-			sizeConstraint={new UDim2(1, -8, 0, 13)}
-			layoutOrder={props.layoutOrder}
+			value={typed}
+			size={12}
+			color={Palette.cyan}
+			wrap={true}
+			fit={true}
+			minSize={11}
+			sizeConstraint={new UDim2(1, 0, 0, 16 * shown.size() + 4)}
+			layoutOrder={8}
 		/>
 	);
 }
 
-function StatCell(props: { label: string; value: string; accent: Color3 }) {
-	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundColor3={Palette.ink} BorderSizePixel={0} ClipsDescendants={true}>
-			<uicorner CornerRadius={new UDim(0, 8)} />
-			<uistroke Color={props.accent} Thickness={1} Transparency={0.82} />
-			<Text
-				value={props.label}
-				size={9}
-				color={Palette.muted}
-				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				position={UDim2.fromOffset(8, 6)}
-				sizeConstraint={new UDim2(1, -12, 0, 11)}
-			/>
-			<Text
-				value={props.value}
-				size={14}
-				color={props.accent}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={7}
-				position={UDim2.fromOffset(8, 19)}
-				sizeConstraint={new UDim2(1, -12, 0, 18)}
-			/>
-		</frame>
-	);
-}
-
-interface PlayerRowProps {
-	player: AdminPlayer;
-	selected: boolean;
-	you: boolean;
-	onClick: () => void;
-	layoutOrder: number;
-	reducedMotion?: boolean;
-}
-
-function PlayerRow({ player, selected, you, onClick, layoutOrder, reducedMotion }: PlayerRowProps) {
-	const accent = selected ? Palette.mint : Palette.lineSoft;
-	const reveal = useStagger(layoutOrder, reducedMotion);
-	return (
-		<textbutton
-			LayoutOrder={layoutOrder}
-			Size={new UDim2(1, 0, 0, PLAYER_ROW)}
-			BackgroundTransparency={reveal.map(
-				(amount) => (selected ? 0 : 0.12) + (1 - math.clamp(amount, 0, 1)) * (1 - (selected ? 0 : 0.12)),
-			)}
-			BackgroundColor3={selected ? Palette.panelRaised : Palette.panel}
-			BorderSizePixel={0}
-			Text=""
-			AutoButtonColor={false}
-			Active={true}
-			Selectable={true}
-			Event={{
-				Activated: () => {
-					Audio.play("playerlistSelect");
-					onClick();
-				},
-			}}
-		>
-			<uicorner CornerRadius={new UDim(0, 10)} />
-			<uistroke Color={accent} Thickness={1} Transparency={selected ? 0.45 : 1} />
-			<frame Size={UDim2.fromOffset(36, 36)} Position={UDim2.fromOffset(12, 10)} BackgroundColor3={Palette.ink} BorderSizePixel={0}>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-				<Icon
-					kind="Crew.10"
-					color={selected ? Palette.mint : Palette.muted}
-					accent={Palette.mint}
-					size={18}
-					spin={false}
-					position={UDim2.fromOffset(9, 9)}
-				/>
-			</frame>
-			<Text
-				value={player.DisplayName}
-				size={13}
-				color={you ? Palette.mint : Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={9}
-				position={UDim2.fromOffset(58, 9)}
-				sizeConstraint={new UDim2(1, -70, 0, 17)}
-			/>
-			<Text
-				value={`@${player.Name}  ·  ${compactNumber(player.Cash ?? 0)}`}
-				size={10}
-				color={Palette.cyan}
-				fit={true}
-				minSize={8}
-				position={UDim2.fromOffset(58, 28)}
-				sizeConstraint={new UDim2(1, -70, 0, 14)}
-			/>
-			{selected && (
-				<frame
-					Size={UDim2.fromOffset(8, 8)}
-					Position={new UDim2(1, -20, 0.5, -4)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundColor3={Palette.mint}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-				</frame>
-			)}
-		</textbutton>
-	);
-}
-
-function CommandRow(props: { entry: AdminCommand; selected: boolean; onClick: () => void; layoutOrder?: number }) {
-	const { entry, selected, onClick } = props;
-	const accent = catAccent(entry.Category);
-	const arm = commandNeedsArm(entry);
-	return (
-		<textbutton
-			Size={new UDim2(1, -4, 0, COMMAND_ROW - 6)}
-			BackgroundColor3={selected ? Palette.panelRaised : Palette.panel}
-			BackgroundTransparency={selected ? 0 : 0.08}
-			BorderSizePixel={0}
-			Text=""
-			AutoButtonColor={false}
-			Active={true}
-			Selectable={true}
-			Event={{
-				Activated: () => {
-					Audio.play("tabSwitch");
-					onClick();
-				},
-			}}
-		>
-			<uicorner CornerRadius={new UDim(0, 10)} />
-			<uistroke Color={selected ? accent : Palette.line} Thickness={1} Transparency={selected ? 0.3 : 0.78} />
-			<frame Size={new UDim2(0, 4, 1, -14)} Position={UDim2.fromOffset(0, 7)} BackgroundColor3={accent} BorderSizePixel={0}>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-			</frame>
-			<Text
-				value={entry.Label}
-				size={12}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={9}
-				position={UDim2.fromOffset(15, math.floor((COMMAND_ROW - 22) / 2))}
-				sizeConstraint={new UDim2(1, -40, 0, 16)}
-			/>
-			{/* category reads from the edge bar; dangerous commands get a small lock dot instead of a word */}
-			{arm && (
-				<frame
-					Size={UDim2.fromOffset(6, 6)}
-					Position={new UDim2(1, -16, 0.5, 0)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundColor3={Palette.mango}
-					BorderSizePixel={0}
-				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-				</frame>
-			)}
-		</textbutton>
-	);
-}
-
-function AuditLine(props: { record: AuditRecord }) {
-	const record = props.record;
-	return (
-		<frame Size={new UDim2(1, 0, 0, 24)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true}>
-			<Text
-				value={record.Command}
-				size={10}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={8}
-				sizeConstraint={new UDim2(0.42, -4, 1, 0)}
-			/>
-			<Text
-				value={`${record.ActorName} to ${record.TargetName}`}
-				size={9}
-				color={Palette.cyan}
-				fit={true}
-				minSize={8}
-				position={new UDim2(0.42, 4, 0, 0)}
-				sizeConstraint={new UDim2(0.58, -4, 1, 0)}
-			/>
-		</frame>
-	);
-}
-
-function levelColor(level?: string) {
-	if (level === "kick") return Palette.coral;
-	if (level === "throttle") return Palette.mango;
-	return Palette.muted;
-}
-
-function clockTime(at?: number) {
-	return at !== undefined ? os.date("%H:%M", at) : "--:--";
-}
-
-/** Two-column line in the same shape as AuditLine. */
-function OpsLine(props: { left: string; right: string; accent?: Color3; rightColor?: Color3; layoutOrder?: number }) {
-	return (
-		<frame Size={new UDim2(1, 0, 0, OPS_LINE)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={true} LayoutOrder={props.layoutOrder}>
-			<Text
-				value={props.left}
-				size={10}
-				color={props.accent ?? Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={8}
-				sizeConstraint={new UDim2(0.5, -4, 1, 0)}
-			/>
-			<Text
-				value={props.right}
-				size={9}
-				color={props.rightColor ?? Palette.cyan}
-				fit={true}
-				minSize={8}
-				position={new UDim2(0.5, 4, 0, 0)}
-				sizeConstraint={new UDim2(0.5, -4, 1, 0)}
-			/>
-		</frame>
-	);
-}
-
-function OpsPanel(props: {
-	title: string;
-	accent: Color3;
-	empty: string;
-	layoutOrder: number;
-	onBack?: () => void;
-	children?: React.Element[];
-}) {
-	const rows = props.children ?? [];
-	return (
-		<Panel size={new UDim2(0.25, -GAP * 0.75, 1, 0)} accent={props.accent} background={Palette.panel} padding={12} layoutOrder={props.layoutOrder} clips={false}>
-			<SectionTitle value={props.title} accent={props.accent} />
-			{props.onBack !== undefined && (
-				<Button
-					text="BACK"
-					onClick={props.onBack}
-					color={Palette.panelSoft}
-					textColor={props.accent}
-					outline={true}
-					size={UDim2.fromOffset(56, 18)}
-					position={new UDim2(1, -56, 0, -2)}
-				/>
-			)}
-			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
-				{rows.size() === 0 ? (
-					<Text value={props.empty} size={11} color={Palette.muted} position={UDim2.fromOffset(0, 6)} sizeConstraint={new UDim2(1, 0, 0, 18)} />
-				) : (
-					rows
-				)}
-			</frame>
-		</Panel>
-	);
-}
-
-function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) {
-	const admin = state.Admin!;
+function AdminViewReady(props: AdminProps & { admin: NonNullable<AdminProps["state"]["Admin"]> }) {
+	const { admin, config, dispatch } = props;
+	const reduced = props.reducedMotion === true;
 	const antilag = useAntilag();
-	const softMotion = reducedMotion;
+	const enter = useEntrance(reduced);
 
-	const [targetId, setTargetId] = React.useState<number>(
-		(admin && admin.SelfUserId) ?? (admin && admin.Online && admin.Online[0] && admin.Online[0].UserId) ?? 0,
-	);
-	const [command, setCommand] = React.useState<string>(
-		(admin && admin.Commands && admin.Commands[0] && admin.Commands[0].Id) ?? "GrantFlux",
-	);
+	const commands = admin.Commands ?? [];
+	const online = admin.Online ?? [];
+	const [tab, setTab] = React.useState("Console");
+	const [width, setWidth] = React.useState(1000);
+	const [targetId, setTargetId] = React.useState<number>(admin.SelfUserId ?? online[0]?.UserId ?? 0);
+	const [lockToken, setLockToken] = React.useState(0);
+	const [command, setCommand] = React.useState<string>(commands.find((entry) => entry.Id === "GrantFlux")?.Id ?? commands[0]?.Id ?? "GrantFlux");
 	const [category, setCategory] = React.useState("All");
 	const [playerQuery, setPlayerQuery] = React.useState("");
 	const [commandQuery, setCommandQuery] = React.useState("");
 	const [amount, setAmount] = React.useState("1000");
 	const [option, setOption] = React.useState("");
 	const [reason, setReason] = React.useState(reasonsFor("GrantFlux", "Economy")[0].id);
-	const [armed, setArmed] = React.useState(false);
-	const [busy, setBusy] = React.useState(false);
-	const busyRef = React.useRef(false);
-	const [shakeToken, setShakeToken] = React.useState(0);
-	const [lastNote, setLastNote] = React.useState((admin && admin.LastAction && admin.LastAction.Message) ?? "");
-	const [lastOk, setLastOk] = React.useState<boolean>((admin && admin.LastAction && admin.LastAction.Ok) || true);
 	const [previewLines, setPreviewLines] = React.useState<string[]>([]);
-	const [lookup, setLookup] = React.useState<LookupResult | undefined>(undefined);
-	const mountedRef = React.useRef(true);
-	const executeAttempt = React.useRef(0);
-	const enter = useEntrance(softMotion);
-	const toolsReveal = useStagger(0, softMotion);
+	const [recents, setRecents] = React.useState<string[]>([]);
+	const [lookup, setLookup] = React.useState<LookupResult>();
+	const [stamp, setStamp] = React.useState<{ ok: boolean; text: string; token: number }>();
+	const [shakeToken, setShakeToken] = React.useState(0);
 
-	React.useEffect(() => {
-		return () => {
-			mountedRef.current = false;
-			executeAttempt.current += 1;
-		};
-	}, []);
-
-	React.useEffect(() => {
-		if (targetId === 0 && admin && admin.SelfUserId !== undefined) {
-			setTargetId(admin.SelfUserId);
-		}
-	}, [admin && admin.SelfUserId, targetId]);
-
-	React.useEffect(() => {
-		const online = (admin && admin.Online) || [];
-		if (online.size() === 0) return;
-		let found = false;
-		for (const p of online) {
-			if (p.UserId === targetId) {
-				found = true;
-				break;
+	const runner = useRunner(dispatch, (ran) => {
+		setRecents((previous) => {
+			const ordered = [ran];
+			for (const id of previous) {
+				if (id !== ran && ordered.size() < MAX_RECENT) ordered.push(id);
 			}
-		}
-		if (!found) {
-			setTargetId((admin && admin.SelfUserId) ?? online[0].UserId);
-		}
-	}, [admin && admin.Online, admin && admin.SelfUserId, targetId]);
+			return ordered;
+		});
+	});
 
-	React.useEffect(() => {
-		const commands = (admin && admin.Commands) || [];
-		if (commands.size() === 0) return;
-		let found = false;
-		for (const c of commands) {
-			if (c.Id === command) {
-				found = true;
-				break;
-			}
-		}
-		if (!found) {
-			setCommand(commands[0].Id ?? "GrantFlux");
-		}
-	}, [admin && admin.Commands, command]);
+	const selected = commands.find((entry) => entry.Id === command);
+	const target = online.find((player) => player.UserId === targetId);
+	const fields = fieldsFor(command, config, admin.Banned, selected?.Input);
+	const armed = needsArm(selected);
+	const accent = catAccent(selected?.Category);
+	const noTarget = NO_TARGET.has(command);
+	const reasonList = reasonsFor(command, selected?.Category);
+	// commands with a typed option (a flag name, a whisper) get a text field; the hint is the "(Option = ...)" part of the label
+	const typedOption = selected?.NeedsOption === true && !fields.usesOption;
+	const optionHint = (() => {
+		const [hint] = (selected?.Label ?? "").match("%(Option = ([^%)]+)%)");
+		return typeIs(hint, "string") ? hint : "a value";
+	})();
+	const optionMissing = selected?.NeedsOption === true && amount !== "Permanent" && option.gsub("%s", "")[0] === "";
+	const busy = runner.busyId !== undefined;
+	const runDisabled = busy || optionMissing || (fields.overridesTarget ? fields.amountChoices.size() === 0 : !noTarget && target === undefined) || reason.size() < 3;
+	const wide = width >= WIDE_AT;
 
+	// keep the selections valid as the server's lists change
 	React.useEffect(() => {
-		setArmed(false);
+		if (online.size() > 0 && !online.some((player) => player.UserId === targetId)) {
+			setTargetId(admin.SelfUserId ?? online[0].UserId);
+		}
+	}, [admin.Online, admin.SelfUserId, targetId]);
+	React.useEffect(() => {
+		if (commands.size() > 0 && !commands.some((entry) => entry.Id === command)) {
+			setCommand(commands[0].Id);
+		}
+	}, [admin.Commands, command]);
+	React.useEffect(() => {
 		setPreviewLines([]);
 	}, [amount, command, option, reason, targetId]);
-
 	React.useEffect(() => {
-		const layout = fieldsFor(command, config, admin && admin.Banned);
-		const commands = (admin && admin.Commands) || [];
-		let current: AdminCommand | undefined;
-		for (const c of commands) {
-			if (c.Id === command) {
-				current = c;
-				break;
-			}
-		}
-		const choices = reasonsFor(command, current && current.Category);
+		setLockToken((token) => token + 1);
+		setLookup(undefined);
+	}, [targetId]);
+	React.useEffect(() => {
+		const layout = fieldsFor(command, config, admin.Banned, selected?.Input);
 		setAmount(layout.defaultAmount);
 		setOption(layout.defaultOption);
-		setReason(choices[0] ? choices[0].id : "Owner gameplay administration");
+		setReason(reasonsFor(command, selected?.Category)[0]?.id ?? "Owner gameplay administration");
 		if (layout.overridesTarget && layout.defaultAmount !== "") {
 			const userId = tonumber(layout.defaultAmount);
 			if (userId !== undefined) setTargetId(userId);
 		}
 	}, [command]);
 
+	// the stamp lands when a real command answers, and lifts after a moment
+	const outcomeToken = runner.outcome?.token;
 	React.useEffect(() => {
-		if (!(admin && admin.LastAction)) return;
-		setLastNote(admin.LastAction.Message);
-		setLastOk(admin.LastAction.Ok);
-	}, [admin && admin.LastAction]);
-
-	const online = admin.Online ?? [];
-	const commands = admin.Commands ?? [];
-	const shownPlayers = online.filter((p) => hayHas(`${p.DisplayName} ${p.Name} ${p.UserId}`, playerQuery));
-	const shownCommands = commands.filter((c) => {
-		const catOk = category === "All" || (c.Category ?? "Economy") === category;
-		return catOk && hayHas(`${c.Id} ${c.Label} ${c.Category ?? ""}`, commandQuery);
-	});
-	const recent = admin.Recent ?? [];
-	const selected = commands.find((c) => c.Id === command);
-	const selectedPlayer = online.find((p) => p.UserId === targetId);
-	const fields = fieldsFor(command, config, admin.Banned);
-	const needsArm = commandNeedsArm(selected);
-	const accent = catAccent(selected && selected.Category);
-	const integrity = admin.Integrity;
-	const reasonChoices = reasonsFor(command, selected && selected.Category);
-	// commands with a free-text option (flag name, journal entry id) get a typed field; the hint comes from the
-	// "(Option = ...)" part of the server label
-	const typedOption = selected !== undefined && selected.NeedsOption === true && !fields.usesOption;
-	const optionHint = (() => {
-		const label = selected !== undefined ? selected.Label : "";
-		const [hint] = label.match("%(Option = ([^%)]+)%)");
-		return typeIs(hint, "string") ? hint : "Option";
-	})();
-	const optionMissing = selected !== undefined && selected.NeedsOption === true && amount !== "Permanent" && option.gsub("%s", "")[0] === "";
-	const fieldSlots = (fields.usesAmount ? 1 : 0) + (fields.usesOption || typedOption ? 1 : 0) + (needsArm ? 1 : 0);
+		const outcome = runner.outcome;
+		if (outcome === undefined || outcome.dryRun) {
+			return undefined;
+		}
+		setStamp({ ok: outcome.ok, text: outcome.ok ? "APPLIED" : "REFUSED", token: outcome.token });
+		if (!outcome.ok) {
+			setShakeToken((token) => token + 1);
+		}
+		const lift = task.delay(1.7, () => setStamp(undefined));
+		return () => {
+			pcall(task.cancel, lift);
+		};
+	}, [outcomeToken]);
 
 	const send = (dryRun: boolean) => {
-		busyRef.current = true;
-		setBusy(true);
-		const attempt = executeAttempt.current + 1;
-		executeAttempt.current = attempt;
-		Audio.play(dryRun ? "click" : "adminExecute");
 		const sendAmount = amount === "Permanent" ? "1" : amount !== "" ? amount : "1";
 		const sendOption = amount === "Permanent" ? "Permanent" : option;
-		const sendTarget = fields.overridesTarget ? (tonumber(amount) ?? targetId) : targetId;
-		dispatch(
-			"AdminExecute",
-			{
-				TargetUserId: sendTarget,
-				Command: command,
-				Amount: sendAmount,
-				Option: sendOption,
-				Reason: reason,
-				DryRun: dryRun,
-				Nonce: HttpService.GenerateGUID(false),
-			},
-			(response) => {
-				if (!mountedRef.current || executeAttempt.current !== attempt) return;
-				busyRef.current = false;
-				setBusy(false);
-				if (!dryRun) setArmed(false);
-				setLastOk(response.ok === true);
-				setLastNote(response.ok === true ? (response.message ?? "Done.") : (response.error ?? "Failed."));
-				setPreviewLines(dryRun && response.ok === true && typeIs(response.Preview, "table") ? (response.Preview as string[]) : []);
-				if (response.ok === true && typeIs(response.Lookup, "table")) setLookup(response.Lookup);
-				if (response.ok !== true) {
-					setShakeToken((t) => t + 1);
-				}
-			},
-		);
+		const sendTarget = fields.overridesTarget ? (tonumber(amount) ?? targetId) : noTarget ? 0 : targetId;
+		runner.run({ command, targetUserId: sendTarget, amount: sendAmount, option: sendOption, reason, dryRun }, (outcome) => {
+			setPreviewLines(outcome.dryRun && outcome.ok ? outcome.preview : []);
+			if (outcome.lookup !== undefined) setLookup(outcome.lookup);
+		});
 	};
 
-	const execute = () => {
-		if (busyRef.current) return;
-		if (needsArm && !armed) {
-			setArmed(true);
-			Audio.play("adminArm");
-			return;
+	// Studio only: drive the page from ReplicatedStorage attributes (the synthetic mouse is unreliable in a test session)
+	const sendRef = React.useRef(send);
+	sendRef.current = send;
+	React.useEffect(() => {
+		if (!game.GetService("RunService").IsStudio()) {
+			return undefined;
 		}
-		send(false);
+		const storage = game.GetService("ReplicatedStorage");
+		const apply = () => {
+			const wantedTab = storage.GetAttribute("AstralDevAdminTab");
+			if (typeIs(wantedTab, "string") && TABS.some((entry) => entry.id === wantedTab)) setTab(wantedTab);
+			const wantedCommand = storage.GetAttribute("AstralDevAdminCommand");
+			if (typeIs(wantedCommand, "string")) setCommand(wantedCommand);
+			const wantedTarget = storage.GetAttribute("AstralDevAdminTarget");
+			if (typeIs(wantedTarget, "number")) setTargetId(wantedTarget);
+			const wantedOption = storage.GetAttribute("AstralDevAdminOption");
+			if (typeIs(wantedOption, "string")) setOption(wantedOption);
+		};
+		apply();
+		let lastRun = storage.GetAttribute("AstralDevAdminRun");
+		const connections = [
+			storage.GetAttributeChangedSignal("AstralDevAdminTab").Connect(apply),
+			storage.GetAttributeChangedSignal("AstralDevAdminCommand").Connect(apply),
+			storage.GetAttributeChangedSignal("AstralDevAdminTarget").Connect(apply),
+			storage.GetAttributeChangedSignal("AstralDevAdminOption").Connect(apply),
+			storage.GetAttributeChangedSignal("AstralDevAdminRun").Connect(() => {
+				const marker = storage.GetAttribute("AstralDevAdminRun");
+				if (marker !== lastRun) {
+					lastRun = marker;
+					// a marker that starts with "dry" asks for a preview instead of a real run
+					const dry = typeIs(marker, "string") && marker.sub(1, 3) === "dry";
+					task.defer(() => sendRef.current(dry));
+				}
+			}),
+		];
+		return () => {
+			for (const connection of connections) connection.Disconnect();
+		};
+	}, []);
+
+	const ctx: AdminContext = {
+		admin,
+		config,
+		dispatch,
+		runner,
+		commands,
+		online,
+		targetId,
+		setTargetId,
+		target,
+		width,
+		wide,
+		reducedMotion: reduced,
+		has: (id) => commands.some((entry) => entry.Id === id),
 	};
 
-	const preview = () => {
-		if (busyRef.current) return;
-		send(true);
-	};
-
-	const runDisabled =
-		busy ||
-		optionMissing ||
-		(fields.overridesTarget ? fields.amountChoices.size() === 0 : targetId === 0) ||
-		(needsArm && reason.size() < 3);
-	const runLabel = busy ? "APPLYING…" : needsArm && !armed ? "ARM" : "RUN";
-	const runColor = busy ? Palette.panelSoft : needsArm && armed ? Palette.coral : needsArm ? Palette.mango : Palette.mint;
-
-	const FIELD_H = 50;
-	const EXEC_TITLE = 42;
-	const EXEC_BUTTON = 46;
-	const EXEC_NOTE = 36 + math.min(previewLines.size(), 6) * 14;
-	const executeH = EXEC_TITLE + math.max(0, fieldSlots) * FIELD_H + EXEC_BUTTON + EXEC_NOTE + 20;
-
-	const INSPECT_TITLE = 34;
-	const STAT_H = 40;
-	const STAT_GAP = 8;
-	const inspectH = INSPECT_TITLE + STAT_H * 2 + STAT_GAP + 26;
-	const unhealthy = (integrity && integrity.Healthy) === false;
-
-	const header = (
-		<Panel
-			size={new UDim2(1, 0, 0, HEADER_H)}
-			accent={Palette.coral}
-			background={Palette.panel}
-			padding={12}
-			layoutOrder={0}
-			reveal={enter}
-			reducedMotion={softMotion}
-			clips={false}
-		>
+	// ── masthead ───────────────────────────────────────────────────────────────
+	const playersShown = useCountUp(online.size(), reduced);
+	const telemetry = admin.Telemetry;
+	const ticker = runner.outcome?.text ?? admin.LastAction?.Message ?? "Ready. Pick a target and a command.";
+	const tickerOk = runner.outcome?.ok ?? admin.LastAction?.Ok ?? true;
+	const typedTicker = useTypewriter(ticker, reduced);
+	const unhealthy = admin.Integrity?.Healthy === false;
+	const mastheadH = wide ? 156 : 232;
+	const masthead = (
+		<Panel size={new UDim2(1, 0, 0, mastheadH)} accent={Palette.coral} background={Palette.panelRaised} padding={16} layoutOrder={1} reveal={enter} reducedMotion={reduced} clips={false}>
+			<SectionTitle value="ASTRAL FORGE  ·  STAFF" accent={Palette.coral} />
 			<Text
-				value="Owner Console"
-				size={16}
+				value="Control Room"
+				size={24}
 				color={Palette.cream}
 				weight={Enum.FontWeight.Heavy}
-				fit={false}
-				position={UDim2.fromOffset(0, 6)}
-				sizeConstraint={new UDim2(1, -112, 0, 22)}
+				position={UDim2.fromOffset(0, 18)}
+				sizeConstraint={new UDim2(wide ? 0.5 : 1, 0, 0, 32)}
 			/>
-			<frame Size={new UDim2(1, 0, 0, 22)} Position={UDim2.fromOffset(0, 36)} BackgroundTransparency={1}>
-				<uilistlayout
-					FillDirection={Enum.FillDirection.Horizontal}
-					Padding={new UDim(0, 6)}
-					SortOrder={Enum.SortOrder.LayoutOrder}
-					VerticalAlignment={Enum.VerticalAlignment.Center}
+			<frame Size={new UDim2(wide ? 0.5 : 1, 0, 0, 24)} Position={UDim2.fromOffset(0, 56)} BackgroundTransparency={1}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 8)} SortOrder={Enum.SortOrder.LayoutOrder} VerticalAlignment={Enum.VerticalAlignment.Center} />
+				<Badge value={string.upper(admin.Role ?? "ADMIN")} accent={Palette.coral} filled={true} size={UDim2.fromOffset(150, 24)} layoutOrder={1} />
+				<Badge value={unhealthy ? "RESTORED SAVE" : "SAVES HEALTHY"} accent={unhealthy ? Palette.mango : Palette.mint} filled={true} size={UDim2.fromOffset(132, 24)} layoutOrder={2} />
+			</frame>
+			<frame
+				Size={wide ? new UDim2(0.5, -16, 0, 74) : new UDim2(1, 0, 0, 74)}
+				Position={wide ? new UDim2(0.5, 16, 0, 0) : UDim2.fromOffset(0, 94)}
+				BackgroundTransparency={1}
+			>
+				<uigridlayout CellSize={new UDim2(1 / 3, -9, 1, 0)} CellPadding={UDim2.fromOffset(12, 0)} SortOrder={Enum.SortOrder.LayoutOrder} />
+				<StatTile label="ONLINE" value={tostring(math.floor(playersShown + 0.5))} accent={Palette.mint} layoutOrder={1} index={0} reducedMotion={reduced} />
+				<StatTile label="LOGGED" value={tostring((admin.Recent ?? []).size())} accent={Palette.cyan} layoutOrder={2} index={1} reducedMotion={reduced} />
+				<StatTile label="SERVER UP" value={uptimeText(telemetry?.UptimeSeconds ?? 0)} accent={Palette.violet} layoutOrder={3} index={2} reducedMotion={reduced} />
+			</frame>
+			<frame Size={new UDim2(1, -112, 0, 22)} Position={new UDim2(0, 0, 1, -30)} BackgroundTransparency={1}>
+				<frame Size={UDim2.fromOffset(8, 8)} Position={UDim2.fromOffset(0, 7)} BackgroundColor3={tickerOk ? Palette.mint : Palette.coral} BorderSizePixel={0}>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+				</frame>
+				<Text
+					value={typedTicker}
+					size={12}
+					color={tickerOk ? Palette.creamSoft : Palette.coral}
+					fit={true}
+					minSize={11}
+					position={UDim2.fromOffset(18, 0)}
+					sizeConstraint={new UDim2(1, -18, 0, 22)}
 				/>
-				<Badge value={admin.Role ?? "ADMIN"} accent={Palette.coral} filled={true} size={UDim2.fromOffset(108, 22)} />
-				<Badge
-					value={unhealthy ? "RESTORED" : "HEALTHY"}
-					accent={unhealthy ? Palette.mango : Palette.mint}
-					filled={true}
-					size={UDim2.fromOffset(84, 22)}
+			</frame>
+			<Button
+				text="REFRESH"
+				onClick={() => dispatch("GetAdminState")}
+				color={Palette.panelSoft}
+				textColor={Palette.mint}
+				outline={true}
+				size={UDim2.fromOffset(100, 28)}
+				position={new UDim2(1, -100, 1, -32)}
+				reducedMotion={reduced}
+			/>
+			<ScanLine accent={Palette.coral} position={new UDim2(0, 0, 1, -2)} />
+		</Panel>
+	);
+
+	// five tabs fit one row from about 520px up; below that they wrap to two rows and the rail grows to hold them
+	const railRows = width >= 520 ? 1 : 2;
+	const tabRail = (
+		<Panel size={new UDim2(1, 0, 0, railRows === 1 ? 52 : 104)} accent={Palette.cyan} background={Palette.panel} padding={6} layoutOrder={2} reducedMotion={reduced}>
+			<SegmentedTabs
+				options={TABS}
+				value={tab}
+				onChange={(id: string) => setTab(id)}
+				accent={Palette.coral}
+				columns={railRows === 1 ? TABS.size() : 3}
+				gap={4}
+				size={UDim2.fromScale(1, 1)}
+				reducedMotion={reduced}
+			/>
+		</Panel>
+	);
+
+	// ── console: target ────────────────────────────────────────────────────────
+	const shownPlayers = online.filter((player) => hayHas(`${player.DisplayName} ${player.Name} ${player.UserId}`, playerQuery));
+	const playerListH = math.min(PLAYER_LIST_MAX_H, math.max(shownPlayers.size(), 1) * (PLAYER_ROW + 6));
+	const statCell = (label: string, value: string, tone: Color3, order: number) => (
+		<StatTile key={label} label={label} value={value} accent={tone} layoutOrder={order} index={order} reducedMotion={reduced} />
+	);
+	const lookupRows: React.Element[] = [];
+	if (lookup !== undefined) {
+		lookupRows.push(
+			<Text
+				key="lookup"
+				value={`${lookup.Name}  ·  security ${lookup.Score}  ·  ${string.upper(lookup.Level)}  ·  rev ${lookup.Revision ?? 0}`}
+				size={12}
+				color={lookup.Level === "kick" ? Palette.coral : lookup.Level === "throttle" ? Palette.mango : Palette.mint}
+				weight={Enum.FontWeight.Heavy}
+				fit={true}
+				minSize={11}
+				sizeConstraint={new UDim2(1, 0, 0, 18)}
+				layoutOrder={1}
+			/>,
+		);
+		const flags = lookup.Flags ?? [];
+		for (let i = 0; i < math.min(3, flags.size()); i++) {
+			lookupRows.push(
+				<Text key={`lf${i}`} value={`${flags[i].Kind}  ${flags[i].Detail}`} size={11} color={Palette.muted} fit={true} minSize={11} sizeConstraint={new UDim2(1, 0, 0, 16)} layoutOrder={2 + i} />,
+			);
+		}
+		lookupRows.push(
+			<Text key="lj" value={`${(lookup.Journal ?? []).size()} journal snapshots on file`} size={11} color={Palette.muted} fit={true} minSize={11} sizeConstraint={new UDim2(1, 0, 0, 16)} layoutOrder={9} />,
+		);
+	}
+	const targetPanel = (
+		<Panel size={new UDim2(1, 0, 0, 0)} autoHeight={true} accent={Palette.mint} background={Palette.panel} padding={16} layoutOrder={1} reducedMotion={reduced}>
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 12)} />
+			<SectionTitle value="TARGET" accent={Palette.mint} layoutOrder={1} />
+			<frame Size={new UDim2(1, 0, 0, 84)} BackgroundTransparency={1} LayoutOrder={2}>
+				<frame Size={UDim2.fromOffset(84, 84)} BackgroundTransparency={1}>
+					{target !== undefined && (
+						<imagelabel
+							AnchorPoint={new Vector2(0.5, 0.5)}
+							Position={UDim2.fromScale(0.5, 0.5)}
+							Size={UDim2.fromOffset(52, 52)}
+							BackgroundColor3={Palette.ink}
+							BorderSizePixel={0}
+							Image={headshot(target.UserId)}
+						>
+							<uicorner CornerRadius={new UDim(1, 0)} />
+						</imagelabel>
+					)}
+					{target !== undefined && <Reticle size={52} accent={Palette.mint} token={lockToken} reducedMotion={reduced} />}
+				</frame>
+				<Text
+					value={target !== undefined ? target.DisplayName : "No player selected"}
+					size={17}
+					color={Palette.cream}
+					weight={Enum.FontWeight.Heavy}
+					fit={true}
+					minSize={11}
+					position={UDim2.fromOffset(96, 14)}
+					sizeConstraint={new UDim2(1, -96, 0, 24)}
 				/>
-				{selectedPlayer && selectedPlayer.Unlimited === true && (
-					<frame Size={UDim2.fromOffset(88, 22)} BackgroundTransparency={1} BorderSizePixel={0} LayoutOrder={3}>
-						{/* last in the row: on narrow phones it gives up width instead of running past the edge */}
-						<uiflexitem FlexMode={Enum.UIFlexMode.Shrink} />
+				<Text
+					value={target !== undefined ? `@${target.Name}  ·  ${target.UserId}` : "Pick someone from the list below."}
+					size={12}
+					color={Palette.cyan}
+					fit={true}
+					minSize={11}
+					position={UDim2.fromOffset(96, 42)}
+					sizeConstraint={new UDim2(1, -96, 0, 18)}
+				/>
+				{target !== undefined && target.Unlimited === true && (
+					<frame Size={UDim2.fromOffset(92, 22)} Position={UDim2.fromOffset(96, 62)} BackgroundTransparency={1}>
 						<Badge value="UNLIMITED" accent={Palette.violet} filled={true} size={UDim2.fromScale(1, 1)} />
 					</frame>
 				)}
 			</frame>
-			<Button
-				text="REFRESH"
-				onClick={() => {
-					dispatch("GetAdminState");
-				}}
-				color={Palette.panelSoft}
-				textColor={Palette.mint}
-				outline={true}
-				size={UDim2.fromOffset(104, 32)}
-				position={new UDim2(1, -104, 0, 3)}
-				reducedMotion={softMotion}
-			/>
+			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={3}>
+				<uigridlayout
+					CellSize={new UDim2(0.25, -7, 0, 58)}
+					CellPadding={UDim2.fromOffset(8, 8)}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+					FillDirection={Enum.FillDirection.Horizontal}
+				/>
+				{statCell("FLUX", target !== undefined ? compactNumber(target.Cash ?? 0) : "--", Palette.cyan, 1)}
+				{statCell("VAULT", target !== undefined ? compactNumber(target.Vault ?? 0) : "--", Palette.mint, 2)}
+				{statCell("CORES", target !== undefined ? compactNumber(target.Cores ?? 0) : "--", Palette.violet, 3)}
+				{statCell("REBIRTH",target !== undefined ? compactNumber(target.Rebirths ?? 0) : "--", Palette.pink, 4)}
+				{statCell("WORLD", target !== undefined ? tostring(target.Zone ?? 1) : "--", Palette.mango, 5)}
+				{statCell("RATE", target !== undefined ? `${compactNumber(target.Production ?? 0)}/s` : "--", Palette.cyan, 6)}
+				{statCell("DUST", target !== undefined ? compactNumber(target.Stardust ?? 0) : "--", Palette.steel, 7)}
+				{statCell("KEYS", target !== undefined ? compactNumber(target.Keys ?? 0) : "--", Palette.violet, 8)}
+			</frame>
+			<frame Size={new UDim2(1, 0, 0, 38)} BackgroundTransparency={1} LayoutOrder={4}>
+				<Button
+					text={lookup !== undefined ? "LOOK UP AGAIN" : "LOOK UP SECURITY"}
+					onClick={() =>
+						runner.run(
+							{ command: "InspectPlayer", targetUserId: targetId, amount: "1", option: "", reason: "Moderation action", dryRun: false },
+							(outcome) => {
+								if (outcome.lookup !== undefined) setLookup(outcome.lookup);
+							},
+						)
+					}
+					color={Palette.panelSoft}
+					textColor={Palette.cream}
+					outline={true}
+					size={UDim2.fromScale(1, 1)}
+					disabled={busy || target === undefined}
+					loading={runner.busyId === "InspectPlayer"}
+					reducedMotion={reduced}
+				/>
+			</frame>
+			{lookupRows.size() > 0 && (
+				<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={5}>
+					<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
+					{lookupRows}
+				</frame>
+			)}
 		</Panel>
 	);
-
-	const listSize = new UDim2(1, 0, 1, -64);
-	const listPos = UDim2.fromOffset(0, 64);
-	const playerList =
-		shownPlayers.size() === 0 ? (
-			<frame Size={listSize} Position={listPos} BackgroundTransparency={1}>
-				<EmptyState icon="Search" title="No players match" body="Check the spelling or clear the search." compact={true} />
+	const rosterPanel = (
+		<Panel size={new UDim2(1, 0, 0, 0)} autoHeight={true} accent={Palette.cyan} background={Palette.panel} padding={16} layoutOrder={2} reducedMotion={reduced}>
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+			<SectionTitle value={`PLAYERS  ·  ${online.size()} HERE`} accent={Palette.cyan} layoutOrder={1} />
+			<frame Size={new UDim2(1, 0, 0, 40)} BackgroundTransparency={1} LayoutOrder={2}>
+				<SearchField value={playerQuery} onChange={setPlayerQuery} accent={Palette.cyan} placeholder="Search players…" size={UDim2.fromScale(1, 1)} reducedMotion={reduced} />
 			</frame>
-		) : (
-			<FlatList
-				data={shownPlayers}
-				itemHeight={PLAYER_ROW_STRIDE}
-				overscan={softMotion ? 0 : antilag.constrained ? 1 : 2}
-				canvasTail={4}
-				Size={listSize}
-				Position={listPos}
-				scrollBarColor={Palette.cyan}
-				scrollBarThickness={SCROLL_BAR}
-				keyExtractor={(player: AdminPlayer) => tostring(player.UserId)}
-				renderItem={({ item: player, index }: { item: AdminPlayer; index: number }) => (
-					<PlayerRow
-						player={player}
-						selected={player.UserId === targetId}
-						you={player.UserId === admin.SelfUserId}
-						onClick={() => setTargetId(player.UserId)}
-						layoutOrder={index + 1}
-						reducedMotion={softMotion}
-					/>
-				)}
-			/>
-		);
-	const playerSection = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.cyan} background={Palette.panel} padding={12} layoutOrder={1} clips={false}>
-			<SectionTitle value="Players" accent={Palette.cyan} />
-			<SearchField
-				value={playerQuery}
-				onChange={setPlayerQuery}
-				accent={Palette.cyan}
-				placeholder="Search players…"
-				size={new UDim2(1, 0, 0, 36)}
-				position={UDim2.fromOffset(0, 20)}
-				reducedMotion={softMotion}
-			/>
-			{playerList}
-		</Panel>
-	);
-
-	const pills = ADMIN_CATS.map((cat) => (
-		<Button
-			key={cat.id}
-			text={cat.label}
-			onClick={() => setCategory(cat.id)}
-			color={category === cat.id ? Palette.violet : Palette.panelSoft}
-			textColor={category === cat.id ? Palette.ink : Palette.creamSoft}
-			outline={category !== cat.id}
-			highlight={category === cat.id}
-			size={UDim2.fromOffset(62, 28)}
-			reducedMotion={softMotion}
-		/>
-	));
-	const commandSection = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.violet} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
-			<SectionTitle value="Commands" accent={Palette.violet} />
-			<SearchField
-				value={commandQuery}
-				onChange={setCommandQuery}
-				accent={Palette.violet}
-				placeholder="Search commands…"
-				size={new UDim2(1, 0, 0, 36)}
-				position={UDim2.fromOffset(0, 20)}
-				reducedMotion={softMotion}
-			/>
-			<frame Size={new UDim2(1, 0, 0, 30)} Position={UDim2.fromOffset(0, 62)} BackgroundTransparency={1} ClipsDescendants={true}>
-				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} Padding={new UDim(0, 6)} SortOrder={Enum.SortOrder.LayoutOrder} />
-				{pills}
-			</frame>
-			<frame Size={new UDim2(1, 0, 1, -100)} Position={UDim2.fromOffset(0, 100)} BackgroundTransparency={1}>
-				{shownCommands.size() === 0 ? (
-					<EmptyState icon="Command" title="No commands" body="Nothing matches that filter." compact={true} />
+			<frame Size={new UDim2(1, 0, 0, playerListH)} BackgroundTransparency={1} LayoutOrder={3}>
+				{shownPlayers.size() === 0 ? (
+					<EmptyState icon="Search" title="No players match" body="Check the spelling or clear the search." compact={true} />
 				) : (
 					<FlatList
-						data={shownCommands}
-						itemHeight={COMMAND_ROW_STRIDE}
-						overscan={softMotion ? 0 : antilag.constrained ? 1 : 2}
+						data={shownPlayers}
+						itemHeight={PLAYER_ROW + 6}
+						overscan={reduced ? 0 : antilag.tier <= 1 ? 1 : 2}
 						canvasTail={4}
 						Size={UDim2.fromScale(1, 1)}
-						scrollBarColor={Palette.violet}
-						scrollBarThickness={SCROLL_BAR}
-						keyExtractor={(entry: AdminCommand) => entry.Id}
-						renderItem={({ item: entry, index }: { item: AdminCommand; index: number }) => (
-							<CommandRow entry={entry} selected={entry.Id === command} onClick={() => setCommand(entry.Id)} layoutOrder={index + 1} />
+						scrollBarColor={Palette.cyan}
+						scrollBarThickness={4}
+						keyExtractor={(player: AdminPlayer) => tostring(player.UserId)}
+						renderItem={({ item: player, index }: { item: AdminPlayer; index: number }) => (
+							<PlayerRow
+								player={player}
+								selected={player.UserId === targetId}
+								you={player.UserId === admin.SelfUserId}
+								index={index}
+								onClick={() => setTargetId(player.UserId)}
+								reducedMotion={reduced}
+							/>
 						)}
 					/>
 				)}
@@ -804,130 +492,104 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 		</Panel>
 	);
 
-	const inspectSection = (
-		<Panel size={new UDim2(1, 0, 0, inspectH)} accent={Palette.mint} background={Palette.panel} padding={12} layoutOrder={0} clips={false}>
-			<SectionTitle value="Target" accent={Palette.mint} />
-			<Text
-				value={selectedPlayer ? `${selectedPlayer.DisplayName}  ·  ${selectedPlayer.UserId}` : "Select a player."}
-				size={12}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={9}
-				position={UDim2.fromOffset(0, 15)}
-				sizeConstraint={new UDim2(1, 0, 0, 16)}
-			/>
-			<frame Size={new UDim2(1, 0, 0, STAT_H * 2 + STAT_GAP)} Position={UDim2.fromOffset(0, INSPECT_TITLE)} BackgroundTransparency={1}>
-				<uigridlayout
-					CellSize={new UDim2(0.25, -6, 0, STAT_H)}
-					CellPadding={UDim2.fromOffset(STAT_GAP, STAT_GAP)}
-					SortOrder={Enum.SortOrder.LayoutOrder}
-					FillDirection={Enum.FillDirection.Horizontal}
-				/>
-				<StatCell label="CASH" value={selectedPlayer ? compactNumber(selectedPlayer.Cash ?? 0) : "--"} accent={Palette.cyan} />
-				<StatCell
-					label="VAULT"
-					value={selectedPlayer ? `${compactNumber(selectedPlayer.Vault ?? 0)}/${compactNumber(selectedPlayer.Capacity ?? 0)}` : "--"}
-					accent={Palette.mint}
-				/>
-				<StatCell label="CORES" value={selectedPlayer ? compactNumber(selectedPlayer.Cores ?? 0) : "--"} accent={Palette.violet} />
-				<StatCell label="REBIRTHS" value={selectedPlayer ? compactNumber(selectedPlayer.Rebirths ?? 0) : "--"} accent={Palette.pink} />
-				<StatCell label="WORLD" value={selectedPlayer ? tostring(selectedPlayer.Zone ?? 1) : "--"} accent={Palette.mango} />
-				<StatCell label="RATE" value={selectedPlayer ? `${compactNumber(selectedPlayer.Production ?? 0)}/s` : "--"} accent={Palette.cyan} />
-				<StatCell label="DUST" value={selectedPlayer ? compactNumber(selectedPlayer.Stardust ?? 0) : "--"} accent={Palette.steel} />
-				<StatCell label="KEYS" value={selectedPlayer ? compactNumber(selectedPlayer.Keys ?? 0) : "--"} accent={Palette.violet} />
-			</frame>
-		</Panel>
-	);
-
-	const executeActionsHostRef = React.useRef<Frame>();
-	React.useEffect(() => {
-		if (!UserInputService.GamepadEnabled) {
-			return undefined;
-		}
-		const host = executeActionsHostRef.current;
-		if (host === undefined) {
-			return undefined;
-		}
-		const selectJob = task.defer(() => {
-			if (host.Parent === undefined) {
-				return;
-			}
-			GamepadNavigationService.FocusClaim(host);
-		});
-		return () => {
-			pcall(task.cancel, selectJob);
-		};
-	}, [command, armed, busy, targetId]);
-
-	const shownPreview: string[] = [];
-	for (let i = 0; i < math.min(previewLines.size(), 6); i++) {
-		shownPreview.push(previewLines[i]);
-	}
-	const executeDock = (
-		<Panel
-			size={new UDim2(1, 0, 0, executeH)}
-			accent={armed ? Palette.coral : accent}
-			background={Palette.panelRaised}
-			padding={12}
-			layoutOrder={1}
-			highlight={armed}
-			reveal={toolsReveal}
-			reducedMotion={softMotion}
-			clips={false}
-		>
-			<SectionTitle value={needsArm ? "OFF" : "READY"} accent={armed ? Palette.coral : accent} />
-			<Text
-				value={(selected && selected.Label) ?? command}
-				size={15}
-				color={Palette.cream}
-				weight={Enum.FontWeight.Heavy}
-				fit={true}
-				minSize={10}
-				position={UDim2.fromOffset(0, 15)}
-				sizeConstraint={new UDim2(1, 0, 0, 20)}
-			/>
-			<frame
-				Size={new UDim2(1, 0, 0, math.max(0, fieldSlots * FIELD_H - 6))}
-				Position={UDim2.fromOffset(0, EXEC_TITLE)}
-				BackgroundTransparency={1}
-				ZIndex={50}
+	// ── console: runner and command list ───────────────────────────────────────
+	const outcome = runner.outcome;
+	const feedback =
+		optionMissing && !busy
+			? `Fill in ${optionHint} above before you run this.`
+			: outcome !== undefined && previewLines.size() === 0
+				? outcome.text
+				: previewLines.size() > 0
+					? "Preview of what would change:"
+					: armed
+						? "Hold the button to run. Preview first if you are unsure."
+						: "Preview, then run.";
+	const feedbackColor = optionMissing && !busy ? Palette.coral : outcome !== undefined && previewLines.size() === 0 ? (outcome.ok ? Palette.mint : Palette.coral) : Palette.muted;
+	const runnerPanel = (
+		<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={1}>
+			<Panel
+				size={new UDim2(1, 0, 0, 0)}
+				autoHeight={true}
+				accent={accent}
+				background={Palette.panelRaised}
+				padding={16}
+				highlight={outcome !== undefined && outcome.ok && !outcome.dryRun && stamp !== undefined}
+				reducedMotion={reduced}
 			>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+				<frame Size={new UDim2(1, 0, 0, 46)} BackgroundTransparency={1} LayoutOrder={1}>
+					<Text
+						value={plainLabel(selected?.Label ?? command)}
+						size={17}
+						color={Palette.cream}
+						weight={Enum.FontWeight.Heavy}
+						fit={true}
+						minSize={11}
+						sizeConstraint={new UDim2(1, -128, 0, 24)}
+					/>
+					<Text
+						value={`${CATEGORY_LABEL[selected?.Category ?? "Economy"] ?? "OTHER"}  ·  ${command}`}
+						size={11}
+						color={accent}
+						weight={Enum.FontWeight.Heavy}
+						fit={true}
+						minSize={11}
+						position={UDim2.fromOffset(0, 27)}
+						sizeConstraint={new UDim2(1, -128, 0, 16)}
+					/>
+					<frame Size={UDim2.fromOffset(120, 24)} Position={new UDim2(1, -120, 0, 0)} BackgroundTransparency={1}>
+						<Badge value={armed ? "HOLD TO RUN" : "ONE TAP"} accent={armed ? Palette.mango : Palette.mint} filled={true} size={UDim2.fromScale(1, 1)} />
+					</frame>
+				</frame>
+				<Text
+					value={selected?.Input?.Summary ?? ""}
+					size={12}
+					color={Palette.muted}
+					wrap={true}
+					fit={true}
+					minSize={11}
+					sizeConstraint={new UDim2(1, 0, 0, 32)}
+					layoutOrder={2}
+				/>
+				<frame Size={new UDim2(1, 0, 0, 30)} BackgroundTransparency={1} LayoutOrder={3}>
+					<Text value="TARGET" size={11} color={Palette.muted} weight={Enum.FontWeight.Heavy} fit={true} minSize={11} sizeConstraint={new UDim2(0, 56, 0, 30)} />
+					<Text
+						value={noTarget ? "Everyone, or the whole server" : fields.overridesTarget ? "Chosen below" : target !== undefined ? `${target.DisplayName}  ·  @${target.Name}` : "Pick a player on the left"}
+						size={13}
+						color={noTarget || fields.overridesTarget || target !== undefined ? Palette.cream : Palette.coral}
+						weight={Enum.FontWeight.Heavy}
+						fit={true}
+						minSize={11}
+						position={UDim2.fromOffset(62, 0)}
+						sizeConstraint={new UDim2(1, -62, 0, 30)}
+					/>
+				</frame>
 				{fields.usesAmount && (
-					<frame Size={new UDim2(1, 0, 0, FIELD_H - 6)} BackgroundTransparency={1} LayoutOrder={0} ZIndex={52}>
+					<Field label={string.upper(fields.amountLabel)} z={52} order={4}>
 						<Dropdown
 							options={fields.amountChoices}
 							value={amount}
 							onChange={(id: string) => {
 								setAmount(id);
 								if (fields.overridesTarget) {
-									const uid = tonumber(id);
-									if (uid !== undefined) setTargetId(uid);
+									const userId = tonumber(id);
+									if (userId !== undefined) setTargetId(userId);
 								}
 							}}
 							accent={Palette.mango}
 							size={UDim2.fromScale(1, 1)}
-							reducedMotion={softMotion}
+							reducedMotion={reduced}
 							zIndex={80}
 						/>
-					</frame>
+					</Field>
 				)}
 				{fields.usesOption && (
-					<frame Size={new UDim2(1, 0, 0, FIELD_H - 6)} BackgroundTransparency={1} LayoutOrder={1} ZIndex={51}>
-						<Dropdown
-							options={fields.optionChoices}
-							value={option}
-							onChange={setOption}
-							accent={Palette.cyan}
-							size={UDim2.fromScale(1, 1)}
-							reducedMotion={softMotion}
-							zIndex={70}
-						/>
-					</frame>
+					<Field label={string.upper(fields.optionLabel)} z={51} order={5}>
+						<Dropdown options={fields.optionChoices} value={option} onChange={setOption} accent={Palette.cyan} size={UDim2.fromScale(1, 1)} reducedMotion={reduced} zIndex={70} />
+					</Field>
 				)}
 				{typedOption && (
-					<frame Size={new UDim2(1, 0, 0, FIELD_H - 6)} BackgroundTransparency={1} LayoutOrder={1} ZIndex={51}>
+					<Field label={string.upper(optionHint)} z={51} order={5}>
 						<SearchField
 							value={option}
 							onChange={setOption}
@@ -936,245 +598,180 @@ function AdminViewReady({ state, config, dispatch, reducedMotion }: AdminProps) 
 							placeholder={`Needed: ${optionHint}`}
 							hint={optionMissing ? "Required" : undefined}
 							size={UDim2.fromScale(1, 1)}
-							reducedMotion={softMotion}
+							reducedMotion={reduced}
 						/>
-					</frame>
+					</Field>
 				)}
-				{needsArm && (
-					<frame Size={new UDim2(1, 0, 0, FIELD_H - 6)} BackgroundTransparency={1} LayoutOrder={2} ZIndex={50}>
-						<Dropdown
-							options={reasonChoices}
-							value={reason}
-							onChange={setReason}
-							accent={Palette.steel}
-							size={UDim2.fromScale(1, 1)}
-							reducedMotion={softMotion}
-							zIndex={60}
-						/>
-					</frame>
+				{armed && (
+					<Field label="LOGGED AS" z={50} order={6}>
+						<Dropdown options={reasonList} value={reason} onChange={setReason} accent={Palette.steel} size={UDim2.fromScale(1, 1)} reducedMotion={reduced} zIndex={60} />
+					</Field>
 				)}
-			</frame>
-			<frame
-				key="AdminExecuteActions"
-				Size={new UDim2(1, 0, 0, EXEC_BUTTON)}
-				Position={UDim2.fromOffset(0, EXEC_TITLE + fieldSlots * FIELD_H)}
-				BackgroundTransparency={1}
-				BorderSizePixel={0}
-				ClipsDescendants={false}
-				ref={executeActionsHostRef}
-			>
-				<frame key="AdminPreviewRun" Size={new UDim2(0.34, -5, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
+				<frame Size={new UDim2(1, 0, 0, 48)} BackgroundTransparency={1} LayoutOrder={7}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} VerticalAlignment={Enum.VerticalAlignment.Center} />
 					<Button
 						text="PREVIEW"
 						icon="Search.8"
-						onClick={preview}
+						onClick={() => send(true)}
 						color={Palette.panelSoft}
-						textColor={Palette.text}
-						size={new UDim2(1, 0, 0, 48)}
-						position={new UDim2(0, 0, 0.5, -24)}
+						textColor={Palette.cream}
+						size={new UDim2(0.34, -5, 0, 48)}
+						layoutOrder={1}
 						disabled={runDisabled}
-						reducedMotion={softMotion}
+						reducedMotion={reduced}
 					/>
+					{armed ? (
+						<HoldButton
+							text="HOLD TO RUN"
+							color={Palette.coral}
+							size={new UDim2(0.66, -5, 0, 48)}
+							layoutOrder={2}
+							disabled={runDisabled}
+							busy={runner.busyId === command}
+							shakeToken={shakeToken}
+							reducedMotion={reduced}
+							onComplete={() => send(false)}
+						/>
+					) : (
+						<Button
+							text="RUN"
+							onClick={() => send(false)}
+							color={Palette.mint}
+							textColor={Palette.ink}
+							size={new UDim2(0.66, -5, 0, 48)}
+							layoutOrder={2}
+							disabled={runDisabled}
+							loading={runner.busyId === command}
+							shakeToken={shakeToken}
+							highlight={true}
+							reducedMotion={reduced}
+						/>
+					)}
 				</frame>
-				<frame
-					key="AdminConfirmRun"
-					ClipsDescendants={false}
-					Size={new UDim2(0.66, -5, 1, 0)}
-					Position={UDim2.fromScale(0.34, 0).add(UDim2.fromOffset(5, 0))}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-				>
-					<Button
-						text={runLabel}
-						icon="Lock.16"
-						onClick={execute}
-						color={runColor}
-						textColor={Palette.ink}
-						size={new UDim2(1, 0, 0, 48)}
-						position={new UDim2(0, 0, 0.5, -24)}
-						disabled={runDisabled}
-						loading={busy}
-						shakeToken={shakeToken}
-						highlight={armed || !needsArm}
-						reducedMotion={softMotion}
-					/>
-				</frame>
-			</frame>
-			<Text
-				value={
-					(optionMissing
-						? `Fill in ${optionHint} above before you run this.`
-						: lastNote !== ""
-						? lastNote
-						: needsArm
-							? "Tap twice to run."
-							: "Preview, then run.") +
-					(previewLines.size() > 0 ? "\n• " + shownPreview.join("\n• ") : "")
-				}
-				size={9}
-				color={optionMissing ? Palette.coral : lastNote !== "" ? (lastOk ? Palette.mint : Palette.coral) : Palette.muted}
-				wrap={true}
-				fit={true} minSize={9}
-				position={new UDim2(0, 0, 1, -EXEC_NOTE + 4)}
-				sizeConstraint={new UDim2(1, 0, 0, EXEC_NOTE - 4)}
-			/>
-		</Panel>
+				<Text value={feedback} size={12} color={feedbackColor} wrap={true} fit={true} minSize={11} sizeConstraint={new UDim2(1, 0, 0, 34)} layoutOrder={8} />
+				{previewLines.size() > 0 && <PreviewLines lines={previewLines} reducedMotion={reduced} />}
+			</Panel>
+			{stamp !== undefined && <Stamp key={tostring(stamp.token)} ok={stamp.ok} text={stamp.text} position={new UDim2(0.5, 0, 0, 120)} reducedMotion={reduced} />}
+		</frame>
 	);
 
-	const auditRows: React.Element[] = [];
-	for (let i = 0; i < math.min(6, recent.size()); i++) {
-		auditRows.push(<AuditLine key={recent[i].Id} record={recent[i]} />);
+	const present: Record<string, number> = {};
+	for (const entry of commands) {
+		const key = entry.Category ?? "Economy";
+		present[key] = (present[key] ?? 0) + 1;
 	}
-	const recentSection = (
-		<Panel size={UDim2.fromScale(1, 1)} accent={Palette.steel} background={Palette.panel} padding={12} layoutOrder={2} clips={false}>
-			<SectionTitle value="Recent" accent={Palette.steel} />
-			<frame Size={new UDim2(1, 0, 1, -20)} Position={UDim2.fromOffset(0, 20)} BackgroundTransparency={1} ClipsDescendants={true}>
-				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 3)} />
-				{recent.size() === 0 ? (
-					<EmptyState icon="Command" title="No commands run yet" body="Anything you run shows up here." compact={true} />
+	const categories = CATEGORY_ORDER.filter((id) => present[id] !== undefined);
+	const shownCommands = commands.filter((entry) => {
+		const categoryOk = category === "All" || (entry.Category ?? "Economy") === category;
+		return categoryOk && hayHas(`${entry.Id} ${entry.Label} ${entry.Category ?? ""}`, commandQuery);
+	});
+	const commandPanel = (
+		<Panel size={new UDim2(1, 0, 0, 0)} autoHeight={true} accent={Palette.violet} background={Palette.panel} padding={16} layoutOrder={2} reducedMotion={reduced}>
+			<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 10)} />
+			<SectionTitle value={`COMMANDS  ·  ${shownCommands.size()} SHOWN`} accent={Palette.violet} layoutOrder={1} />
+			{recents.size() > 0 && (
+				<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={2}>
+					<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 0)} Wraps={true} VerticalAlignment={Enum.VerticalAlignment.Center} />
+					<Text value="RECENT" size={11} color={Palette.muted} weight={Enum.FontWeight.Heavy} fit={true} minSize={11} sizeConstraint={new UDim2(0, 56, 0, 30)} layoutOrder={0} />
+					{recents.map((id, index) => (
+						<Chip key={id} label={id} selected={id === command} accent={Palette.violet} onClick={() => setCommand(id)} layoutOrder={index + 1} />
+					))}
+				</frame>
+			)}
+			<frame Size={new UDim2(1, 0, 0, 40)} BackgroundTransparency={1} LayoutOrder={3}>
+				<SearchField value={commandQuery} onChange={setCommandQuery} accent={Palette.violet} placeholder="Search commands…" size={UDim2.fromScale(1, 1)} reducedMotion={reduced} />
+			</frame>
+			<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={4}>
+				<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 0)} Wraps={true} />
+				<Chip label="ALL" count={commands.size()} selected={category === "All"} accent={Palette.violet} onClick={() => setCategory("All")} layoutOrder={0} />
+				{categories.map((id, index) => (
+					<Chip key={id} label={CATEGORY_LABEL[id] ?? id} count={present[id]} selected={category === id} accent={catAccent(id)} onClick={() => setCategory(id)} layoutOrder={index + 1} />
+				))}
+			</frame>
+			<frame Size={new UDim2(1, 0, 0, COMMAND_LIST_H)} BackgroundTransparency={1} LayoutOrder={5}>
+				{shownCommands.size() === 0 ? (
+					<EmptyState icon="Command" title="No commands" body="Nothing matches that filter." compact={true} />
 				) : (
-					auditRows
+					<FlatList
+						data={shownCommands}
+						itemHeight={COMMAND_ROW + 6}
+						overscan={reduced ? 0 : antilag.tier <= 1 ? 1 : 2}
+						canvasTail={4}
+						Size={UDim2.fromScale(1, 1)}
+						scrollBarColor={Palette.violet}
+						scrollBarThickness={4}
+						keyExtractor={(entry: AdminCommand) => entry.Id}
+						renderItem={({ item: entry, index }: { item: AdminCommand; index: number }) => (
+							<CommandRow entry={entry} selected={entry.Id === command} armed={needsArm(entry)} index={index} onClick={() => setCommand(entry.Id)} reducedMotion={reduced} />
+						)}
+					/>
 				)}
 			</frame>
 		</Panel>
 	);
 
-	const MAX_OPS_ROWS = 7;
-	const securityRows: React.Element[] = [];
-	if (lookup !== undefined) {
-		securityRows.push(
-			<OpsLine key="lookup" left={`${lookup.Name} · ${lookup.Score}`} right={`${string.upper(lookup.Level)} · rev ${lookup.Revision ?? 0}`} accent={Palette.mint} rightColor={levelColor(lookup.Level)} layoutOrder={0} />,
-		);
-		const flags = lookup.Flags ?? [];
-		for (let i = 0; i < math.min(3, flags.size()); i++) {
-			securityRows.push(<OpsLine key={`lf${i}`} left={flags[i].Kind} right={`${clockTime(flags[i].At)} ${flags[i].Detail}`} rightColor={Palette.muted} layoutOrder={1 + i} />);
-		}
-		const journal = lookup.Journal ?? [];
-		for (let i = 0; i < math.min(MAX_OPS_ROWS - securityRows.size(), journal.size()); i++) {
-			securityRows.push(<OpsLine key={`lj${i}`} left={journal[i].Label ?? "Snapshot"} right={`${clockTime(journal[i].At)} · ${journal[i].Id}`} accent={Palette.steel} rightColor={Palette.muted} layoutOrder={10 + i} />);
-		}
-	} else {
-		const flagged = admin.SecurityPlayers ?? [];
-		for (let i = 0; i < math.min(MAX_OPS_ROWS, flagged.size()); i++) {
-			const row = flagged[i];
-			securityRows.push(
-				<OpsLine key={tostring(row.UserId)} left={`${row.Name} · ${row.Score}`} right={`${row.Flags}× ${row.LastKind}`} rightColor={levelColor(row.Level)} layoutOrder={i} />,
-			);
-		}		// newest flags fill the rest of the panel, then any rule that has had to repair a save
-		const recentFlags = admin.SecurityFlags ?? [];
-		for (let i = 0; i < recentFlags.size() && securityRows.size() < MAX_OPS_ROWS; i++) {
-			const flag = recentFlags[i];
-			securityRows.push(
-				<OpsLine key={`sf${i}`} left={`${flag.Kind} · ${flag.Name}`} right={`${clockTime(flag.At)} ${flag.Response ?? ""}`} accent={Palette.coral} rightColor={Palette.muted} layoutOrder={100 + i} />,
-			);
-		}
-		const rules = (admin.AntiCheatRules ?? []).filter((rule) => rule.Repairs > 0);
-		for (let i = 0; i < rules.size() && securityRows.size() < MAX_OPS_ROWS; i++) {
-			securityRows.push(
-				<OpsLine key={`ar${rules[i].Id}`} left={`rule ${rules[i].Id}`} right={`${compactNumber(rules[i].Repairs)} fixed`} accent={Palette.steel} rightColor={Palette.muted} layoutOrder={200 + i} />,
-			);
-		}
-	}
-	const flagRows = (admin.HotFlags ?? []).map((flag, i) => (
-		<OpsLine key={flag.Name} left={flag.Name} right={flag.On ? "ON" : "off"} accent={flag.On ? Palette.coral : Palette.cream} rightColor={flag.On ? Palette.coral : Palette.muted} layoutOrder={i} />
-	));
-	const announcementRows: React.Element[] = [];
-	const announcements = admin.Announcements ?? [];
-	for (let i = 0; i < math.min(MAX_OPS_ROWS, announcements.size()); i++) {
-		const a = announcements[i];
-		announcementRows.push(<OpsLine key={`${a.At}${i}`} left={a.Text} right={`${clockTime(a.At)} ${a.From}`} layoutOrder={i} />);
-	}
-	const economy = admin.Economy;
-	const economyRows: React.Element[] = [];
-	if (economy !== undefined) {
-		economyRows.push(<OpsLine key="p" left="Players" right={tostring(economy.Players ?? 0)} layoutOrder={0} />);
-		economyRows.push(<OpsLine key="c" left="Total Flux" right={compactNumber(economy.TotalCash ?? 0)} layoutOrder={1} />);
-		economyRows.push(<OpsLine key="r" left="Richest" right={compactNumber(economy.RichestCash ?? 0)} layoutOrder={2} />);
-		economyRows.push(<OpsLine key="m" left="Median rate" right={`${compactNumber(economy.MedianProduction ?? 0)}/s`} layoutOrder={3} />);
-		economyRows.push(<OpsLine key="b" left="Median rebirths" right={compactNumber(economy.MedianRebirths ?? 0)} layoutOrder={4} />);
-		const top = economy.TopActions ?? [];
-		for (let i = 0; i < math.min(2, top.size()); i++) {
-			economyRows.push(<OpsLine key={`t${i}`} left={top[i].Action} right={compactNumber(top[i].Count)} accent={Palette.steel} rightColor={Palette.muted} layoutOrder={5 + i} />);
-		}
-	}
-	const opsRow = (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0}>
-			<uisizeconstraint MinSize={new Vector2(CONSOLE_W, OPS_H)} />
-			<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, GAP)} />
-			<OpsPanel title={lookup !== undefined ? "LOOKUP" : "SECURITY"} accent={Palette.coral}
-				empty="No flagged players."
-				layoutOrder={1}
-				onBack={lookup !== undefined ? () => setLookup(undefined) : undefined}
-			>
-				{securityRows}
-			</OpsPanel>
-			<OpsPanel title="Live flags" accent={Palette.mango} empty="No flags." layoutOrder={2}>
-				{flagRows}
-			</OpsPanel>
-			<OpsPanel title="Announcements" accent={Palette.violet} empty="Nothing announced yet." layoutOrder={3}>
-				{announcementRows}
-			</OpsPanel>
-			<OpsPanel title="Economy" accent={Palette.cyan} empty="No live profiles." layoutOrder={4}>
-				{economyRows}
-			</OpsPanel>
-		</frame>
-	);
-
-	const BODY_H = inspectH + GAP + executeH + GAP + RECENT_MIN;
-	const consoleBody = (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ClipsDescendants={false}>
-			<uisizeconstraint MinSize={new Vector2(CONSOLE_W, BODY_H)} />
-			<frame Size={new UDim2(0, PLAYERS_W, 1, 0)} BackgroundTransparency={1}>
-				{playerSection}
-			</frame>
-			<frame Size={new UDim2(0, DETAIL_W, 1, 0)} Position={new UDim2(1, -DETAIL_W, 0, 0)} BackgroundTransparency={1}>
-				<frame Size={new UDim2(1, 0, 0, inspectH)} BackgroundTransparency={1}>
-					{inspectSection}
-				</frame>
-				<frame Size={new UDim2(1, 0, 0, executeH)} Position={UDim2.fromOffset(0, inspectH + GAP)} BackgroundTransparency={1}>
-					{executeDock}
-				</frame>
-				<frame
-					Size={new UDim2(1, 0, 1, -(inspectH + executeH + GAP * 2))}
-					Position={UDim2.fromOffset(0, inspectH + executeH + GAP * 2)}
-					BackgroundTransparency={1}
-					ClipsDescendants={true}
-				>
-					<uisizeconstraint MinSize={new Vector2(0, RECENT_MIN)} />
-					{recentSection}
-				</frame>
-			</frame>
-			<frame
-				Size={new UDim2(1, -(PLAYERS_W + DETAIL_W + GAP * 2), 1, 0)}
-				Position={UDim2.fromOffset(PLAYERS_W + GAP, 0)}
-				BackgroundTransparency={1}
-			>
-				{commandSection}
-			</frame>
-		</frame>
+	const consoleTab = (
+		<Split
+			wide={wide}
+			ratio={0.38}
+			order={3}
+			left={
+				<Col>
+					{targetPanel}
+					{rosterPanel}
+				</Col>
+			}
+			right={
+				<Col>
+					{runnerPanel}
+					{commandPanel}
+				</Col>
+			}
+		/>
 	);
 
 	return (
-		<PageScaffold
-			gap={GAP}
-			tailPad={8}
-			scrollBarColor={Palette.steel}
-			scrollBarThickness={4}
-			sections={[
-				{ id: "header", height: HEADER_H, element: header },
-				{ id: "console", fill: true, minHeight: BODY_H, element: consoleBody },
-				{ id: "ops", height: OPS_H, element: opsRow },
-			]}
-		/>
+		<AutoPage accent={Palette.coral}>
+			<frame
+				Size={new UDim2(1, 0, 0, 0)}
+				AutomaticSize={Enum.AutomaticSize.Y}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				Change={{ AbsoluteSize: (frame: Frame) => setWidth(math.floor(frame.AbsoluteSize.X)) }}
+			>
+				<uilistlayout FillDirection={Enum.FillDirection.Vertical} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, GAP)} />
+				{masthead}
+				{tabRail}
+				{tab === "Console" && consoleTab}
+				{tab === "Show" && (
+					<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={3}>
+						<ShowRoomTab ctx={ctx} />
+					</frame>
+				)}
+				{tab === "LiveOps" && (
+					<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={3}>
+						<LiveOpsTab ctx={ctx} />
+					</frame>
+				)}
+				{tab === "Telemetry" && (
+					<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={3}>
+						<TelemetryTab ctx={ctx} />
+					</frame>
+				)}
+				{tab === "Audit" && (
+					<frame Size={new UDim2(1, 0, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} LayoutOrder={3}>
+						<AuditTab ctx={ctx} />
+					</frame>
+				)}
+			</frame>
+		</AutoPage>
 	);
 }
 
 export function AdminView(props: AdminProps) {
 	const admin = props.state.Admin;
-	if (!(admin && admin.Access === true)) {
-		return (
-			<EmptyState icon="Lock.17" title="Owner tools locked" body="Only the game owner can open this page." accent={Palette.coral} />
-		);
+	if (!(admin !== undefined && admin.Access === true)) {
+		return <EmptyState icon="Lock.17" title="Owner tools locked" body="Only the game owner can open this page." accent={Palette.coral} />;
 	}
-	return <AdminViewReady {...props} />;
+	return <AdminViewReady {...props} admin={admin} />;
 }

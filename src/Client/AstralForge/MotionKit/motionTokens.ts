@@ -130,12 +130,15 @@ export function entranceSpring(duration: number, soft?: boolean): LuaTuple<[numb
 	return $tuple(frequency * 130 * (soft ? 0.82 : 1), 52);
 }
 
-export const STAGGER_STEP = 0.028;
-export const STAGGER_CAP = 0.16;
+// A list cascades over up to STAGGER_CAP seconds. The delay grows a little slower than linearly, so the
+// first rows are clearly one-after-another and a long list still finishes inside a third of a second
+// (the old curve hit its 0.16s cap by the sixth row, so most of a long list appeared at once).
+export const STAGGER_STEP = 0.034;
+export const STAGGER_CAP = 0.3;
 export function stagger(index: number, stepSize?: number): number {
 	const s = stepSize ?? STAGGER_STEP;
 	const i = math.max(0, index);
-	return math.min(STAGGER_CAP, s * i ** 1.12);
+	return math.min(STAGGER_CAP, s * i ** 0.92);
 }
 
 export const fx = {

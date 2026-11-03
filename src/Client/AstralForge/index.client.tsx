@@ -20,14 +20,31 @@ const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
 const VRService = game.GetService("VRService");
 
-function child(name: string): ModuleScript {
-	return script.FindFirstChild(name) as ModuleScript;
+function child(name: string): Instance {
+	return script.WaitForChild(name);
 }
 function kit<T>(name: string, member: string): T {
-	return (require(child(name)) as (member: string) => T)(member);
+	const target = script.WaitForChild(name);
+	if (target.IsA("ModuleScript")) {
+		const loader = require(target) as ((member: string) => T) | Record<string, unknown>;
+		if (typeIs(loader, "function")) {
+			return (loader as (member: string) => T)(member);
+		} else if (typeIs(loader, "table") && member in loader) {
+			return (loader as Record<string, unknown>)[member] as T;
+		}
+	}
+	const item = target.WaitForChild(member);
+	if (item.IsA("ModuleScript")) {
+		return require(item) as T;
+	}
+	return item as unknown as T;
 }
 function load<T>(name: string): T {
-	return require(child(name)) as T;
+	const target = script.WaitForChild(name);
+	if (target.IsA("ModuleScript")) {
+		return require(target) as T;
+	}
+	return target as unknown as T;
 }
 
 const MainGame = kit<{ MainGame: Loose }>("UiCore", "MainGame").MainGame;

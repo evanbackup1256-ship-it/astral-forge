@@ -842,7 +842,7 @@ function MobileControls(props: MobileControlsProps) {
 					},
 					h("uicorner", { CornerRadius: new UDim(1, 0) }),
 					text({
-						value: isLocked ? "L" : "+",
+						value: isLocked ? "" : "+",
 						size: 14,
 						color: Palette.ink,
 						weight: Enum.FontWeight.Heavy,
@@ -1062,10 +1062,10 @@ function MobileControls(props: MobileControlsProps) {
 		const sixth = new UDim2(1 / 6, -4, 1, 0);
 		const alignRow = row(
 			bottomBarY,
-			plain("L", () => alignSelected("left"), sixth),
-			plain("R", () => alignSelected("right"), sixth, new UDim2(1 / 6, 1, 0, 0)),
-			plain("T", () => alignSelected("top"), sixth, new UDim2(2 / 6, 2, 0, 0)),
-			plain("B", () => alignSelected("bottom"), sixth, new UDim2(3 / 6, 3, 0, 0)),
+			plain("LEFT", () => alignSelected("left"), sixth),
+			plain("RIGHT", () => alignSelected("right"), sixth, new UDim2(1 / 6, 1, 0, 0)),
+			plain("TOP", () => alignSelected("top"), sixth, new UDim2(2 / 6, 2, 0, 0)),
+			plain("BOTTOM", () => alignSelected("bottom"), sixth, new UDim2(3 / 6, 3, 0, 0)),
 			plain("CX", () => alignSelected("cx"), sixth, new UDim2(4 / 6, 4, 0, 0)),
 			plain("CY", () => alignSelected("cy"), sixth, new UDim2(5 / 6, 5, 0, 0)),
 		);

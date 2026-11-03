@@ -15,8 +15,8 @@ for verb in src:gmatch('verb: "([^"]+)"') do
 	assert(#verb <= 28, "status too long for one phone line: " .. verb)
 	assert(not verb:find("%.%.%."), "no trailing ellipsis in status: " .. verb)
 end
--- one progress indicator, tied to the ledger
-assert(select(2, src:gsub('Name: "BootProgress"', "")) == 1, "exactly one progress bar")
+-- one progress indicator (the percent under the astrolabe), tied to the ledger
+assert(select(2, src:gsub('Name: "BootPercent"', "")) == 1, "exactly one progress readout")
 assert(src:find("Ledger.read()", 1, true), "progress reads the boot ledger")
 assert(src:find("math.max(shownRef.current, stepped)", 1, true), "bar never moves backwards")
 -- reduced motion skips the fades

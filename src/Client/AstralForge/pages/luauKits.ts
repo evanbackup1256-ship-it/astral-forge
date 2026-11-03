@@ -5,13 +5,26 @@ import React from "@rbxts/react";
 
 export type LuauProps = { [key: string]: unknown; children?: React.ReactNode };
 export type LuauComponent = React.FunctionComponent<LuauProps>;
+export type LuaKit = (name: string) => unknown;
 
 const root = script.Parent!.Parent!;
 
 // require(script.Parent.Parent.<kit>)("<member>")
 export function kitMember<T>(kit: string, member: string): T {
-	const loader = require(root.WaitForChild(kit) as ModuleScript) as (name: string) => unknown;
-	return loader(member) as T;
+	const target = root.WaitForChild(kit);
+	if (target.IsA("ModuleScript")) {
+		const loader = require(target) as LuaKit | Record<string, unknown>;
+		if (typeIs(loader, "function")) {
+			return (loader as LuaKit)(member) as T;
+		} else if (typeIs(loader, "table") && member in loader) {
+			return (loader as Record<string, unknown>)[member] as T;
+		}
+	}
+	const child = target.WaitForChild(member);
+	if (child.IsA("ModuleScript")) {
+		return require(child) as T;
+	}
+	return child as unknown as T;
 }
 
 // require(script.Parent.Parent.<module>)

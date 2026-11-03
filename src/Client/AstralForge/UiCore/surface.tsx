@@ -1,4 +1,5 @@
-// Surfaces: the one look shared by Quick Find, Credits and tooltips.
+import { clamp01 } from "../CoreKit/easing";
+// Surfaces: the one look shared by Credits and other overlays.
 //
 // A surface is a flat panel on Palette.panel with a hairline edge, 14px corners and 14px padding.
 // Rows inside it are 44px or taller, sit 2px apart and light up with a tinted plate plus a 3px
@@ -27,7 +28,6 @@ export const SurfaceMetrics = {
 	rowGap: 4,
 	edgeW: 3,
 	chipH: 20,
-	keyH: 22,
 } as const;
 
 // type scale: eyebrow labels, row titles, body copy, small print, display names
@@ -80,7 +80,6 @@ export function useSurfaceEnter(reduced: boolean | undefined, delaySeconds = 0):
 	return useFlipperSpring(goal, reduced === true, SurfaceMotion.stiffness, SurfaceMotion.damping, reduced === true ? 1 : 0);
 }
 
-const clamp01 = (value: number) => math.clamp(value, 0, 1);
 
 // ── Surface ────────────────────────────────────────────────────────────────────
 
@@ -375,45 +374,6 @@ export function KindChip(props: { text: string; accent?: Color3; order?: number;
 			<uicorner CornerRadius={new UDim(1, 0)} />
 			<uipadding PaddingLeft={new UDim(0, 8)} PaddingRight={new UDim(0, 8)} />
 		</textlabel>
-	);
-}
-
-/** A key cap and what it does: [Esc] Close. */
-export function KeyHint(props: { keys: string; label: string; order?: number; zIndex?: number }) {
-	return (
-		<frame
-			Size={UDim2.fromOffset(0, 24)}
-			AutomaticSize={Enum.AutomaticSize.X}
-			LayoutOrder={props.order}
-			BackgroundTransparency={1}
-			ZIndex={props.zIndex}
-		>
-			<uilistlayout
-				FillDirection={Enum.FillDirection.Horizontal}
-				VerticalAlignment={Enum.VerticalAlignment.Center}
-				Padding={new UDim(0, 6)}
-				SortOrder={Enum.SortOrder.LayoutOrder}
-			/>
-			<textlabel
-				Size={UDim2.fromOffset(0, SurfaceMetrics.keyH)}
-				AutomaticSize={Enum.AutomaticSize.X}
-				LayoutOrder={1}
-				BackgroundColor3={Palette.panelRaised}
-				BorderSizePixel={0}
-				Text={props.keys}
-				FontFace={surfaceFont(SurfaceType.hint.weight)}
-				TextSize={12}
-				TextColor3={Palette.cream}
-				ZIndex={props.zIndex}
-			>
-				<uicorner CornerRadius={new UDim(0, Radius.sm)} />
-				<uistroke Color={Palette.lineSoft} Transparency={0.4} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
-				<uipadding PaddingLeft={new UDim(0, 7)} PaddingRight={new UDim(0, 7)} />
-			</textlabel>
-			{props.label !== "" && (
-				<SurfaceText text={props.label} type="small" color={Palette.creamSoft} autoSize={true} order={2} zIndex={props.zIndex} />
-			)}
-		</frame>
 	);
 }
 

@@ -1,26 +1,31 @@
-// Credits: everyone who made the game, read from SharedData#CreditsConfig through CreditsModel.
+import { clamp01 } from "../CoreKit/easing";
+// Credits: the Forge Reel. Everyone who made the game, read from SharedData#CreditsConfig through CreditsModel.
 //
-// Built from the shared surfaces (./surface) like Quick Find and tooltips: one base Surface, a
-// section rail on wide screens (chips on narrow ones), an inset spotlight for the person you're
-// looking at, and member rows that light up on the same spring. B or Esc closes, LB/RB change
-// section, and a tap outside the panel closes too.
+// The credits roll like a reel struck at the anvil. The title letters arrive white-hot and cool to
+// cream, each chapter draws its rule with a spark running down it, and every name plate is struck
+// into place as it scrolls into view (a heat flash across the plate, a bright sweep, then it settles).
+// Behind it a three-layer star field drifts at different depths against the scroll, and embers rise.
+// The reel rolls by itself and gives way the moment you touch the wheel, a drag or a chapter: it waits
+// a few seconds, then carries on. A chapter rail follows where you are, its marker stretching as it
+// travels. Tap a plate to cheer: sparks fly off the avatar. B or Esc closes, LB/RB change chapter, and
+// a tap outside the panel closes too. Reduced Motion drops the auto-roll, the drift and the embers.
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { ClientLog } from "../CoreKit/log";
 import { chromeFor, darken, Palette, TapTarget } from "../CoreKit/theme";
-import { revealOffset, usePresence, useViewport } from "../MotionKit/motion";
+import { useAntilag } from "../MotionKit/antilag";
+import { revealOffset, useFlipperSpring, usePresence, useViewport } from "../MotionKit/motion";
+import * as MotionTokens from "../MotionKit/motionTokens";
 import { Button, OverlayPresence, useGamepadAutofocus } from "./ui";
 import {
-	IconTile,
 	KindChip,
 	SearchField,
-	SectionLabel,
 	Surface,
 	SurfaceMetrics,
-	SurfaceMotion,
 	SurfaceRow,
 	SurfaceText,
+	surfaceFont,
 	useSurfaceEnter,
 	useSurfaceSpring,
 } from "./surface";
@@ -28,6 +33,7 @@ import {
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
 const UserInputService = game.GetService("UserInputService");
 const TextService = game.GetService("TextService");
+const RunService = game.GetService("RunService");
 
 const AstralForge = script.Parent!.Parent!;
 const loadKit = (name: string) => require(AstralForge.WaitForChild(name) as ModuleScript) as (member: string) => unknown;
@@ -36,13 +42,6 @@ interface AudioApi {
 	play(name: string): void;
 }
 const Audio = (loadKit("AudioKit")("audio") as { Audio: AudioApi }).Audio;
-const IconComponent = (loadKit("ArtKit")("Icon") as { Icon: unknown }).Icon as React.FC<{
-	kind: string;
-	color: Color3;
-	accent: Color3;
-	size: number;
-	spin: boolean;
-}>;
 
 interface Member {
 	UserId?: number;
@@ -109,6 +108,22 @@ const MODEL = CreditsModel.normalize(SharedData("CreditsConfig"));
 const GAP = SurfaceMetrics.gap;
 const CHIP_ROW_H = TapTarget;
 const RAIL_W = 196;
+const ROW_STEP = TapTarget + SurfaceMetrics.rowGap;
+
+// the reel
+const REEL_PAD = 14;
+const PLATE_GAP = 12;
+const HEAD_H = 84;
+const CHAPTER_GAP = 36;
+const FINALE_H = 250;
+const ROLL_SPEED = 30;
+const ROLL_RAMP = 1.5;
+const USER_PAUSE = 3.5;
+const CLOCK_STEP = 1 / 45;
+const JUMP_SECONDS = 0.6;
+const HOT = Color3.fromRGB(255, 168, 84);
+const WHITE_HOT = Color3.fromRGB(255, 244, 222);
+
 
 function tone(key: string, fallback: Color3): Color3 {
 	const color = (Palette as unknown as Record<string, unknown>)[key];
@@ -119,10 +134,11 @@ function memberKey(category: Category, member: Member): string {
 	return category.Id + ":" + member.Name;
 }
 
-interface Spot {
-	key: string;
-	member: Member;
-	category: Category;
+// the animated layers and the sparks are cosmetic; the guard has nothing to repair in them
+function ignoreGuard(instance: Instance | undefined) {
+	if (instance !== undefined) {
+		instance.SetAttribute("LayoutGuardIgnore", true);
+	}
 }
 
 // ── Live names ─────────────────────────────────────────────────────────────────
@@ -189,16 +205,171 @@ function namesOf(member: Member): LuaTuple<[string, string]> {
 	return $tuple(display, username);
 }
 
+// ── Reel plumbing ──────────────────────────────────────────────────────────────
+
+// where the reel is scrolled to, shared with everything that reveals as it comes into view
+interface Hub {
+	y: number;
+	h: number;
+	listeners: Set<(y: number) => void>;
+}
+
+// true while any part of [top, top + height] is inside the reel window; it lets go only once the block
+// is well clear of the window, so a block at the edge does not flicker between struck and unstruck
+function useInView(hub: Hub, top: number, height: number): boolean {
+	const decide = (y: number, previous: boolean): boolean => {
+		const bottom = y + hub.h;
+		if (top < bottom - hub.h * 0.06 && top + height > y) {
+			return true;
+		}
+		const far = top > bottom + hub.h * 0.5 || top + height < y - hub.h * 0.5;
+		return far ? false : previous;
+	};
+	const [seen, setSeen] = React.useState(() => decide(hub.y, false));
+	const last = React.useRef(seen);
+	React.useEffect(() => {
+		const listener = (y: number) => {
+			const nowSeen = decide(y, last.current);
+			if (nowSeen !== last.current) {
+				last.current = nowSeen;
+				setSeen(nowSeen);
+			}
+		};
+		hub.listeners.add(listener);
+		listener(hub.y);
+		return () => {
+			hub.listeners.delete(listener);
+		};
+	}, [top, height]);
+	return seen;
+}
+
+// 0 -> 1 on the bouncy spring once `seen` (after `delay`), back to 0 when it leaves; instant with reduced motion
+function useStrike(seen: boolean, reduced: boolean, delay: number): React.Binding<number> {
+	const [goal, setGoal] = React.useState(0);
+	React.useEffect(() => {
+		if (!seen) {
+			setGoal(0);
+			return undefined;
+		}
+		if (reduced || delay <= 0) {
+			setGoal(1);
+			return undefined;
+		}
+		const job = task.delay(delay, () => setGoal(1));
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, [seen]);
+	const spring = MotionTokens.SPRING.bouncy;
+	return useFlipperSpring(reduced ? 1 : goal, reduced, spring.stiffness, spring.damping, reduced ? 1 : 0);
+}
+
+// ── Backdrop: star field and embers ────────────────────────────────────────────
+
+interface Dot {
+	x: number;
+	y: number;
+	s: number;
+	a: number;
+}
+interface Ember {
+	x: number;
+	speed: number;
+	phase: number;
+	sway: number;
+	size: number;
+}
+const rng = new Random(11);
+const LAYER_SPECS = [
+	{ depth: 0.05, drift: 3, count: 18, size: 2, alpha: 0.7 },
+	{ depth: 0.11, drift: 7, count: 12, size: 2, alpha: 0.54 },
+	{ depth: 0.2, drift: 13, count: 8, size: 3, alpha: 0.4 },
+];
+const LAYERS = LAYER_SPECS.map((spec) => {
+	const dots: Dot[] = [];
+	for (let i = 0; i < spec.count; i++) {
+		dots.push({ x: rng.NextNumber(), y: rng.NextNumber(), s: spec.size + rng.NextInteger(0, 1), a: spec.alpha + rng.NextNumber() * 0.14 });
+	}
+	return { depth: spec.depth, drift: spec.drift, dots };
+});
+const EMBERS: Ember[] = [];
+for (let i = 0; i < 9; i++) {
+	EMBERS.push({ x: rng.NextNumber(), speed: 14 + rng.NextNumber() * 18, phase: rng.NextNumber(), sway: 0.6 + rng.NextNumber() * 1.1, size: 3 + rng.NextInteger(0, 1) });
+}
+
+function Backdrop(props: { width: number; height: number; scroll: React.Binding<number>; clock?: React.Binding<number> }) {
+	const { width, height, scroll, clock } = props;
+	const span = height + 60;
+	return (
+		<frame ref={ignoreGuard} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ClipsDescendants={true} ZIndex={1}>
+			{LAYERS.map((layer, li) => {
+				const offset =
+					clock !== undefined
+						? React.joinBindings({ s: scroll, t: clock }).map(({ s, t }) => (s * layer.depth + t * layer.drift) % height)
+						: scroll.map((s) => (s * layer.depth) % height);
+				const dots: React.Element[] = [];
+				for (const tile of [0, 1]) {
+					layer.dots.forEach((dot, di) => {
+						dots.push(
+							<frame
+								key={`${tile}:${di}`}
+								Size={UDim2.fromOffset(dot.s, dot.s)}
+								Position={UDim2.fromOffset(dot.x * width, dot.y * height + tile * height)}
+								BackgroundColor3={di % 4 === 0 ? HOT : Palette.cream}
+								BackgroundTransparency={1 - dot.a * 0.5}
+								BorderSizePixel={0}
+							>
+								<uicorner CornerRadius={new UDim(1, 0)} />
+							</frame>,
+						);
+					});
+				}
+				return (
+					<frame
+						key={`layer${li}`}
+						Size={UDim2.fromOffset(width, height * 2)}
+						Position={offset.map((o) => UDim2.fromOffset(0, -o))}
+						BackgroundTransparency={1}
+					>
+						{dots}
+					</frame>
+				);
+			})}
+			{clock !== undefined &&
+				EMBERS.map((ember, i) => (
+					<frame
+						key={`ember${i}`}
+						Size={UDim2.fromOffset(ember.size, ember.size)}
+						Position={clock.map((t) => {
+							const life = (t * ember.speed + ember.phase * span) % span;
+							return UDim2.fromOffset(ember.x * width + math.sin(t * ember.sway + ember.phase * 9) * 10, height - life);
+						})}
+						BackgroundColor3={i % 3 === 0 ? WHITE_HOT : HOT}
+						BackgroundTransparency={clock.map((t) => {
+							const life = ((t * ember.speed + ember.phase * span) % span) / span;
+							return 1 - 0.72 * math.sin(life * math.pi);
+						})}
+						BorderSizePixel={0}
+					>
+						<uicorner CornerRadius={new UDim(1, 0)} />
+					</frame>
+				))}
+		</frame>
+	);
+}
+
 // ── Avatar ─────────────────────────────────────────────────────────────────────
 
-// the member's initial, with their headshot loaded over it when they have a UserId
+// the member's initial, with their headshot loaded over it when they have a UserId; `ring` turns a
+// bright arc around the edge
 function Avatar(props: {
 	member: Member;
 	size: number;
 	accent: Color3;
 	position?: UDim2;
 	anchor?: Vector2;
-	pop?: React.Binding<number>;
+	ring?: React.Binding<number>;
 	zIndex: number;
 }) {
 	const member = props.member;
@@ -214,9 +385,24 @@ function Avatar(props: {
 			BorderSizePixel={0}
 			ZIndex={props.zIndex}
 		>
-			{props.pop !== undefined && <uiscale Scale={props.pop.map((v) => 1 + v * 0.06)} />}
 			<uicorner CornerRadius={radius} />
-			<uistroke Color={props.accent} Thickness={1} Transparency={0.7} />
+			<uistroke Color={props.accent} Thickness={props.ring !== undefined ? 2 : 1} Transparency={props.ring !== undefined ? 0.1 : 0.7}>
+				{props.ring !== undefined && (
+					<uigradient
+						Color={
+							new ColorSequence([
+								new ColorSequenceKeypoint(0, props.accent),
+								new ColorSequenceKeypoint(0.5, Palette.cream),
+								new ColorSequenceKeypoint(1, props.accent),
+							])
+						}
+						Transparency={
+							new NumberSequence([new NumberSequenceKeypoint(0, 0.65), new NumberSequenceKeypoint(0.5, 0), new NumberSequenceKeypoint(1, 0.65)])
+						}
+						Rotation={props.ring}
+					/>
+				)}
+			</uistroke>
 			<textlabel
 				Size={UDim2.fromScale(1, 1)}
 				BackgroundTransparency={1}
@@ -242,190 +428,477 @@ function Avatar(props: {
 	);
 }
 
-// ── Member row ─────────────────────────────────────────────────────────────────
+// ── Hero title ─────────────────────────────────────────────────────────────────
 
-function MemberRow(props: {
+function HeroLetter(props: { char: string; index: number; fontSize: number; reduced: boolean; seen: boolean; clock?: React.Binding<number> }) {
+	const p = useStrike(props.seen, props.reduced, 0.3 + props.index * 0.05);
+	const size = props.fontSize;
+	if (props.char === " ") {
+		return <frame Size={UDim2.fromOffset(size * 0.45, size)} LayoutOrder={props.index} BackgroundTransparency={1} />;
+	}
+	const index = props.index;
+	// white-hot as it lands, cooling to cream; once cool, a glint runs along the word now and then
+	const color =
+		props.clock !== undefined
+			? React.joinBindings({ p, t: props.clock }).map(({ p: a, t }) => {
+					const cool = HOT.Lerp(Palette.cream, clamp01(a) ** 1.6);
+					const glint = math.max(0, math.sin(t * 1.4 - index * 0.42)) ** 14;
+					return cool.Lerp(WHITE_HOT, glint * 0.85 * clamp01(a));
+				})
+			: p.map((a) => HOT.Lerp(Palette.cream, clamp01(a) ** 1.6));
+	return (
+		<frame Size={new UDim2(0, 0, 1, 0)} AutomaticSize={Enum.AutomaticSize.X} LayoutOrder={props.index} BackgroundTransparency={1}>
+			<textlabel
+				Size={new UDim2(0, 0, 1, 0)}
+				AutomaticSize={Enum.AutomaticSize.X}
+				Position={p.map((a) => UDim2.fromOffset(0, (1 - clamp01(a)) * 36))}
+				BackgroundTransparency={1}
+				Text={props.char}
+				FontFace={surfaceFont(Enum.FontWeight.Heavy)}
+				TextSize={size}
+				TextColor3={color}
+				TextTransparency={p.map((a) => 1 - math.clamp(a * 1.7, 0, 1))}
+			/>
+		</frame>
+	);
+}
+
+function Hero(props: { hub: Hub; top: number; width: number; height: number; subline: string; reduced: boolean; clock?: React.Binding<number> }) {
+	const seen = useInView(props.hub, props.top, props.height);
+	const p = useStrike(seen, props.reduced, 0.9);
+	const letters: React.Element[] = [];
+	const fontSize = props.width < 420 ? 34 : props.width < 600 ? 44 : 54;
+	let index = 0;
+	for (const [char] of string.gmatch(string.upper(MODEL.Title), utf8.charpattern)) {
+		letters.push(
+			<HeroLetter
+				key={`c${index}`}
+				char={char as string}
+				index={index}
+				fontSize={fontSize}
+				reduced={props.reduced}
+				seen={seen}
+				clock={seen ? props.clock : undefined}
+			/>,
+		);
+		index += 1;
+	}
+	const lineW = math.min(props.width - 40, 280);
+	return (
+		<frame
+			ref={ignoreGuard}
+			Size={UDim2.fromOffset(props.width, props.height)}
+			Position={UDim2.fromOffset(0, props.top)}
+			BackgroundTransparency={1}
+			ZIndex={2}
+		>
+			<frame Size={new UDim2(1, 0, 0, fontSize + 6)} Position={UDim2.fromOffset(0, 26)} BackgroundTransparency={1}>
+				<uilistlayout
+					FillDirection={Enum.FillDirection.Horizontal}
+					HorizontalAlignment={Enum.HorizontalAlignment.Center}
+					VerticalAlignment={Enum.VerticalAlignment.Center}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+					Padding={new UDim(0, math.floor(fontSize * 0.08))}
+				/>
+				{letters}
+			</frame>
+			{/* the forged rule: grows out from the middle, a diamond lands on it last */}
+			<frame
+				Size={p.map((a) => UDim2.fromOffset(lineW * clamp01(a), 2))}
+				Position={new UDim2(0.5, 0, 0, fontSize + 46)}
+				AnchorPoint={new Vector2(0.5, 0)}
+				BackgroundColor3={HOT}
+				BackgroundTransparency={0.35}
+				BorderSizePixel={0}
+			/>
+			<frame
+				Size={UDim2.fromOffset(9, 9)}
+				Position={new UDim2(0.5, 0, 0, fontSize + 46)}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				Rotation={45}
+				BackgroundColor3={WHITE_HOT}
+				BackgroundTransparency={p.map((a) => 1 - clamp01((a - 0.55) * 2.2))}
+				BorderSizePixel={0}
+			/>
+			{props.subline !== "" && (
+				<frame Size={new UDim2(1, 0, 0, 18)} Position={p.map((a) => UDim2.fromOffset(0, fontSize + 62 + (1 - clamp01(a)) * 10))} BackgroundTransparency={1}>
+					<SurfaceText
+						text={props.subline}
+						type="body"
+						color={Palette.creamSoft}
+						align={Enum.TextXAlignment.Center}
+						transparency={p.map((a) => 1 - clamp01(a * 1.3))}
+					/>
+				</frame>
+			)}
+		</frame>
+	);
+}
+
+// ── Chapter head ───────────────────────────────────────────────────────────────
+
+function ChapterHead(props: {
+	hub: Hub;
+	top: number;
+	width: number;
+	index: number;
+	category: Category;
+	accent: Color3;
+	reduced: boolean;
+}) {
+	const seen = useInView(props.hub, props.top, HEAD_H);
+	const p = useStrike(seen, props.reduced, 0);
+	const accent = props.accent;
+	const width = props.width;
+	return (
+		<frame Size={UDim2.fromOffset(width, HEAD_H)} Position={UDim2.fromOffset(0, props.top)} BackgroundTransparency={1} ZIndex={2}>
+			<textlabel
+				Size={UDim2.fromOffset(64, 48)}
+				Position={p.map((a) => UDim2.fromOffset(0, 6 + (1 - clamp01(a)) * 16))}
+				BackgroundTransparency={1}
+				Text={string.format("%02d", props.index)}
+				FontFace={surfaceFont(Enum.FontWeight.Heavy)}
+				TextSize={42}
+				TextColor3={accent}
+				TextTransparency={p.map((a) => 1 - 0.55 * clamp01(a))}
+				TextXAlignment={Enum.TextXAlignment.Left}
+			/>
+			<frame
+				Size={new UDim2(1, -74, 0, 30)}
+				Position={p.map((a) => UDim2.fromOffset(74 + (1 - clamp01(a)) * 24, 8))}
+				BackgroundTransparency={1}
+			>
+				<SurfaceText text={string.upper(props.category.Label)} type="display" transparency={p.map((a) => 1 - clamp01(a * 1.4))} />
+			</frame>
+			{props.category.Description !== "" && (
+				<frame Size={new UDim2(1, -74, 0, 18)} Position={UDim2.fromOffset(74, 40)} BackgroundTransparency={1}>
+					<SurfaceText
+						text={props.category.Description}
+						type="small"
+						color={Palette.muted}
+						transparency={p.map((a) => 1 - clamp01((a - 0.3) * 1.5))}
+					/>
+				</frame>
+			)}
+			<frame
+				Size={p.map((a) => UDim2.fromOffset(width * clamp01(a), 2))}
+				Position={UDim2.fromOffset(0, 70)}
+				BackgroundColor3={accent}
+				BackgroundTransparency={0.45}
+				BorderSizePixel={0}
+			/>
+			{/* the spark that draws the rule */}
+			<frame
+				Size={UDim2.fromOffset(8, 8)}
+				Position={p.map((a) => UDim2.fromOffset(width * clamp01(a) - 4, 67))}
+				BackgroundColor3={WHITE_HOT}
+				BackgroundTransparency={p.map((a) => 1 - math.sin(clamp01(a) * math.pi))}
+				BorderSizePixel={0}
+			>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+			</frame>
+		</frame>
+	);
+}
+
+// ── Cheer sparks ───────────────────────────────────────────────────────────────
+
+const SPARK_COUNT = 10;
+
+function Sparks(props: { x: number; y: number; accent: Color3 }) {
+	const [progress, setProgress] = React.useMemo(() => React.createBinding(0), []);
+	const [done, setDone] = React.useState(false);
+	React.useEffect(() => {
+		const started = os.clock();
+		const connection = RunService.Heartbeat.Connect(() => {
+			const a = (os.clock() - started) / 0.8;
+			if (a >= 1) {
+				connection.Disconnect();
+				setDone(true);
+				return;
+			}
+			setProgress(a);
+		});
+		return () => connection.Disconnect();
+	}, []);
+	if (done) {
+		return <></>;
+	}
+	const sparks: React.Element[] = [];
+	for (let i = 0; i < SPARK_COUNT; i++) {
+		const angle = (i / SPARK_COUNT) * math.pi * 2 + (i % 2) * 0.3;
+		const reach = 52 + (i % 3) * 16;
+		sparks.push(
+			<frame
+				key={`s${i}`}
+				ref={ignoreGuard}
+				Size={progress.map((a) => UDim2.fromOffset(math.max(1, 6 * (1 - a)), math.max(1, 6 * (1 - a))))}
+				Position={progress.map((a) => {
+					const out = 1 - (1 - a) ** 3;
+					return UDim2.fromOffset(props.x + math.cos(angle) * reach * out, props.y + math.sin(angle) * reach * out + 26 * a * a);
+				})}
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				BackgroundColor3={i % 2 === 0 ? WHITE_HOT : props.accent}
+				BackgroundTransparency={progress.map((a) => a ** 1.5)}
+				BorderSizePixel={0}
+				ZIndex={14}
+			>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+			</frame>,
+		);
+	}
+	return <>{sparks}</>;
+}
+
+// ── Name plate ─────────────────────────────────────────────────────────────────
+
+const cheers: Record<string, number> = {};
+
+function Plate(props: {
 	member: Member;
 	category: Category;
 	accent: Color3;
+	hub: Hub;
+	left: number;
+	top: number;
+	width: number;
 	height: number;
-	order: number;
 	delay: number;
-	spotted: boolean;
-	reducedMotion: boolean;
-	onSpot: (spot: Spot) => void;
+	reduced: boolean;
+	clock?: React.Binding<number>;
 }) {
 	const member = props.member;
+	const accent = props.accent;
+	const width = props.width;
+	const height = props.height;
+	const key = memberKey(props.category, member);
+	const seen = useInView(props.hub, props.top, height);
+	const p = useStrike(seen, props.reduced, props.delay);
 	const [hovered, setHovered] = React.useState(false);
-	// hover, gamepad selection and the spotlight share one spring, so they never fight
-	const lit = useSurfaceSpring(props.spotted ? 1 : hovered ? 0.55 : 0, props.reducedMotion);
-	const enter = useSurfaceEnter(props.reducedMotion, props.delay);
-	const fade = enter.map((a) => 1 - math.clamp(a, 0, 1));
+	const lit = useSurfaceSpring(hovered ? 1 : 0, props.reduced);
+	const [count, setCount] = React.useState(cheers[key] ?? 0);
+	const [burst, setBurst] = React.useState(0);
 	const [display, username] = namesOf(member);
-	const avatar = MODEL.ShowAvatars !== false ? math.min(MODEL.AvatarSize, props.height - 12) : 0;
-	const textX = avatar > 0 ? 12 + avatar + 12 : 14;
-	const spot = () =>
-		props.onSpot({
-			key: memberKey(props.category, member),
-			member,
-			category: props.category,
-		});
-	const second = [MODEL.ShowRoles !== false ? member.Role : "", MODEL.ShowUsernames !== false ? `@${username}` : ""]
-		.filter((part) => part !== "")
-		.join("  ·  ");
-	const showNote = MODEL.ShowNotes !== false && member.Note !== "" && props.height >= 72;
-	const top = showNote ? 10 : (props.height - (second !== "" ? 36 : 18)) / 2;
+	const avatar = MODEL.ShowAvatars !== false ? math.min(MODEL.AvatarSize, height - 28) : 0;
+	const textX = avatar > 0 ? 16 + avatar + 16 : 18;
+	const showNote = MODEL.ShowNotes !== false && member.Note !== "" && height >= 100;
+	const hasRole = MODEL.ShowRoles !== false && member.Role !== "";
+	const ring =
+		props.clock !== undefined && avatar > 0
+			? React.joinBindings({ t: props.clock, l: lit }).map(({ t, l }) => (t * (50 + 160 * l)) % 360)
+			: undefined;
+	const cheer = () => {
+		const total = (cheers[key] ?? 0) + 1;
+		cheers[key] = total;
+		setCount(total);
+		setBurst((current) => current + 1);
+		Audio.play("confirm");
+	};
 	return (
-		<SurfaceRow
-			height={props.height}
-			order={props.order}
-			accent={props.accent}
-			lit={lit}
-			enter={enter}
-			selectable={true}
-			zIndex={6}
-			events={{
-				MouseEnter: () => setHovered(true),
-				MouseLeave: () => setHovered(false),
-				SelectionGained: spot,
-				Activated: () => {
-					Audio.play("tick");
-					spot();
-				},
-			}}
+		<frame
+			Size={UDim2.fromOffset(width, height)}
+			Position={p.map((a) => UDim2.fromOffset(props.left, props.top + (1 - clamp01(a)) * 30))}
+			BackgroundTransparency={1}
+			ZIndex={2}
 		>
+			{/* the plate */}
+			<frame
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundColor3={darken(accent, 0.78)}
+				BackgroundTransparency={React.joinBindings({ p, l: lit }).map(({ p: a, l }) => 1 - (0.8 + 0.1 * l) * clamp01(a))}
+				BorderSizePixel={0}
+				ZIndex={1}
+			>
+				<uicorner CornerRadius={new UDim(0, 14)} />
+				<uistroke
+					Color={accent}
+					Thickness={1}
+					ApplyStrokeMode={Enum.ApplyStrokeMode.Border}
+					Transparency={React.joinBindings({ p, l: lit }).map(({ p: a, l }) => 1 - (0.2 + 0.3 * l) * clamp01(a))}
+				/>
+			</frame>
+			{/* heat: the plate flashes as it lands, then cools to its own colour */}
+			<frame
+				ref={ignoreGuard}
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundColor3={HOT}
+				BackgroundTransparency={p.map((a) => 1 - 0.34 * math.sin(clamp01(a) * math.pi))}
+				BorderSizePixel={0}
+				ZIndex={2}
+			>
+				<uicorner CornerRadius={new UDim(0, 14)} />
+			</frame>
+			{/* a bright sweep crosses the plate while it is struck */}
+			<frame ref={ignoreGuard} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ClipsDescendants={true} ZIndex={3}>
+				<uicorner CornerRadius={new UDim(0, 14)} />
+				<frame
+					Size={new UDim2(0, 64, 1, 0)}
+					Position={p.map((a) => UDim2.fromOffset(-80 + (width + 160) * clamp01(a / 0.9), 0))}
+					BackgroundColor3={WHITE_HOT}
+					BackgroundTransparency={p.map((a) => 1 - 0.55 * math.sin(clamp01(a) * math.pi))}
+					BorderSizePixel={0}
+				>
+					<uigradient
+						Transparency={
+							new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.5, 0), new NumberSequenceKeypoint(1, 1)])
+						}
+					/>
+				</frame>
+			</frame>
+			{/* accent edge: grows from the middle as the plate lands */}
+			<frame
+				Size={p.map((a) => new UDim2(0, 3, clamp01(a) * 0.62, 0))}
+				Position={new UDim2(0, 5, 0.5, 0)}
+				AnchorPoint={new Vector2(0, 0.5)}
+				BackgroundColor3={accent}
+				BorderSizePixel={0}
+				ZIndex={4}
+			>
+				<uicorner CornerRadius={new UDim(1, 0)} />
+			</frame>
 			{avatar > 0 && (
 				<Avatar
 					member={member}
 					size={avatar}
-					accent={props.accent}
-					position={new UDim2(0, 12, 0.5, 0)}
+					accent={accent}
+					position={new UDim2(0, 16, 0.5, 0)}
 					anchor={new Vector2(0, 0.5)}
-					zIndex={9}
+					ring={ring}
+					zIndex={5}
 				/>
 			)}
-			<SurfaceText
-				text={display}
-				type="title"
-				size={new UDim2(1, -(textX + 10), 0, 18)}
-				position={UDim2.fromOffset(textX, top)}
-				transparency={fade}
-				zIndex={9}
-			/>
-			{second !== "" && (
-				<SurfaceText
-					text={second}
-					type="small"
-					color={Palette.creamSoft}
-					size={new UDim2(1, -(textX + 10), 0, 15)}
-					position={UDim2.fromOffset(textX, top + 20)}
-					transparency={fade}
-					zIndex={9}
-				/>
-			)}
-			{showNote && (
-				<SurfaceText
-					text={member.Note}
-					type="small"
-					color={Palette.muted}
-					wrap={true}
-					fit={true}
-					size={new UDim2(1, -(textX + 10), 1, -(top + 40))}
-					position={UDim2.fromOffset(textX, top + 38)}
-					transparency={fade}
-					zIndex={9}
-				/>
-			)}
-		</SurfaceRow>
-	);
-}
-
-// ── Spotlight ──────────────────────────────────────────────────────────────────
-
-const cheers: Record<string, number> = {};
-
-// the person you're looking at, big: avatar, name, role, their note, and a cheer button
-function Spotlight(props: { spot: Spot; compact: boolean; reducedMotion: boolean }) {
-	const spot = props.spot;
-	const member = spot.member;
-	const accent = tone(spot.category.Accent, Palette.violet);
-	const [display, username] = namesOf(member);
-	const [popping, setPopping] = React.useState(false);
-	const pop = useSurfaceSpring(popping ? 1 : 0, props.reducedMotion);
-	const [count, setCount] = React.useState(cheers[spot.key] ?? 0);
-	const enter = useSurfaceEnter(props.reducedMotion, 0.001);
-	const fade = enter.map((a) => 1 - math.clamp(a, 0, 1));
-	const cheer = () => {
-		const total = (cheers[spot.key] ?? 0) + 1;
-		cheers[spot.key] = total;
-		setCount(total);
-		Audio.play("confirm");
-		setPopping(true);
-		task.delay(0.14, () => setPopping(false));
-	};
-	const avatar = props.compact ? 52 : 72;
-	const textX = avatar + 16;
-	const buttonW = props.compact ? 104 : 124;
-	const lineW = new UDim(1, -(textX + (props.compact ? 0 : buttonW + 12)));
-	return (
-		<frame Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={6}>
-			<Avatar member={member} size={avatar} accent={accent} pop={pop} zIndex={7} />
-			<SurfaceText
-				text={spot.category.Label}
-				type="label"
-				color={accent}
-				size={new UDim2(lineW, new UDim(0, 14))}
-				position={UDim2.fromOffset(textX, 0)}
-				transparency={fade}
-				zIndex={7}
-			/>
 			<SurfaceText
 				text={display}
 				type="display"
-				size={new UDim2(lineW, new UDim(0, 24))}
-				position={UDim2.fromOffset(textX, 16)}
-				transparency={fade}
-				zIndex={7}
+				size={new UDim2(1, -(textX + 16), 0, 28)}
+				position={UDim2.fromOffset(textX, 18)}
+				transparency={p.map((a) => 1 - clamp01(a * 1.5))}
+				zIndex={8}
 			/>
-			<SurfaceText
-				text={[MODEL.ShowRoles !== false ? member.Role : "", `@${username}`].filter((part) => part !== "").join("  ·  ")}
-				type="small"
-				color={Palette.creamSoft}
-				size={new UDim2(lineW, new UDim(0, 16))}
-				position={UDim2.fromOffset(textX, 42)}
-				transparency={fade}
-				zIndex={7}
-			/>
-			{!props.compact && member.Note !== "" && (
+			<frame Size={new UDim2(1, -(textX + 16), 0, 22)} Position={UDim2.fromOffset(textX, 50)} BackgroundTransparency={1} ZIndex={8}>
+				<uilistlayout
+					FillDirection={Enum.FillDirection.Horizontal}
+					VerticalAlignment={Enum.VerticalAlignment.Center}
+					SortOrder={Enum.SortOrder.LayoutOrder}
+					Padding={new UDim(0, 8)}
+				/>
+				{hasRole && <KindChip text={member.Role} accent={accent} order={1} zIndex={8} />}
+				{MODEL.ShowUsernames !== false && (
+					<SurfaceText text={`@${username}`} type="small" color={Palette.muted} autoSize={true} order={2} zIndex={8} />
+				)}
+			</frame>
+			{showNote && (
 				<SurfaceText
 					text={member.Note}
 					type="body"
 					color={Palette.creamSoft}
 					wrap={true}
 					fit={true}
-					size={new UDim2(lineW, new UDim(1, -62))}
-					position={UDim2.fromOffset(textX, 62)}
-					transparency={fade}
-					zIndex={7}
+					size={new UDim2(1, -(textX + 18), 0, height - 88)}
+					position={UDim2.fromOffset(textX, 78)}
+					transparency={p.map((a) => 1 - clamp01((a - 0.2) * 1.5))}
+					zIndex={8}
 				/>
 			)}
-			<Button
-				text={count > 0 ? `Cheer ×${count}` : "Cheer"}
-				icon="Wave.3"
-				onClick={cheer}
-				color={accent}
-				textColor={Palette.ink}
-				size={UDim2.fromOffset(buttonW, TapTarget)}
-				position={props.compact ? new UDim2(1, -buttonW, 1, -TapTarget) : new UDim2(1, -buttonW, 0.5, -TapTarget / 2)}
-				tooltip={{ title: "Cheer", body: "Just for fun. Nobody gets pinged." }}
-				reducedMotion={props.reducedMotion}
+			<SurfaceText
+				text={count > 0 ? `Cheered ×${count}` : "Tap to cheer"}
+				type="hint"
+				color={count > 0 ? accent : Palette.muted}
+				align={Enum.TextXAlignment.Right}
+				size={UDim2.fromOffset(120, 13)}
+				position={new UDim2(1, -134, 0, 5)}
 				zIndex={8}
+			/>
+			{burst > 0 && <Sparks key={`b${burst}`} x={16 + avatar / 2} y={height / 2} accent={accent} />}
+			{/* the whole plate is one tap target */}
+			<textbutton
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				AutoButtonColor={false}
+				Selectable={true}
+				Text=""
+				ZIndex={12}
+				Event={{
+					MouseEnter: () => setHovered(true),
+					MouseLeave: () => setHovered(false),
+					SelectionGained: () => setHovered(true),
+					SelectionLost: () => setHovered(false),
+					Activated: cheer,
+				}}
 			/>
 		</frame>
 	);
 }
 
-// ── Section pickers ────────────────────────────────────────────────────────────
+// ── Finale ─────────────────────────────────────────────────────────────────────
+
+function Finale(props: {
+	hub: Hub;
+	top: number;
+	width: number;
+	lines: string[];
+	reduced: boolean;
+	clock?: React.Binding<number>;
+	onReplay: () => void;
+}) {
+	const seen = useInView(props.hub, props.top, FINALE_H);
+	const p = useStrike(seen, props.reduced, 0.1);
+	const breathe = props.clock !== undefined ? props.clock.map((t) => 0.5 + 0.5 * math.sin(t * 1.6)) : undefined;
+	const footer = MODEL.Footer;
+	const lineW = math.min(props.width - 40, 220);
+	return (
+		<frame Size={UDim2.fromOffset(props.width, FINALE_H)} Position={UDim2.fromOffset(0, props.top)} BackgroundTransparency={1} ZIndex={2}>
+			<frame
+				Size={p.map((a) => UDim2.fromOffset(lineW * clamp01(a), 2))}
+				Position={new UDim2(0.5, 0, 0, 20)}
+				AnchorPoint={new Vector2(0.5, 0)}
+				BackgroundColor3={HOT}
+				BackgroundTransparency={0.4}
+				BorderSizePixel={0}
+			/>
+			{footer !== "" && (
+				<textlabel
+					Size={new UDim2(1, 0, 0, 40)}
+					Position={p.map((a) => UDim2.fromOffset(0, 40 + (1 - clamp01(a)) * 20))}
+					BackgroundTransparency={1}
+					Text={footer}
+					FontFace={surfaceFont(Enum.FontWeight.Heavy)}
+					TextSize={30}
+					TextColor3={breathe !== undefined ? breathe.map((b) => Palette.cream.Lerp(HOT, b * 0.4)) : Palette.cream}
+					TextTransparency={p.map((a) => 1 - clamp01(a * 1.4))}
+				/>
+			)}
+			{props.lines.map((line, i) => (
+				<frame
+					key={`p${i}`}
+					Size={new UDim2(1, -40, 0, 16)}
+					Position={UDim2.fromOffset(20, 92 + i * 18)}
+					BackgroundTransparency={1}
+				>
+					<SurfaceText
+						text={line}
+						type="small"
+						color={Palette.muted}
+						align={Enum.TextXAlignment.Center}
+						transparency={p.map((a) => 1 - clamp01((a - 0.4) * 1.6))}
+					/>
+				</frame>
+			))}
+			<Button
+				text="Replay credits"
+				onClick={props.onReplay}
+				size={UDim2.fromOffset(170, TapTarget)}
+				position={new UDim2(0.5, -85, 0, 100 + props.lines.size() * 18)}
+				outline={true}
+				reducedMotion={props.reduced}
+				zIndex={6}
+			/>
+		</frame>
+	);
+}
+
+// ── Chapter pickers ────────────────────────────────────────────────────────────
 
 function SectionPick(props: {
 	tab: Tab;
@@ -484,15 +957,41 @@ function chipWidth(tab: Tab): number {
 	return math.ceil(width) + 14 + 10 + (MODEL.ShowCategoryCounts !== false ? 8 + 30 : 0);
 }
 
+// the marker beside the rail: its head leaps ahead of its tail, so it stretches while it travels
+function RailMarker(props: { index: number; accent: Color3; reduced: boolean }) {
+	const head = useFlipperSpring(props.index, props.reduced, 900, 44);
+	const tail = useFlipperSpring(props.index, props.reduced, 260, 36);
+	const frame = React.joinBindings({ h: head, t: tail });
+	return (
+		<frame
+			ref={ignoreGuard}
+			Size={frame.map(({ h, t }) => UDim2.fromOffset(3, math.max(14, math.abs(h - t) * ROW_STEP + TapTarget - 18)))}
+			Position={frame.map(({ h, t }) => UDim2.fromOffset(-8, math.min(h, t) * ROW_STEP + 9))}
+			BackgroundColor3={props.accent}
+			BorderSizePixel={0}
+		>
+			<uicorner CornerRadius={new UDim(1, 0)} />
+		</frame>
+	);
+}
+
 // ── Overlay ────────────────────────────────────────────────────────────────────
+
+interface Jump {
+	from: number;
+	to: number;
+	started: number;
+}
 
 export function CreditsOverlay(props: { version?: string; reducedMotion?: boolean; onClose: () => void }) {
 	const reduced = props.reducedMotion === true;
+	const antilag = useAntilag();
 	const [reveal, exiting, beginExit] = usePresence(reduced);
-	const [tab, setTab] = React.useState(MODEL.DefaultCategory);
 	const [query, setQuery] = React.useState("");
-	const [picked, setPicked] = React.useState<Spot | undefined>(undefined);
+	const [rolling, setRolling] = React.useState(!reduced);
+	const [active, setActive] = React.useState(0);
 	useLiveNames();
+	const headEnter = useSurfaceEnter(reduced, 0.05);
 	const onClose = props.onClose;
 	const requestClose = React.useCallback(() => {
 		if (exiting) {
@@ -501,12 +1000,6 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 		Audio.play("close");
 		beginExit(onClose);
 	}, [beginExit, exiting, onClose]);
-	const pickTab = (id: string) => {
-		if (id !== tab) {
-			Audio.play("tabSwitch");
-			setTab(id);
-		}
-	};
 
 	const viewport = useViewport();
 	const chrome = chromeFor(viewport);
@@ -520,75 +1013,262 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	const centerY = safeTop + math.max(0, (viewport.height - safeTop - safeBottom) / 2);
 	const innerW = width - pad * 2;
 
-	const tabs = CreditsModel.tabs(MODEL);
-	const showTabs = MODEL.CategoryTabs === true && tabs.size() > 2;
+	const visible = CreditsModel.visible(MODEL, "All", query);
+	const chapterTabs: Tab[] = visible.map((entry) => ({
+		id: entry.category.Id,
+		label: entry.category.Label,
+		count: entry.members.size(),
+		accent: entry.category.Accent,
+	}));
+	const showTabs = MODEL.CategoryTabs === true && chapterTabs.size() > 1;
 	const showSearch = CreditsModel.showSearch(MODEL);
-	// wide: sections in a rail on the left; narrow: a row of section chips above everything
+	// wide: chapters in a rail on the left; narrow: a row of chapter chips above the reel
 	const rail = showTabs && !stack && innerW >= 720;
 	const mainX = rail ? RAIL_W + 16 : 0;
 	const mainW = innerW - mainX;
-	const headerH = MODEL.Tagline !== "" || (MODEL.ShowVersion === true && props.version !== undefined) ? 70 : 54;
+	const headerH = 52;
 	const chipsH = !rail && showTabs ? CHIP_ROW_H + GAP : 0;
 	const searchH = !rail && showSearch ? TapTarget + GAP : 0;
-	const compactSpot = stack || mainW < 520;
-	const spotH = compactSpot ? 108 : 128;
-	const spotTop = headerH + chipsH + searchH;
-	const bodyTop = spotTop + spotH + GAP;
-	const bodyH = math.max(80, height - pad * 2 - bodyTop);
-	const contentW = mainW - 10;
-	const columns = CreditsModel.columns(MODEL, contentW, GAP);
-	const rowH = math.max(TapTarget, math.min(CreditsModel.cardHeight(MODEL), 96));
-	const visible = CreditsModel.visible(MODEL, tab, query);
+	const reelTop = headerH + chipsH + searchH;
+	const reelH = math.max(120, height - pad * 2 - reelTop);
+	const contentW = mainW - REEL_PAD * 2 - 6;
 
-	// nobody picked yet (or they're filtered away): spotlight the first person on screen
-	let spot = picked;
-	if (spot !== undefined) {
-		const current = spot;
-		const still = visible.some((entry) => entry.category.Id === current.category.Id && entry.members.includes(current.member));
-		if (!still) {
-			spot = undefined;
-		}
-	}
-	if (spot === undefined) {
-		for (const entry of visible) {
-			const first = entry.members[0];
-			if (first !== undefined) {
-				spot = {
-					key: memberKey(entry.category, first),
-					member: first,
-					category: entry.category,
-				};
-				break;
+	// the clock runs the drift, the embers, the glints and the avatar rings; it sleeps under reduced motion
+	// and while the game is struggling
+	const clockOn = !reduced && !antilag.constrained;
+	const [scrollB, setScrollB] = React.useMemo(() => React.createBinding(0), []);
+	const [clockB, setClockB] = React.useMemo(() => React.createBinding(0), []);
+	const clock = clockOn ? clockB : undefined;
+
+	// ── the reel's layout: every block has a known top, so each can reveal itself as it nears the window
+	const replayRef = React.useRef<() => void>(() => {});
+	const hubRef = React.useRef<Hub>({ y: 0, h: reelH, listeners: new Set() });
+	const hub = hubRef.current;
+	hub.h = reelH;
+	const cols = math.max(1, math.min(2, CreditsModel.columns(MODEL, contentW, PLATE_GAP)));
+	let anyNote = false;
+	for (const entry of visible) {
+		for (const member of entry.members) {
+			if (MODEL.ShowNotes !== false && member.Note !== "") {
+				anyNote = true;
 			}
 		}
 	}
+	const plateH = anyNote ? 112 : 88;
+	const heroH = stack ? 150 : 176;
+	const subline = [MODEL.ShowVersion === true && props.version !== undefined ? `Version ${props.version}` : "", MODEL.Tagline]
+		.filter((part) => part !== "")
+		.join("  ·  ");
 
-	// LB / RB step through the sections
-	const tabRef = React.useRef(tab);
-	tabRef.current = tab;
+	const reelItems: React.Element[] = [];
+	const chapterTops: number[] = [];
+	let y = 0;
+	reelItems.push(<Hero key="hero" hub={hub} top={y} width={contentW} height={heroH} subline={subline} reduced={reduced} clock={clock} />);
+	y += heroH + 24;
+	for (const [ci, entry] of ipairs(visible)) {
+		const accent = tone(entry.category.Accent, Palette.violet);
+		chapterTops.push(y);
+		reelItems.push(
+			<ChapterHead key={`h:${entry.category.Id}`} hub={hub} top={y} width={contentW} index={ci} category={entry.category} accent={accent} reduced={reduced} />,
+		);
+		y += HEAD_H + 14;
+		if (entry.members.size() === 0) {
+			reelItems.push(
+				<frame key={`e:${entry.category.Id}`} Size={UDim2.fromOffset(contentW, 28)} Position={UDim2.fromOffset(0, y)} BackgroundTransparency={1} ZIndex={2}>
+					<SurfaceText text={entry.category.EmptyText !== "" ? entry.category.EmptyText : MODEL.DefaultEmptyText} type="body" color={Palette.muted} />
+				</frame>,
+			);
+			y += 28;
+		} else {
+			// a chapter with fewer people than columns gives each a wider plate
+			const entryCols = math.max(1, math.min(cols, entry.members.size()));
+			const entryW = math.floor((contentW - PLATE_GAP * (entryCols - 1)) / entryCols);
+			entry.members.forEach((member, mi) => {
+				const row = math.floor(mi / entryCols);
+				const col = mi % entryCols;
+				reelItems.push(
+					<Plate
+						key={memberKey(entry.category, member)}
+						member={member}
+						category={entry.category}
+						accent={accent}
+						hub={hub}
+						left={col * (entryW + PLATE_GAP)}
+						top={y + row * (plateH + PLATE_GAP)}
+						width={entryW}
+						height={plateH}
+						delay={MODEL.EntranceStagger !== false ? math.min(mi, 6) * 0.07 : 0}
+						reduced={reduced}
+						clock={clock}
+					/>,
+				);
+			});
+			const rows = math.ceil(entry.members.size() / entryCols);
+			y += rows * plateH + (rows - 1) * PLATE_GAP;
+		}
+		y += CHAPTER_GAP;
+	}
+	if (visible.size() === 0) {
+		reelItems.push(
+			<frame key="none" Size={UDim2.fromOffset(contentW, 40)} Position={UDim2.fromOffset(0, y)} BackgroundTransparency={1} ZIndex={2}>
+				<SurfaceText
+					text={query !== "" ? `No one called "${query}"` : MODEL.DefaultEmptyText}
+					type="body"
+					color={Palette.muted}
+					align={Enum.TextXAlignment.Center}
+				/>
+			</frame>,
+		);
+		y += 60;
+	}
+	const smallPrint = table.clone(MODEL.Acknowledgements);
+	const finaleTop = y;
+	reelItems.push(<Finale key="finale" hub={hub} top={finaleTop} width={contentW} lines={smallPrint} reduced={reduced} clock={clock} onReplay={() => replayRef.current()} />);
+	const canvasH = finaleTop + FINALE_H + 24;
+	const maxScroll = math.max(0, canvasH - reelH);
+
+	// ── scrolling: spy, auto-roll, jumps
+	const scrollRef = React.useRef<ScrollingFrame>();
+	const rollingRef = React.useRef(rolling);
+	rollingRef.current = rolling;
+	const userUntil = React.useRef(0);
+	const rolledFor = React.useRef(0);
+	const expectedY = React.useRef(0);
+	const jump = React.useRef<Jump | undefined>(undefined);
+	const maxRef = React.useRef(maxScroll);
+	maxRef.current = maxScroll;
+	const topsRef = React.useRef<number[]>(chapterTops);
+	topsRef.current = chapterTops;
+	const activeRef = React.useRef(0);
+
+	const onScroll = (value: number) => {
+		hub.y = value;
+		setScrollB(value);
+		for (const listener of hub.listeners) {
+			listener(value);
+		}
+		if (math.abs(value - expectedY.current) > 2) {
+			userUntil.current = os.clock() + USER_PAUSE;
+			expectedY.current = value;
+		}
+		const tops = topsRef.current;
+		let index = 0;
+		for (const [i, top] of ipairs(tops)) {
+			if (top <= value + 70) {
+				index = i - 1;
+			}
+		}
+		if (maxRef.current > 0 && value >= maxRef.current - 4 && tops.size() > 0) {
+			index = tops.size() - 1;
+		}
+		if (index !== activeRef.current) {
+			activeRef.current = index;
+			setActive(index);
+		}
+	};
+	const place = (target: number) => {
+		const scroller = scrollRef.current;
+		if (scroller === undefined) {
+			return;
+		}
+		const clamped = math.clamp(target, 0, maxRef.current);
+		expectedY.current = clamped;
+		scroller.CanvasPosition = new Vector2(0, clamped);
+	};
+	const jumpTo = (target: number) => {
+		const scroller = scrollRef.current;
+		if (scroller === undefined) {
+			return;
+		}
+		userUntil.current = os.clock() + USER_PAUSE;
+		if (reduced) {
+			place(target);
+			return;
+		}
+		jump.current = { from: scroller.CanvasPosition.Y, to: math.clamp(target, 0, maxRef.current), started: os.clock() };
+	};
+	const pickChapter = (id: string) => {
+		for (const [i, entry] of ipairs(visible)) {
+			if (entry.category.Id === id) {
+				Audio.play("tabSwitch");
+				jumpTo(math.max(0, (topsRef.current[i - 1] ?? 0) - 10));
+				return;
+			}
+		}
+	};
+	replayRef.current = () => {
+		Audio.play("confirm");
+		rolledFor.current = 0;
+		setRolling(true);
+		jumpTo(0);
+	};
+	const step = (direction: number) => {
+		const tops = topsRef.current;
+		const target = math.clamp(activeRef.current + direction, 0, math.max(0, tops.size() - 1));
+		const top = tops[target];
+		if (top !== undefined) {
+			Audio.play("tabSwitch");
+			jumpTo(math.max(0, top - 10));
+		}
+	};
+	const stepRef = React.useRef(step);
+	stepRef.current = step;
+
+	// one heartbeat: the clock, the auto-roll and the chapter jumps
+	React.useEffect(() => {
+		let acc = 0;
+		let t = 0;
+		const connection = RunService.Heartbeat.Connect((dt) => {
+			if (clockOn) {
+				acc += dt;
+				if (acc >= CLOCK_STEP) {
+					t += acc;
+					acc = 0;
+					setClockB(t);
+				}
+			}
+			const scroller = scrollRef.current;
+			if (scroller === undefined) {
+				return;
+			}
+			const now = os.clock();
+			const move = jump.current;
+			if (move !== undefined) {
+				const a = clamp01((now - move.started) / JUMP_SECONDS);
+				place(move.from + (move.to - move.from) * MotionTokens.EASE.decelerate(a));
+				if (a >= 1) {
+					jump.current = undefined;
+				}
+				return;
+			}
+			if (!rollingRef.current || now < userUntil.current) {
+				rolledFor.current = 0;
+				return;
+			}
+			const current = scroller.CanvasPosition.Y;
+			if (current >= maxRef.current - 0.5) {
+				setRolling(false);
+				return;
+			}
+			rolledFor.current += dt;
+			place(current + ROLL_SPEED * clamp01(rolledFor.current / ROLL_RAMP) * dt);
+		});
+		return () => connection.Disconnect();
+	}, [clockOn]);
+
+	// LB / RB step through the chapters
 	React.useEffect(() => {
 		if (!showTabs) {
 			return undefined;
 		}
 		const connection = UserInputService.InputBegan.Connect((input) => {
-			const step = input.KeyCode === Enum.KeyCode.ButtonR1 ? 1 : input.KeyCode === Enum.KeyCode.ButtonL1 ? -1 : 0;
-			if (step === 0) {
-				return;
-			}
-			let at = 0;
-			for (const [i, entry] of ipairs(tabs)) {
-				if (entry.id === tabRef.current) {
-					at = i;
-				}
-			}
-			const target = tabs[math.clamp(at + step, 1, tabs.size()) - 1];
-			if (target !== undefined && target.id !== tabRef.current) {
-				Audio.play("tabSwitch");
-				setTab(target.id);
+			const direction = input.KeyCode === Enum.KeyCode.ButtonR1 ? 1 : input.KeyCode === Enum.KeyCode.ButtonL1 ? -1 : 0;
+			if (direction !== 0) {
+				stepRef.current(direction);
 			}
 		});
 		return () => connection.Disconnect();
-	}, [showTabs, tabs.size()]);
+	}, [showTabs]);
 	React.useEffect(() => {
 		ClientLog.debug("nav", "credits opened");
 		return () => ClientLog.debug("nav", "credits closed");
@@ -628,129 +1308,19 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 		};
 	}, []);
 
-	// the list: a label per section, its members in a grid, then the small print
-	const body: React.Element[] = [];
-	let order = 0;
-	let rowIndex = 0;
-	const cellW = math.floor((contentW - GAP * (columns - 1)) / columns);
-	for (const entry of visible) {
-		const accent = tone(entry.category.Accent, Palette.violet);
-		order += 1;
-		body.push(
-			<SectionLabel
-				key={`l:${entry.category.Id}`}
-				text={string.upper(entry.category.Label)}
-				accent={accent}
-				order={order}
-				height={38}
-				zIndex={6}
-			/>,
-		);
-		order += 1;
-		if (entry.members.size() === 0) {
-			body.push(
-				<SurfaceText
-					key={`e:${entry.category.Id}`}
-					text={entry.category.EmptyText !== "" ? entry.category.EmptyText : MODEL.DefaultEmptyText}
-					type="body"
-					color={Palette.muted}
-					size={new UDim2(1, 0, 0, 36)}
-					order={order}
-					zIndex={6}
-				/>,
-			);
-			continue;
+	const activeAccent = tone(chapterTabs[active]?.accent ?? "mango", Palette.mango);
+	const rollLabel = rolling ? "Pause" : "Roll";
+	const rollW = 96;
+	const toggleRoll = () => {
+		Audio.play("tick");
+		if (!rolling && scrollRef.current !== undefined && scrollRef.current.CanvasPosition.Y >= maxRef.current - 1) {
+			replayRef.current();
+			return;
 		}
-		const rows = math.ceil(entry.members.size() / columns);
-		const cards: React.Element[] = [];
-		for (const [i, member] of ipairs(entry.members)) {
-			rowIndex += 1;
-			const key = memberKey(entry.category, member);
-			cards.push(
-				<MemberRow
-					key={`${tab}|${key}`}
-					member={member}
-					category={entry.category}
-					accent={accent}
-					height={rowH}
-					order={i}
-					delay={MODEL.EntranceStagger !== false ? math.min(rowIndex, SurfaceMotion.staggerRows) * SurfaceMotion.stagger : 0}
-					spotted={spot !== undefined && spot.key === key}
-					reducedMotion={reduced}
-					onSpot={setPicked}
-				/>,
-			);
-		}
-		body.push(
-			<frame
-				key={`g:${entry.category.Id}`}
-				Size={new UDim2(1, 0, 0, rows * rowH + (rows - 1) * GAP)}
-				LayoutOrder={order}
-				BackgroundTransparency={1}
-				ZIndex={6}
-			>
-				<uigridlayout
-					CellSize={UDim2.fromOffset(cellW, rowH)}
-					CellPadding={UDim2.fromOffset(GAP, GAP)}
-					SortOrder={Enum.SortOrder.LayoutOrder}
-				/>
-				{cards}
-			</frame>,
-		);
-	}
-	if (visible.size() === 0) {
-		order += 1;
-		body.push(
-			<SurfaceText
-				key="none"
-				text={query !== "" ? `No one called "${query}"` : MODEL.DefaultEmptyText}
-				type="body"
-				color={Palette.muted}
-				align={Enum.TextXAlignment.Center}
-				size={new UDim2(1, 0, 0, 40)}
-				order={order}
-				zIndex={6}
-			/>,
-		);
-	}
-	const smallPrint = table.clone(MODEL.Acknowledgements);
-	if (MODEL.Footer !== "") {
-		smallPrint.push(MODEL.Footer);
-	}
-	if (smallPrint.size() > 0) {
-		order += 1;
-		body.push(
-			<frame
-				key="smallprint"
-				Size={new UDim2(1, 0, 0, 0)}
-				AutomaticSize={Enum.AutomaticSize.Y}
-				LayoutOrder={order}
-				BackgroundTransparency={1}
-				ZIndex={6}
-			>
-				<uipadding PaddingTop={new UDim(0, 12)} PaddingBottom={new UDim(0, 8)} />
-				<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} />
-				{smallPrint.map((line, i) => (
-					<SurfaceText
-						key={`p${i}`}
-						text={line}
-						type="small"
-						color={Palette.muted}
-						wrap={true}
-						align={Enum.TextXAlignment.Center}
-						size={UDim2.fromScale(1, 0)}
-						autoHeight={true}
-						order={i}
-						zIndex={6}
-					/>
-				))}
-			</frame>,
-		);
-	}
-
-	const subline = [MODEL.ShowVersion === true && props.version !== undefined ? `Version ${props.version}` : "", MODEL.Tagline]
-		.filter((part) => part !== "")
-		.join("  ·  ");
+		rolledFor.current = 0;
+		userUntil.current = 0;
+		setRolling(!rolling);
+	};
 
 	return (
 		<OverlayPresence amount={reveal}>
@@ -776,24 +1346,33 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 				>
 					<Surface appear={reveal} padding={pad} active={true} zIndex={321}>
 						{/* header */}
-						{/* revamp r1c: no eyebrow over the title; the title names the panel on its own */}
 						<SurfaceText
-							text={MODEL.Title}
-							type="display"
-							size={new UDim2(1, -56, 0, 30)}
-							position={UDim2.fromOffset(0, 4)}
+							text={MODEL.Eyebrow}
+							type="label"
+							color={Palette.mango}
+							size={new UDim2(1, -(TapTarget + rollW + 24), 0, 16)}
+							position={UDim2.fromOffset(0, 6)}
+							transparency={headEnter.map((a) => 1 - clamp01(a))}
 							zIndex={322}
 						/>
-						{subline !== "" && (
-							<SurfaceText
-								text={subline}
-								type="small"
-								color={Palette.creamSoft}
-								size={new UDim2(1, -56, 0, 16)}
-								position={UDim2.fromOffset(0, 38)}
-								zIndex={322}
-							/>
-						)}
+						<SurfaceText
+							text={rolling ? "Rolling" : "Paused"}
+							type="small"
+							color={Palette.creamSoft}
+							size={new UDim2(1, -(TapTarget + rollW + 24), 0, 16)}
+							position={UDim2.fromOffset(0, 26)}
+							transparency={headEnter.map((a) => 1 - clamp01(a))}
+							zIndex={322}
+						/>
+						<Button
+							text={rollLabel}
+							onClick={toggleRoll}
+							size={UDim2.fromOffset(rollW, TapTarget)}
+							position={new UDim2(1, -(TapTarget + rollW + 10), 0, 0)}
+							outline={true}
+							reducedMotion={reduced}
+							zIndex={323}
+						/>
 						<Button
 							icon="Close.24"
 							onClick={requestClose}
@@ -803,7 +1382,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 							reducedMotion={reduced}
 							zIndex={323}
 						/>
-						{/* sections: rail (wide) */}
+						{/* chapters: rail (wide) */}
 						{rail && (
 							<frame
 								Size={new UDim2(0, RAIL_W, 1, -headerH)}
@@ -811,32 +1390,35 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 								BackgroundTransparency={1}
 								ZIndex={322}
 							>
-								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, SurfaceMetrics.rowGap)} />
-								{tabs.map((entry, i) => (
-									<SectionPick key={entry.id} tab={entry} active={entry.id === tab} order={i} reducedMotion={reduced} onPick={pickTab} />
-								))}
-								{showSearch && (
-									<frame
-										key="search"
-										Size={new UDim2(1, 0, 0, TapTarget + GAP)}
-										LayoutOrder={tabs.size() + 1}
-										BackgroundTransparency={1}
-										ZIndex={322}
-									>
-										<SearchField
-											value={query}
-											onChange={setQuery}
-											placeholder="Find someone"
-											size={new UDim2(1, 0, 0, TapTarget)}
-											position={UDim2.fromOffset(0, GAP)}
-											reducedMotion={reduced}
-											zIndex={323}
-										/>
-									</frame>
-								)}
+								<RailMarker index={active} accent={activeAccent} reduced={reduced} />
+								<frame Size={new UDim2(1, 0, 1, 0)} BackgroundTransparency={1} ZIndex={322}>
+									<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, SurfaceMetrics.rowGap)} />
+									{chapterTabs.map((entry, i) => (
+										<SectionPick key={entry.id} tab={entry} active={i === active} order={i} reducedMotion={reduced} onPick={pickChapter} />
+									))}
+									{showSearch && (
+										<frame
+											key="search"
+											Size={new UDim2(1, 0, 0, TapTarget + GAP)}
+											LayoutOrder={chapterTabs.size() + 1}
+											BackgroundTransparency={1}
+											ZIndex={322}
+										>
+											<SearchField
+												value={query}
+												onChange={setQuery}
+												placeholder="Find someone"
+												size={new UDim2(1, 0, 0, TapTarget)}
+												position={UDim2.fromOffset(0, GAP)}
+												reducedMotion={reduced}
+												zIndex={323}
+											/>
+										</frame>
+									)}
+								</frame>
 							</frame>
 						)}
-						{/* sections: chips (narrow) */}
+						{/* chapters: chips (narrow) */}
 						{!rail && showTabs && (
 							<scrollingframe
 								Size={new UDim2(1, 0, 0, CHIP_ROW_H)}
@@ -849,20 +1431,16 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 								ScrollBarThickness={0}
 								ZIndex={322}
 							>
-								<uilistlayout
-									FillDirection={Enum.FillDirection.Horizontal}
-									SortOrder={Enum.SortOrder.LayoutOrder}
-									Padding={new UDim(0, 6)}
-								/>
-								{tabs.map((entry, i) => (
+								<uilistlayout FillDirection={Enum.FillDirection.Horizontal} SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 6)} />
+								{chapterTabs.map((entry, i) => (
 									<SectionPick
 										key={entry.id}
 										tab={entry}
-										active={entry.id === tab}
+										active={i === active}
 										order={i}
 										width={new UDim(0, chipWidth(entry))}
 										reducedMotion={reduced}
-										onPick={pickTab}
+										onPick={pickChapter}
 									/>
 								))}
 							</scrollingframe>
@@ -878,53 +1456,73 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 								zIndex={323}
 							/>
 						)}
-						{/* spotlight */}
-						<Surface
-							tone="inset"
-							size={new UDim2(0, mainW, 0, spotH)}
-							position={UDim2.fromOffset(mainX, spotTop)}
-							padding={12}
-							zIndex={322}
-						>
-							{spot !== undefined ? (
-								<Spotlight key={spot.key} spot={spot} compact={compactSpot} reducedMotion={reduced} />
-							) : (
-								<IconTile size={44} accent={Palette.muted} position={UDim2.fromScale(0.5, 0.5)} anchor={new Vector2(0.5, 0.5)} zIndex={323}>
-									<frame
-										Size={UDim2.fromOffset(22, 22)}
-										Position={UDim2.fromScale(0.5, 0.5)}
-										AnchorPoint={new Vector2(0.5, 0.5)}
-										BackgroundTransparency={1}
-									>
-										{React.createElement(IconComponent, {
-											kind: "Search.9",
-											color: Palette.muted,
-											accent: Palette.muted,
-											size: 22,
-											spin: false,
-										})}
-									</frame>
-								</IconTile>
-							)}
-						</Surface>
-						{/* everyone */}
-						<scrollingframe
-							Size={UDim2.fromOffset(mainW, bodyH)}
-							Position={UDim2.fromOffset(mainX, bodyTop)}
-							BackgroundTransparency={1}
+						{/* the reel */}
+						<frame
+							Size={UDim2.fromOffset(mainW, reelH)}
+							Position={UDim2.fromOffset(mainX, reelTop)}
+							BackgroundColor3={Palette.panelSoft}
+							BackgroundTransparency={0.55}
 							BorderSizePixel={0}
-							CanvasSize={new UDim2()}
-							AutomaticCanvasSize={Enum.AutomaticSize.Y}
-							ScrollingDirection={Enum.ScrollingDirection.Y}
-							ScrollBarThickness={3}
-							ScrollBarImageColor3={Palette.muted}
+							ClipsDescendants={true}
 							ZIndex={322}
 						>
-							<frame Size={new UDim2(0, contentW, 0, 0)} AutomaticSize={Enum.AutomaticSize.Y} BackgroundTransparency={1} ZIndex={322}>
-								<uilistlayout SortOrder={Enum.SortOrder.LayoutOrder} Padding={new UDim(0, 4)} />
-								{body}
+							<uicorner CornerRadius={new UDim(0, SurfaceMetrics.radius)} />
+							<uistroke Color={Palette.lineSoft} Thickness={1} Transparency={0.7} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
+							<Backdrop width={mainW} height={reelH} scroll={scrollB} clock={clock} />
+							<scrollingframe
+								ref={scrollRef}
+								Size={UDim2.fromScale(1, 1)}
+								BackgroundTransparency={1}
+								BorderSizePixel={0}
+								CanvasSize={UDim2.fromOffset(0, canvasH)}
+								AutomaticCanvasSize={Enum.AutomaticSize.None}
+								ScrollingDirection={Enum.ScrollingDirection.Y}
+								ScrollBarThickness={3}
+								ScrollBarImageColor3={Palette.muted}
+								ZIndex={2}
+								Change={{ CanvasPosition: (rbx: ScrollingFrame) => onScroll(rbx.CanvasPosition.Y) }}
+								Event={{
+									InputChanged: (_rbx: ScrollingFrame, input: InputObject) => {
+										if (input.UserInputType === Enum.UserInputType.MouseWheel) {
+											userUntil.current = os.clock() + USER_PAUSE;
+										}
+									},
+									InputBegan: (_rbx: ScrollingFrame, input: InputObject) => {
+										if (input.UserInputType === Enum.UserInputType.Touch || input.UserInputType === Enum.UserInputType.MouseButton1) {
+											userUntil.current = os.clock() + USER_PAUSE;
+										}
+									},
+								}}
+							>
+								<frame Size={UDim2.fromOffset(contentW, canvasH)} Position={UDim2.fromOffset(REEL_PAD, 0)} BackgroundTransparency={1}>
+									{reelItems}
+								</frame>
+							</scrollingframe>
+							{/* the reel fades into its edges */}
+							<frame
+								ref={ignoreGuard}
+								Size={new UDim2(1, 0, 0, 22)}
+								BackgroundColor3={Palette.panel}
+								BackgroundTransparency={0}
+								BorderSizePixel={0}
+								Active={false}
+								ZIndex={3}
+							>
+								<uigradient Rotation={90} Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0.1), new NumberSequenceKeypoint(1, 1)])} />
 							</frame>
-						</scrollingframe>
+							<frame
+								ref={ignoreGuard}
+								Size={new UDim2(1, 0, 0, 30)}
+								Position={new UDim2(0, 0, 1, -30)}
+								BackgroundColor3={Palette.panel}
+								BackgroundTransparency={0}
+								BorderSizePixel={0}
+								Active={false}
+								ZIndex={3}
+							>
+								<uigradient Rotation={90} Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(1, 0.1)])} />
+							</frame>
+						</frame>
 					</Surface>
 				</frame>
 			</frame>

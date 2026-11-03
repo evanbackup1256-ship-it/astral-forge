@@ -77,7 +77,6 @@ function ensureIcon(kind: string): string | undefined {
 		return undefined;
 	}
 	const sheet = IconManifest.Sheets[entry.b[0]] as string | undefined;
-	const lightSheet = IconManifest.Sheets[entry.l[0]] as string | undefined;
 	if (sheet === undefined || sheet === "") {
 		return undefined;
 	}
@@ -88,17 +87,6 @@ function ensureIcon(kind: string): string | undefined {
 	image.Image = sheet;
 	image.ImageRectOffset = new Vector2(entry.b[1], entry.b[2]);
 	image.ImageRectSize = new Vector2(cell, cell);
-	if (lightSheet !== undefined && lightSheet !== "") {
-		const light = new Instance("ImageLabel");
-		light.Name = "Light";
-		light.BackgroundTransparency = 1;
-		light.Size = UDim2.fromScale(1, 1);
-		light.Image = lightSheet;
-		light.ImageRectOffset = new Vector2(entry.l[1], entry.l[2]);
-		light.ImageRectSize = new Vector2(cell, cell);
-		light.ImageTransparency = 0.12;
-		light.Parent = image;
-	}
 	image.Parent = iconFolder;
 	return name;
 }

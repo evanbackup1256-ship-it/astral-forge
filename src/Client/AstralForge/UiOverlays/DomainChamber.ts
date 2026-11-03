@@ -1,3 +1,4 @@
+import { easeOut } from "../CoreKit/easing";
 // (ZIndex 600+: the main screen sorts globally and the chamber has to sit over the whole shell)
 // The Domain, one screen: the lattice on the left, and on the right whatever you're doing with it.
 //   mode "lattice": etch links between anchors, read what the lattice gives, clear it once per rank
@@ -73,10 +74,6 @@ const RESETS = "Machines, Flux, the vault, worlds, and the rebirths and Cores yo
 
 type Links = Record<string, boolean | undefined>;
 
-function easeOut(t: number): number {
-	const u = 1 - math.clamp(t, 0, 1);
-	return 1 - u * u * u;
-}
 function asNumber(value: unknown): number {
 	const n = tonumber(value);
 	return n !== undefined && n === n ? n : 0;

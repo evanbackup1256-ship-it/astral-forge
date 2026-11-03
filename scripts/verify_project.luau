@@ -83,4 +83,6 @@ require("./verify_offline_progress")
 require("./verify_leaderboard_service")
 require("./verify_friend_graph")
 require("./verify_boot_order")
+require("./verify_antilag")
+require("./verify_reaches")
 -- ---- end rewrite 23-28 ----

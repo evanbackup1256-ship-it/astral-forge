@@ -1,3 +1,4 @@
+import { easeOut } from "../CoreKit/easing";
 import React from "@rbxts/react";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { Palette, Space, TapTarget } from "../CoreKit/theme";
@@ -93,10 +94,6 @@ const MISSING_NOTE_AFTER = 2.5;
 const WHITE_HOT = Color3.fromRGB(255, 244, 222);
 function approach(current: number, goal: number, rate: number, dt: number) {
 	return current + (goal - current) * (1 - math.exp(-rate * dt));
-}
-function easeOut(t: number) {
-	const u = 1 - math.clamp(t, 0, 1);
-	return 1 - u * u * u;
 }
 
 interface GuideFrame {

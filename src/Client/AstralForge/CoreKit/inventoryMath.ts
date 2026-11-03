@@ -198,7 +198,7 @@ export type ItemMatcher = (
 	uid?: string,
 ) => unknown;
 
-// `matcher(query, ...)` swaps in fuzzy matching (Quick Find style); substring otherwise.
+// `matcher(query, ...)` swaps in fuzzy matching; substring otherwise.
 export function SearchOwned(list: unknown, query: unknown, rarity: unknown, matcher?: ItemMatcher): OwnedItem[] {
 	if (!typeIs(list, "table")) {
 		return [];
@@ -375,7 +375,7 @@ export function CollectOwned(state: unknown, config: unknown): OwnedItem[] {
 
 export interface SocketTarget {
 	id: string;
-	label: unknown;
+	label: string;
 }
 
 export function SocketTargets(state: unknown, config: unknown, definition: unknown): SocketTarget[] {
@@ -399,7 +399,7 @@ export function SocketTargets(state: unknown, config: unknown, definition: unkno
 			if (typeIs(targets, "table") && !(targets as defined[]).includes(upgrade.Id)) {
 				continue;
 			}
-			out.push({ id: `${slot}:${upgrade.Id}`, label: upgrade.Name });
+			out.push({ id: `${slot}:${upgrade.Id}`, label: tostring(upgrade.Name ?? upgrade.Id) });
 		}
 	};
 	if (definition.Slot === "Machine") {

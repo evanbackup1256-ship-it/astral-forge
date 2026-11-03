@@ -1,7 +1,8 @@
-// a small slide: enough to show direction without the page appearing to travel
-export const SLIDE_DESKTOP = 12;
-export const SLIDE_PHONE = 16;
-export const ENTER_SECONDS = 0.18;
+// a clear slide: far enough that the direction of the change reads, short enough that the page never
+// seems to travel. It settles over ENTER_SECONDS on the page-entrance spring.
+export const SLIDE_DESKTOP = 22;
+export const SLIDE_PHONE = 30;
+export const ENTER_SECONDS = 0.26;
 export const SOFT_SCALE = 0.45;
 export const VEIL_PEAK = 0.68;
 const VEIL_POWER = 2.4;
@@ -28,6 +29,17 @@ export function direction(fromPage: string | undefined, toPage: string | undefin
 		return 1;
 	}
 	return to > from ? 1 : -1;
+}
+
+// A jump across the nav sweeps farther than a step to the next page: 1x for a neighbour, then 12% more
+// for every page skipped, up to 1.6x. Missing or unknown pages count as a neighbour.
+export function span(fromPage: string | undefined, toPage: string | undefined, order?: ReadonlyArray<string>): number {
+	const from = indexOf(order, fromPage);
+	const to = indexOf(order, toPage);
+	if (from === undefined || to === undefined) {
+		return 1;
+	}
+	return math.clamp(1 + (math.abs(to - from) - 1) * 0.12, 1, 1.6);
 }
 
 export function distance(phone: boolean, soft?: boolean): number {

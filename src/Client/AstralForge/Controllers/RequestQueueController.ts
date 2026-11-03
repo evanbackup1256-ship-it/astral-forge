@@ -2,6 +2,8 @@
 // in-flight limits, cooldowns, timeouts and late replies. MainGame owns one queue per mount
 // and supplies the UI side (feedback, notices, applying the reply) through RequestHooks.
 import { Controller } from "@flamework/core";
+import * as LogBook from "../../../Shared/AstralForge/Shared/LogBook";
+import { ClientLog } from "../CoreKit/log";
 import * as NetworkPolicy from "../CoreKit/networkPolicy";
 import { GRANT_ACTIONS, adopt, attachGrantFields, isAuthed, whenAuthed } from "../CoreKit/session";
 
@@ -29,6 +31,34 @@ export interface RequestHooks {
 	/** Running workers and timeouts, cancelled by the owner on unmount. */
 	workers: Map<thread, true>;
 	timeouts: Map<thread, true>;
+}
+
+// every request is counted and timed by action (client.request.<Action>), and a failure, a timeout or a
+// slow answer says so: the picture of the client's traffic the server side builds in RequestTrace
+function traceRequest(action: string, ok: boolean, raw: unknown, seconds: number, timedOut: boolean) {
+	LogBook.count("client.request.total");
+	LogBook.count(`client.request.${action}`);
+	LogBook.timing(`client.request.${action}`, seconds);
+	LogBook.timing("client.request.all", seconds);
+	const ms = math.floor(seconds * 1000 + 0.5);
+	if (timedOut) {
+		ClientLog.warnEvery(`req-late:${action}`, 10, "net", `${action} answered after its timeout`, { ElapsedMs: ms });
+		return;
+	}
+	if (!ok || !typeIs(raw, "table")) {
+		LogBook.count("client.request.failed");
+		ClientLog.warnEvery(`req-fail:${action}`, 10, "net", `${action} got no answer`, { Error: tostring(raw), ElapsedMs: ms });
+		return;
+	}
+	if ((raw as { ok?: unknown }).ok === false) {
+		LogBook.count("client.request.rejected");
+		ClientLog.debug("net", `${action} rejected`, { Reason: (raw as { error?: unknown }).error, ElapsedMs: ms });
+	} else {
+		ClientLog.trace("net", `${action} ok`, { ElapsedMs: ms });
+	}
+	if (seconds >= 0.6) {
+		ClientLog.warnEvery(`req-slow:${action}`, 20, "net", `${action} was slow`, { ElapsedMs: ms });
+	}
 }
 
 export class RequestQueue {
@@ -132,6 +162,7 @@ export class RequestQueue {
 		};
 		let requestTimeout: thread | undefined;
 		let requestWorker: thread | undefined;
+		const tracedAt = os.clock();
 		const timeoutSeconds = NetworkPolicy.Timeout(action);
 		requestTimeout = task.delay(timeoutSeconds, () => {
 			if (requestTimeout !== undefined) {
@@ -143,6 +174,8 @@ export class RequestQueue {
 				this.busy[signature] = undefined;
 			}
 			requestTimedOut = true;
+			LogBook.count("client.request.timeout");
+			ClientLog.warnEvery(`req-timeout:${action}`, 10, "net", `${action} timed out`, { Seconds: timeoutSeconds });
 			releaseRequest();
 			if (!hooks.alive() || !ownsControl) {
 				return;
@@ -152,6 +185,7 @@ export class RequestQueue {
 		hooks.timeouts.set(requestTimeout, true);
 		requestWorker = task.defer(() => {
 			const [ok, raw] = pcall(() => hooks.invoke(value));
+			traceRequest(action, ok, raw, os.clock() - tracedAt, requestTimedOut);
 			if (requestWorker !== undefined) {
 				hooks.workers.delete(requestWorker);
 			}

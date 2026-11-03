@@ -12,7 +12,8 @@ import * as theme from "./CoreKit/theme";
 import * as format from "./CoreKit/format";
 import * as motion from "./MotionKit/motion";
 import { isReducedMotion } from "./MotionPreference";
-import { usePerformanceTelemetry } from "./MotionKit/antilag";
+import { useAntilag, usePerformanceTelemetry } from "./MotionKit/antilag";
+import { ClientLog } from "./CoreKit/log";
 
 const Workspace = game.GetService("Workspace");
 const RunService = game.GetService("RunService");
@@ -971,6 +972,8 @@ interface PerfRowsProps {
 
 function PerfRows(props: PerfRowsProps): React.Element {
 	const telemetry = telemetryHook();
+	// the antilag has trimmed the effects: say so, so a plainer screen is explained, not mysterious
+	const lite = useAntilag().tier <= 1;
 	const fps = math.max(0, math.floor(telemetry.fps + 0.5));
 	const ping = telemetry.pingMs !== undefined ? math.max(0, math.floor(telemetry.pingMs + 0.5)) : undefined;
 	const label: string[] = [];
@@ -980,12 +983,15 @@ function PerfRows(props: PerfRowsProps): React.Element {
 	if (props.showPing === true) {
 		label.push(ping !== undefined ? `${ping} ms ping` : "measuring ping");
 	}
+	if (lite) {
+		label.push("effects trimmed");
+	}
 	const smooth = fps >= 54 && (ping === undefined || ping <= 85);
 	return Row(
 		props.order,
 		fpsColor(fps),
 		"Timer",
-		smooth ? "Smooth" : "A bit slow",
+		lite ? "Lite mode" : smooth ? "Smooth" : "A bit slow",
 		label.join("  ·  "),
 		smooth ? P.mint : P.mango,
 	);
@@ -1623,6 +1629,100 @@ function lastInputIsMouse(): boolean {
 	);
 }
 
+function safeNumber(value: number, fallback: number): number {
+	return value === value && value !== math.huge && value !== -math.huge ? value : fallback;
+}
+
+// Any one piece of the island (a message, a combo readout, a row) can throw while it renders. The island
+// must never take the shell down with it: a failed piece draws nothing, logs once, and the boundary is
+// reset by its key the next time the island changes shape.
+interface IslandBoundaryProps {
+	children?: React.ReactNode;
+	scope?: string;
+}
+interface IslandBoundaryState {
+	failed: boolean;
+}
+
+@React.ReactComponent
+class IslandBoundary extends React.Component<IslandBoundaryProps, IslandBoundaryState> {
+	state: IslandBoundaryState = { failed: false };
+
+	static getDerivedStateFromError(this: void, _err: unknown): IslandBoundaryState {
+		return { failed: true };
+	}
+
+	componentDidCatch(err: unknown) {
+		const scope = this.props.scope ?? "content";
+		ClientLog.warnEvery(`island-${scope}`, 10, "React", `island ${scope}: ${tostring(err)}`);
+	}
+
+	render() {
+		if (this.state.failed) {
+			return h("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1 });
+		}
+		return this.props.children as React.Element;
+	}
+}
+
+type IslandMode = "hidden" | "compact" | "live" | "combo" | "expanded" | "event";
+const MODE_RANK: Record<IslandMode, number> = { hidden: 0, compact: 1, live: 2, combo: 2, expanded: 3, event: 4 };
+
+// The island's shape follows what is happening, but it must not flap: a combo that drops to one tap for a
+// frame, a hover that slips off the edge, a live readout that blinks. Going UP in rank is immediate;
+// going DOWN waits out a short dwell (a combo or live readout stays at least 0.7s, a hover-out gets a
+// moment of grace), and a pending step down is cancelled if the wish changes back.
+function useStableMode(desired: IslandMode): IslandMode {
+	const [mode, setMode] = React.useState<IslandMode>(desired);
+	const modeRef = React.useRef<IslandMode>(desired);
+	const since = React.useRef(os.clock());
+	const wish = React.useRef<IslandMode>(desired);
+	wish.current = desired;
+	React.useEffect(() => {
+		if (desired === modeRef.current) {
+			return undefined;
+		}
+		const commit = () => {
+			if (wish.current !== modeRef.current) {
+				modeRef.current = wish.current;
+				since.current = os.clock();
+				setMode(wish.current);
+			}
+		};
+		const down = MODE_RANK[desired] < MODE_RANK[modeRef.current];
+		let wait = 0;
+		if (down) {
+			const dwell = modeRef.current === "combo" || modeRef.current === "live" ? 0.7 : modeRef.current === "expanded" ? 0.16 : 0;
+			wait = math.max(0, dwell - (os.clock() - since.current));
+		}
+		if (wait <= 0) {
+			commit();
+			return undefined;
+		}
+		const job = task.delay(wait, commit);
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, [desired]);
+	return mode;
+}
+
+// true once the island has sat quietly in its resting shape for `seconds`
+function useResting(active: boolean, seconds: number): boolean {
+	const [resting, setResting] = React.useState(false);
+	React.useEffect(() => {
+		if (!active) {
+			setResting(false);
+			return undefined;
+		}
+		const job = task.delay(seconds, () => setResting(true));
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, [active]);
+	return resting;
+}
+
 BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 	// live currency values and vault-full flag (B35): this island redraws on a cash tick, the top bar doesn't
 	let liveKey: string | undefined;
@@ -1647,6 +1747,14 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 	const maxWidth = props.maxWidth ?? 640;
 	const plan = planCompact(props, buffs);
 	const [hovered, setHovered] = React.useState(false);
+	const hoveredRef = React.useRef(false);
+	// one writer for hover, so the pointer poll and MouseEnter can never disagree about it
+	const hover = (on: boolean) => {
+		if (hoveredRef.current !== on) {
+			hoveredRef.current = on;
+			setHovered(on);
+		}
+	};
 	const [pinned, setPinned] = React.useState(false);
 	// what the shared player (JuiceFx) is showing; the queue and its clock live there, so this
 	// island can remount, or sit beside another island, and never lose or repeat a message
@@ -1662,6 +1770,22 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 			setLive(current !== undefined ? (table.clone(current) as IslandNotice) : undefined);
 			setQueued(waiting);
 		});
+	}, []);
+	// Studio only: setting ReplicatedStorage.AstralDevBanner to a line of text sends it through the island
+	// like any other announcement, so the island can be exercised without waiting for a real event
+	React.useEffect(() => {
+		if (!RunService.IsStudio()) {
+			return undefined;
+		}
+		const holder = game.GetService("ReplicatedStorage");
+		const connection = holder.GetAttributeChangedSignal("AstralDevBanner").Connect(() => {
+			const line = holder.GetAttribute("AstralDevBanner");
+			if (typeIs(line, "string") && line !== "") {
+				holder.SetAttribute("AstralDevBanner", undefined);
+				Juice.banner(line, "Studio test message", P.mint, "Check.1");
+			}
+		});
+		return () => connection.Disconnect();
 	}, []);
 	// sized for this island's room (a copy: other islands may have a different width)
 	const event = React.useMemo(() => {
@@ -1718,16 +1842,17 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 		const UserInputService = game.GetService("UserInputService");
 		const GuiService = game.GetService("GuiService");
 		let wait = 0;
-		let last = false;
+		let focused = true;
 		const connection = game.GetService("RunService").Heartbeat.Connect((dt) => {
 			wait += dt;
-			if (wait < 0.1) {
+			if (wait < 0.05) {
 				return;
 			}
 			wait = 0;
 			const island = islandRef.current;
+			const last = hoveredRef.current;
 			let over = false;
-			if (island !== undefined && island.Parent !== undefined && lastInputIsMouse()) {
+			if (focused && island !== undefined && island.Parent !== undefined && lastInputIsMouse()) {
 				const screenGui = island.FindFirstAncestorOfClass("ScreenGui");
 				const [guiInset] = GuiService.GetGuiInset();
 				const inset =
@@ -1745,9 +1870,15 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 					mouse.Y <= topLeft.Y + size.Y + slack;
 			}
 			if (over !== last) {
-				last = over;
-				setHovered(over);
+				hover(over);
 			}
+		});
+		const blurred = UserInputService.WindowFocusReleased.Connect(() => {
+			focused = false;
+			hover(false);
+		});
+		const refocused = UserInputService.WindowFocused.Connect(() => {
+			focused = true;
 		});
 		// a tap anywhere else lets go of a pinned island
 		const began = UserInputService.InputBegan.Connect((input) => {
@@ -1768,13 +1899,14 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 				// touch has no hover: a tap elsewhere also drops the hover that a tap on the island
 				// raised through MouseEnter (the poll above only tracks a real mouse)
 				if (input.UserInputType === Enum.UserInputType.Touch) {
-					last = false;
-					setHovered(false);
+					hover(false);
 				}
 			}
 		});
 		return () => {
 			connection.Disconnect();
+			blurred.Disconnect();
+			refocused.Disconnect();
 			began.Disconnect();
 		};
 	}, []);
@@ -1905,7 +2037,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 		plan.width > 30 &&
 		((props.currencies !== undefined && props.currencies.size() > 0) || plan.buffs.size() > 0 || plan.perf);
 	const comboLive = combo !== undefined && combo.count >= 2;
-	const mode =
+	const desiredMode: IslandMode =
 		event !== undefined
 			? "event"
 			: comboLive && !(hovered || pinned)
@@ -1919,8 +2051,21 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 							: hasContent
 								? "compact"
 								: "hidden";
-	const compactW = math.min(maxWidth, plan.width);
-	const targetW =
+	const settledMode = useStableMode(desiredMode);
+	// a held-over mode is only used while the data behind it is still there; otherwise follow the wish
+	const held: boolean =
+		settledMode === "event"
+			? event !== undefined
+			: settledMode === "combo"
+				? combo !== undefined && combo.count >= 2
+				: settledMode === "live"
+					? activity !== undefined
+					: settledMode === "compact"
+						? hasContent
+						: true;
+	const mode: IslandMode = held && !(props.restHidden === true && settledMode !== "event") ? settledMode : desiredMode;
+	const compactW = safeNumber(math.min(maxWidth, plan.width), 0);
+	const rawTargetW =
 		mode === "event"
 			? math.min(maxWidth, event!.width ?? 520)
 			: mode === "combo"
@@ -1932,7 +2077,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 						: mode === "compact"
 							? compactW
 							: 0;
-	const targetH =
+	const rawTargetH =
 		mode === "event"
 			? event!.height ?? EVENT_H
 			: mode === "combo" || mode === "live"
@@ -1942,6 +2087,11 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 					: mode === "compact"
 						? COMPACT_H
 						: 0;
+	// never taller than the screen has room for, never NaN, never wider than the room it was given
+	const camera = Workspace.CurrentCamera;
+	const screenRoom = camera !== undefined ? camera.ViewportSize.Y - 96 : 640;
+	const targetW = math.clamp(safeNumber(rawTargetW, 0), 0, maxWidth);
+	const targetH = math.clamp(safeNumber(rawTargetH, 0), 0, math.max(COMPACT_H, screenRoom));
 	// messages land with a liquid wobble; settling back to the compact bar is calmer
 	const wobbly = mode === "event";
 	const width = motion.useFlipperSpring(targetW, props.reducedMotion, wobbly ? 260 : 300, wobbly ? 17 : 24);
@@ -1964,6 +2114,19 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 					: props.vaultFull === true
 						? P.mango
 						: Color3.fromRGB(150, 92, 52);
+	// the resting row stays mounted while the capsule opens into the list and closes again
+	const topRow =
+		mode === "compact" || mode === "expanded"
+			? h(CompactRow, {
+					key: "top",
+					plan,
+					currencies: props.currencies,
+					perf: props.perf,
+					vaultFull: props.vaultFull,
+					clock,
+					reducedMotion: props.reducedMotion,
+				})
+			: undefined;
 	const content =
 		mode === "event"
 			? h(Announcement, {
@@ -1978,39 +2141,40 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 				: mode === "live"
 					? h(LiveActivity, { key: `live${activity!.key ?? ""}`, live: activity!, clock })
 					: mode === "expanded"
-						? h(
-								React.Fragment,
-								undefined,
-								h(CompactRow, {
-									key: "top",
-									plan,
-									currencies: props.currencies,
-									perf: props.perf,
-									vaultFull: props.vaultFull,
-									clock,
-									reducedMotion: props.reducedMotion,
-								}),
-								h(ExpandedList, {
-									key: "list",
-									buffs,
-									currencies: props.currencies,
-									perf: props.perf,
-									rate: props.perf !== undefined ? props.rate : props.rate,
-									navigate: props.navigate,
-									clock,
-								}),
-							)
-						: mode === "compact"
-							? h(CompactRow, {
-									key: "top",
-									plan,
-									currencies: props.currencies,
-									perf: props.perf,
-									vaultFull: props.vaultFull,
-									clock,
-									reducedMotion: props.reducedMotion,
-								})
-							: undefined;
+						? h(ExpandedList, {
+								key: "list",
+								buffs,
+								currencies: props.currencies,
+								perf: props.perf,
+								rate: props.rate,
+								navigate: props.navigate,
+								clock,
+							})
+						: undefined;
+	// what a mode brings is shown only as the capsule reaches the shape made for it: opacity follows how
+	// near the springs are to their targets, so nothing is ever drawn cramped into a half-grown capsule
+	const reveal =
+		props.reducedMotion === true
+			? undefined
+			: React.joinBindings([width, height]).map((values) => {
+					const dw = math.abs(values[0] - targetW) / math.max(48, targetW);
+					const dh = math.abs(values[1] - targetH) / math.max(28, targetH);
+					return math.clamp(1 - math.max(0, dw * 5 + dh * 6 - 0.1), 0, 1);
+				});
+	const body = h(
+		"canvasgroup",
+		{
+			Name: "IslandBody",
+			Size: UDim2.fromScale(1, 1),
+			BackgroundTransparency: 1,
+			BorderSizePixel: 0,
+			GroupTransparency: reveal !== undefined ? reveal.map((value) => 1 - value) : 0,
+			ZIndex: 62,
+		},
+		h(IslandBoundary, { key: `${mode}${event !== undefined ? tostring(event.token) : ""}`, scope: mode }, content),
+	);
+	// at rest and untouched for a while the capsule dims a little; any activity or hover wakes it
+	const resting = useResting(mode === "compact" && !hovered && !pinned, 14);
 	const momentRim = event !== undefined && event.style === "moment";
 	const capsule = h(
 		"imagebutton",
@@ -2023,7 +2187,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 			Position: props.position,
 			AnchorPoint: props.anchorPoint ?? new Vector2(0.5, 0),
 			BackgroundColor3: Color3.fromRGB(6, 6, 10),
-			BackgroundTransparency: 0.02,
+			BackgroundTransparency: resting ? 0.14 : 0.02,
 			AutoButtonColor: false,
 			Image: "",
 			ClipsDescendants: true,
@@ -2033,7 +2197,7 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 				MouseEnter: () => {
 					// touch fires MouseEnter on a tap; that's handled by pinning, not hover
 					if (lastInputIsMouse()) {
-						setHovered(true);
+						hover(true);
 					}
 				},
 				Activated: () => {
@@ -2042,7 +2206,10 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 						Juice.skipIsland();
 						return;
 					}
-					setPinned(!pinned);
+					// a mouse already opens it by hovering; pinning is for touch and gamepad, which have no leave
+					if (!lastInputIsMouse()) {
+						setPinned(!pinned);
+					}
 				},
 			},
 		},
@@ -2085,7 +2252,8 @@ BuffStrip.Island = function (islandProps: IslandProps): React.Element {
 						}),
 					}),
 		),
-		content,
+		h(IslandBoundary, { key: "top", scope: "top" }, topRow),
+		body,
 	);
 	const anchor = props.anchorPoint ?? new Vector2(0.5, 0);
 	const base = props.position ?? new UDim2();

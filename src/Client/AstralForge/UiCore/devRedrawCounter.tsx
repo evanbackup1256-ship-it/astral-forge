@@ -13,7 +13,7 @@ const IN_STUDIO = RunService.IsStudio();
 const counts = new Map<string, number>();
 
 export function redrawCounterEnabled(state: { Admin?: { Access?: boolean } }): boolean {
-	return IN_STUDIO && state.Admin?.Access === true;
+	return false;
 }
 
 // call at the top of a component's render; free when disabled

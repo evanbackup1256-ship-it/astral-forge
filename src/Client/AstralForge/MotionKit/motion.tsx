@@ -5,6 +5,8 @@ import { flashesAllowed } from "../MotionPreference";
 import { Flipper, FlipperSingleMotor, loadReactRipple, loadSpr } from "../vendor";
 import { ViewportScaleContext } from "./autoScale";
 import * as MotionTokens from "./motionTokens";
+import { isFocused } from "./focus";
+import { live } from "./antilagState";
 
 const GuiService = game.GetService("GuiService");
 const ReplicatedStorage = game.GetService("ReplicatedStorage");
@@ -318,6 +320,8 @@ const LAG_START_SECONDS = 1 / 48;
 const LAG_FULL_SECONDS = 1 / 28;
 let frameEma = 1 / 60;
 let lagPressure = 0;
+// time the decorative clocks have not been ticked for: they run at the antilag clock rate, not every frame
+let decorativeDebt = 0;
 const flipperScratch = new Array<FlipperSingleMotor>();
 const listenerScratch = new Array<FrameListener>();
 const continuousScratch = new Array<FrameListener>();
@@ -375,8 +379,8 @@ function compactClocks(list: ClockSlot[]) {
 }
 
 let clockTicking = 0;
-function tickClocks(list: ClockSlot[], deltaTime: number): number {
-	let live = 0;
+function tickClocks(list: ClockSlot[], deltaTime: number, limit = math.huge): number {
+	let ticked = 0;
 	let dead = 0;
 	clockTicking += 1;
 	for (let index = 0; index < list.size(); index++) {
@@ -385,16 +389,20 @@ function tickClocks(list: ClockSlot[], deltaTime: number): number {
 			dead += 1;
 			continue;
 		}
+		if (ticked >= limit) {
+			// over the antilag cap: this clock freezes until a slot frees up
+			continue;
+		}
 		const advanced = (slot.phase + deltaTime * slot.speed) % slot.period;
 		slot.phase = advanced;
-		live += 1;
+		ticked += 1;
 		slot.push!(advanced);
 	}
 	clockTicking -= 1;
 	if (dead >= 6 && clockTicking === 0) {
 		compactClocks(list);
 	}
-	return live;
+	return ticked;
 }
 
 function removeClockSlot(list: ClockSlot[], slot: ClockSlot) {
@@ -559,10 +567,16 @@ function ensureDriver() {
 				}
 			}
 		}
-		if (decorativeClockCount > 0) {
-			tickClocks(decorativeClocks, clamped);
+		if (decorativeClockCount > 0 && !live.suspended) {
+			decorativeDebt += clamped;
+			if (decorativeDebt >= 1 / live.clockHz - 0.002) {
+				tickClocks(decorativeClocks, decorativeDebt, math.max(8, live.maxClocks * 3));
+				decorativeDebt = 0;
+			}
+		} else {
+			decorativeDebt = 0;
 		}
-		if (continuousListenerCount > 0) {
+		if (continuousListenerCount > 0 && !live.suspended) {
 			const size = snapshotKeys(continuousListeners, continuousScratch);
 			for (let index = 0; index < size; index++) {
 				const active = continuousScratch[index];
@@ -674,14 +688,80 @@ export function useSpring(goal: number, _reducedMotion?: boolean, stiffness = 23
 	return binding as React.Binding<number>;
 }
 
+/** The motion hooks' motor interface; a LazyMotor builds its Flipper motor on first real movement. */
+type HookMotor = Omit<FlipperMotor, "raw">;
+
+/**
+ * Most hook motors never move (a button's loading, disabled, shake and focus springs sit at rest for
+ * its whole life), yet a Flipper motor costs a SingleMotor, two goal objects and its closures to build.
+ * This holds the value and listeners itself and only builds the real motor when asked to travel
+ * somewhere new; jumps (setPosition) never need one. Same interface, same feel once it moves.
+ */
+function createLazyMotor(initial: number, stiffness: number, damping: number): HookMotor {
+	let value = initial;
+	let springStiffness = stiffness;
+	let springDamping = damping;
+	let real: FlipperMotor | undefined;
+	let destroyed = false;
+	const callbacks = new Set<(value: number) => void>();
+	const emit = (moved: number) => {
+		value = moved;
+		for (const callback of callbacks) {
+			const [ok, problem] = pcall(callback, moved);
+			if (!ok) warn(`[motion] listener error: ${tostring(problem)}`);
+		}
+	};
+	return {
+		configure(nextStiffness, nextDamping) {
+			springStiffness = nextStiffness;
+			springDamping = nextDamping;
+			real?.configure(nextStiffness, nextDamping);
+		},
+		setGoal(goal) {
+			if (destroyed) return;
+			if (real === undefined) {
+				if (math.abs(value - goal) < 1e-7) return;
+				real = createFlipperMotor(value, springStiffness, springDamping);
+				real.onChange(emit);
+			}
+			real.setGoal(goal);
+		},
+		setPosition(position) {
+			if (destroyed) return;
+			if (real !== undefined) {
+				real.setPosition(position);
+			} else {
+				emit(position);
+			}
+		},
+		onChange(callback) {
+			if (destroyed) return () => undefined;
+			callbacks.add(callback);
+			return () => callbacks.delete(callback);
+		},
+		halt() {
+			real?.halt();
+		},
+		destroy() {
+			destroyed = true;
+			callbacks.clear();
+			real?.destroy();
+			real = undefined;
+		},
+		alive() {
+			return !destroyed;
+		},
+	};
+}
+
 // a motor that lives as long as the component, reporting into a binding
-function useMotor(initial: number, stiffness: number, damping: number, onRelease?: (motor: FlipperMotor) => void) {
+function useMotor(initial: number, stiffness: number, damping: number, onRelease?: (motor: HookMotor) => void) {
 	const [binding, setBinding] = React.useBinding(initial);
 	const setBindingRef = React.useRef(setBinding);
 	setBindingRef.current = setBinding;
-	const motor = React.useRef<FlipperMotor>();
+	const motor = React.useRef<HookMotor>();
 	if (motor.current === undefined) {
-		motor.current = createFlipperMotor(initial, stiffness, damping);
+		motor.current = createLazyMotor(initial, stiffness, damping);
 	}
 	React.useEffect(() => {
 		const active = motor.current!;
@@ -702,7 +782,10 @@ export function useFlipperSpring(goal: number, reducedMotion?: boolean, stiffnes
 	const settings = useMotionSettings();
 	const motionScale = settings.motionScale;
 	[stiffness, damping] = softSpring(stiffness, damping, settings.soft === true);
-	const effectiveStiffness = stiffness * MotionTokens.responseScale(motionScale);
+	// a slow machine gets stiffer springs: they settle sooner, so fewer frames carry a moving motor
+	const gain = live.springGain;
+	damping = damping * math.sqrt(gain);
+	const effectiveStiffness = stiffness * MotionTokens.responseScale(motionScale) * gain;
 	const reducedRef = React.useRef(reducedMotion);
 	const goalRef = React.useRef(goal);
 	reducedRef.current = reducedMotion;
@@ -717,6 +800,105 @@ export function useFlipperSpring(goal: number, reducedMotion?: boolean, stiffnes
 		active.setGoal(goalRef.current);
 	}, [damping, effectiveStiffness, goal, motionScale, setBinding]);
 	return binding;
+}
+
+/** A spring driven by hand rather than by a goal prop (see useDrivenSpring). */
+export interface DrivenSpring {
+	/** retarget; velocity carries over, so a moving value curves into the new goal */
+	set(this: void, goal: number): void;
+	/** displace the value by `delta` and let it spring back to its goal (layout glides, recoil) */
+	kick(this: void, delta: number): void;
+	/** jump to `value` with no motion */
+	snap(this: void, value: number): void;
+	moving(this: void): boolean;
+}
+
+/**
+ * A spring you drive imperatively: from input events (pointer follow) or from layout changes (a
+ * section that moved glides from where it was). Ticks on the shared frame driver only while it moves,
+ * and jumps straight to the goal under reduced motion or on a slow machine.
+ */
+export function useDrivenSpring(
+	frequency = 7,
+	dampingRatio = 0.85,
+	initial = 0,
+	reducedMotion?: boolean,
+	onRest?: () => void,
+): LuaTuple<[React.Binding<number>, DrivenSpring]> {
+	const [binding, setBinding] = React.useBinding(initial);
+	const onRestRef = React.useRef(onRest);
+	onRestRef.current = onRest;
+	const calm = reducedMotion === true || useMotionSettings().soft === true;
+	const calmRef = React.useRef(calm);
+	calmRef.current = calm;
+	const driver = React.useRef<DrivenSpring>();
+	const stopRef = React.useRef<() => void>();
+	if (driver.current === undefined) {
+		let x = initial;
+		let v = 0;
+		let goal = initial;
+		const halt = () => {
+			stopRef.current?.();
+			stopRef.current = undefined;
+		};
+		const tick: FrameListener = (deltaTime) => {
+			const omega = 2 * math.pi * frequency;
+			// at most 1/30 s per step so a hitch can't throw the value past its goal
+			let remaining = deltaTime;
+			while (remaining > 0) {
+				const dt = math.min(remaining, 1 / 60);
+				remaining -= dt;
+				v += (omega * omega * (goal - x) - 2 * dampingRatio * omega * v) * dt;
+				x += v * dt;
+			}
+			const resting = math.abs(goal - x) < 0.01 && math.abs(v) < 0.05;
+			if (resting) {
+				x = goal;
+				v = 0;
+				halt();
+			}
+			setBinding(x);
+			if (resting) onRestRef.current?.();
+		};
+		const wake = () => {
+			if (calmRef.current || !live.entrance) {
+				x = goal;
+				v = 0;
+				halt();
+				setBinding(x);
+				onRestRef.current?.();
+				return;
+			}
+			if (stopRef.current === undefined) stopRef.current = subscribe(tick);
+		};
+		driver.current = {
+			set: (target) => {
+				goal = target;
+				wake();
+			},
+			kick: (delta) => {
+				x += delta;
+				setBinding(x);
+				wake();
+			},
+			snap: (value) => {
+				x = value;
+				goal = value;
+				v = 0;
+				halt();
+				setBinding(value);
+			},
+			moving: () => stopRef.current !== undefined,
+		};
+	}
+	React.useEffect(
+		() => () => {
+			stopRef.current?.();
+			stopRef.current = undefined;
+		},
+		[],
+	);
+	return $tuple(binding, driver.current);
 }
 
 export function useSprScale(goal: number, _reducedMotion = false, initial = goal, dampingRatio = 0.82, frequency = 9): React.MutableRefObject<UIScale | undefined> {
@@ -905,7 +1087,8 @@ export function useExitTransition(
 	const closing = React.useRef(false);
 	const finished = React.useRef(false);
 	const afterRef = React.useRef<() => void>();
-	const startedAt = React.useRef(0);
+	const elapsed = React.useRef(0);
+	const lastTick = React.useRef<number>();
 	const spanRef = React.useRef(0.18);
 	const running = React.useRef(false);
 	const pendingAfter = React.useRef(false);
@@ -939,7 +1122,12 @@ export function useExitTransition(
 			if (span <= 0) {
 				span = 0.01;
 			}
-			const alpha = math.clamp((os.clock() - startedAt.current) / span, 0, 1);
+			// time is counted in capped frame steps: the close itself re-renders, and a long first frame
+			// must delay the exit, not skip a third of it
+			const now = os.clock();
+			elapsed.current += lastTick.current === undefined ? 0 : math.min(now - lastTick.current, 1 / 30);
+			lastTick.current = now;
+			const alpha = math.clamp(elapsed.current / span, 0, 1);
 			const shown = alpha >= 1 ? 0 : 1 - MotionTokens.EASE.accelerate(alpha);
 			setAmountRef.current(shown);
 			if (alpha < 1) {
@@ -971,7 +1159,8 @@ export function useExitTransition(
 			afterRef.current = after;
 			setExiting(true);
 			setAmount(1);
-			startedAt.current = os.clock();
+			elapsed.current = 0;
+			lastTick.current = undefined;
 			spanRef.current = MotionTokens.exitSeconds(duration);
 			running.current = true;
 			if (stopRef.current === undefined) {
@@ -1013,11 +1202,12 @@ export function useTokenEntrance(token: unknown, reducedMotion = false, duration
 }
 
 export function useEntrance(reducedMotion = false): React.Binding<number> {
-	return useFlipperSpring(1, reducedMotion === true, MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping, 0);
+	// on a slow machine panels simply appear (the spring starts at its goal)
+	return useFlipperSpring(1, reducedMotion === true, MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping, live.entrance ? 0 : 1);
 }
 
 /** px a panel sits below its place while it enters or leaves; Panel, overlays and tooltips all use it. */
-export const REVEAL_RISE = 10;
+export const REVEAL_RISE = 14;
 export function revealOffset(amount: number): number {
 	return (1 - math.clamp(amount, 0, 1)) * REVEAL_RISE;
 }
@@ -1316,29 +1506,6 @@ export function useChangePop(key: unknown, reducedMotion = false, depth = 0.16):
 	return React.useMemo(() => flash.map((v) => 1 + v * amount), [flash, amount]);
 }
 
-// Hover lift and press dip for anything clickable. Returns the scale binding and the events to merge.
-export function useHoverPress(reducedMotion = false, lift = 0.035, dip = 0.05) {
-	const [hovered, setHovered] = React.useState(false);
-	const [pressed, setPressed] = React.useState(false);
-	const soft = useMotionSettings().soft === true || reducedMotion;
-	const k = soft ? 0.5 : 1;
-	const goal = pressed ? 1 - dip * k : hovered ? 1 + lift * k : 1;
-	const scale = useFlipperSpring(goal, soft, 620, 30, 1);
-	const events = React.useMemo(
-		() => ({
-			MouseEnter: () => setHovered(true),
-			MouseLeave: () => {
-				setHovered(false);
-				setPressed(false);
-			},
-			MouseButton1Down: () => setPressed(true),
-			MouseButton1Up: () => setPressed(false),
-		}),
-		[],
-	);
-	return $tuple(scale, events, hovered);
-}
-
 // A light glint that sweeps across now and then. Between sweeps nothing runs: the next one is a
 // task.delay, and a sweep is a short-lived frame listener. Returns a UIGradient Offset X (-1.4..1.4).
 export function useIdleGlint(enabled: boolean, every = 7, reducedMotion = false): React.Binding<number> {
@@ -1355,6 +1522,16 @@ export function useIdleGlint(enabled: boolean, every = 7, reducedMotion = false)
 		const span = soft ? 1.1 : 0.7;
 		const sweep = () => {
 			if (!alive) return;
+			// slow machine or hidden UI: no sweeps, just look again later
+			if (!live.shimmer || live.suspended) {
+				job = task.delay(2.5, sweep);
+				return;
+			}
+			// a foreground move (a page change) has the stage: the glint waits its turn
+			if (isFocused()) {
+				job = task.delay(0.35, sweep);
+				return;
+			}
 			let elapsed = 0;
 			release = subscribeContinuous((dt) => {
 				elapsed += dt;

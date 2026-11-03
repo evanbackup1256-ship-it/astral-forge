@@ -53,9 +53,17 @@ function visible(instance: GuiObject): boolean {
 	return right > left && bottom > top;
 }
 
-function canRecover(instance: Instance, kind: string): boolean {
-	// Only the owning component can opt a specific element into recovery.
-	return instance.GetAttribute("LayoutGuardRecovery") === kind;
+function canRecover(instance: Instance, _kind: string): boolean {
+	// The guard repairs by default; an owner opts a subtree out with LayoutGuardRecovery = "off"
+	// (or LayoutGuardIgnore, which the guard also honours for diagnostics).
+	let ancestor: Instance | undefined = instance;
+	while (ancestor !== undefined && !ancestor.IsA("LayerCollector")) {
+		if (ancestor.GetAttribute("LayoutGuardRecovery") === "off") {
+			return false;
+		}
+		ancestor = ancestor.Parent;
+	}
+	return true;
 }
 
 function create(clock: () => number) {

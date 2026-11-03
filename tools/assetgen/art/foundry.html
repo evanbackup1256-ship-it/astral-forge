@@ -1,0 +1,183 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><script src="common.js"></script></head>
+<body>
+<script>
+// The Star Foundry, engraved: the board plate, hex sockets, the eight pieces, and the small things that move on
+// the board (the spark that rides beams and the ignite orbit, the lit halo, the beam, the hint arrow).
+// Directional pieces are drawn facing right (east); the game turns them to their facing.
+const piece = query("piece", "ember");
+const LINE = PAL.parchment;
+const pts = (list) => list.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+const KIND = {
+	ember: { mid: PAL.ember, light: PAL.emberLight, dark: "#6e3220" },
+	conduit: { mid: "#6f93ae", light: "#a9c4d6", dark: "#3a5062" },
+	lens: { mid: "#86b4bf", light: "#cfe5ea", dark: "#3f6169" },
+	prism: { mid: PAL.voidglass, light: PAL.voidLight, dark: "#463c68" },
+	forge: { mid: PAL.brass, light: PAL.brassLight, dark: PAL.brassDark },
+	strike: { mid: PAL.rust, light: PAL.rustLight, dark: "#5e271b" },
+	vault: { mid: PAL.verdigris, light: "#a7c9bd", dark: "#3c5c52" },
+	echo: { mid: "#8a76b8", light: "#c2b4e0", dark: "#4a3d6e" },
+};
+let defs = `${hatchDefs("hatch", LINE, 5, 45, 0.9)}${hatchDefs("hatchInk", PAL.ink, 4, 45, 1)}${grainDefs("worn", 0.85, 13)}`;
+
+function hexPoints(cx, cy, r, rotation = 0) {
+	const out = [];
+	for (let i = 0; i < 6; i++) {
+		const a = ((60 * i + rotation) * Math.PI) / 180;
+		out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+	}
+	return out;
+}
+
+let svg = "", W = 256, H = 256;
+const C = 128;
+
+if (piece === "board") {
+	W = H = 1024;
+	const R = rng(4242);
+	// no fill: the board frame behind supplies the ink, so the plate has no square edge
+	// faint coordinate lines and stars, like the margin of an atlas plate
+	for (let i = 1; i <= 7; i++) svg += `<circle cx="512" cy="512" r="${i * 68}" fill="none" stroke="${PAL.parchmentDim}" stroke-width="0.6" opacity="0.08"/>`;
+	for (let a = 0; a < 180; a += 15) {
+		const t = (a * Math.PI) / 180;
+		svg += `<line x1="${512 - Math.cos(t) * 520}" y1="${512 - Math.sin(t) * 520}" x2="${512 + Math.cos(t) * 520}" y2="${512 + Math.sin(t) * 520}" stroke="${PAL.parchmentDim}" stroke-width="0.5" opacity="0.06"/>`;
+	}
+	for (let i = 0; i < 140; i++) {
+		const m = R();
+		svg += `<circle cx="${(R() * 1024).toFixed(1)}" cy="${(R() * 1024).toFixed(1)}" r="${(0.5 + m * 1.2).toFixed(2)}" fill="${LINE}" opacity="${(0.12 + m * 0.3).toFixed(2)}"/>`;
+	}
+	// the ignite orbit: an engraved double ring with a degree scale (the comet rides it; radius 0.47 of the board)
+	svg += `<circle cx="512" cy="512" r="481" fill="none" stroke="${PAL.brassLight}" stroke-width="3" opacity="0.95"/>`;
+	svg += `<circle cx="512" cy="512" r="473" fill="none" stroke="${PAL.brass}" stroke-width="1.4" opacity="0.9"/>`;
+	for (let d = 0; d < 360; d += 3) {
+		const [x1, y1] = polar(512, 512, 473, d), [x2, y2] = polar(512, 512, d % 30 === 0 ? 458 : 466, d);
+		svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${d % 30 === 0 ? PAL.brass : PAL.brassDark}" stroke-width="${d % 30 === 0 ? 1.8 : 1}" opacity="0.95"/>`;
+	}
+	// a darker well under the lattice so the pieces sit in it
+	svg = `<defs>${defs}<radialGradient id="well" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity="0.35"/><stop offset="0.85" stop-color="#000" stop-opacity="0.12"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs><circle cx="512" cy="512" r="470" fill="url(#well)"/><g filter="url(#worn)">${svg}</g>`;
+} else if (piece === "socket" || piece === "socket-target") {
+	const target = piece === "socket-target";
+	const outer = hexPoints(C, C, 118), inner = hexPoints(C, C, 104);
+	svg += `<polygon points="${pts(outer)}" fill="${target ? "#2b2418" : PAL.inkSoft}"/>`;
+	svg += `<polygon points="${pts(outer)}" fill="none" stroke="${target ? PAL.brassLight : PAL.ironLight}" stroke-width="${target ? 3 : 2}"/>`;
+	svg += `<polygon points="${pts(inner)}" fill="none" stroke="${target ? PAL.brass : PAL.iron}" stroke-width="1.4"/>`;
+	// bevel: the lower facets hatched
+	for (let i = 0; i < 3; i++) {
+		const a = outer[i], b = outer[i + 1], c = inner[i + 1], d = inner[i];
+		svg += `<polygon points="${pts([a, b, c, d])}" fill="url(#hatch)" opacity="${target ? 0.18 : 0.1}"/>`;
+	}
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${svg}</g>`;
+} else if (piece === "ember") {
+	const k = KIND.ember;
+	// a sun with long engraved rays, one flare reaching the way it faces (east)
+	for (let i = 0; i < 16; i++) {
+		const a = i * 22.5;
+		const long = i % 2 === 0;
+		const [x1, y1] = polar(C, C, 40, a), [x2, y2] = polar(C, C, long ? 96 : 74, a);
+		svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${long ? k.light : k.mid}" stroke-width="${long ? 3 : 2}" stroke-linecap="round"/>`;
+	}
+	svg += `<path d="M ${C + 34} ${C - 16} Q ${C + 80} ${C - 8} ${C + 122} ${C} Q ${C + 80} ${C + 8} ${C + 34} ${C + 16} Z" fill="${k.light}" stroke="${LINE}" stroke-width="1.6"/>`;
+	svg += `<circle cx="${C}" cy="${C}" r="42" fill="${k.mid}" stroke="${LINE}" stroke-width="2.2"/>`;
+	svg += `<circle cx="${C}" cy="${C}" r="42" fill="url(#hatch)" opacity="0.3"/>`;
+	svg += `<circle cx="${C - 8}" cy="${C - 8}" r="18" fill="${k.light}"/>`;
+	svg += `<circle cx="${C}" cy="${C}" r="30" fill="none" stroke="${LINE}" stroke-width="1" opacity="0.6"/>`;
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${svg}</g>`;
+} else if (piece === "conduit") {
+	const k = KIND.conduit;
+	// a lozenge with a channel running through it, an arrowhead on the east point
+	const body = [[C - 84, C], [C - 10, C - 46], [C + 76, C - 46], [C + 112, C], [C + 76, C + 46], [C - 10, C + 46]];
+	svg += `<polygon points="${pts(body)}" fill="${k.mid}"/>`;
+	svg += `<polygon points="${pts([[C - 84, C], [C - 10, C - 46], [C + 76, C - 46], [C + 112, C]])}" fill="${k.light}"/>`;
+	svg += `<polygon points="${pts([[C - 84, C], [C + 112, C], [C + 76, C + 46], [C - 10, C + 46]])}" fill="url(#hatch)" opacity="0.35"/>`;
+	svg += `<polygon points="${pts(body)}" fill="none" stroke="${LINE}" stroke-width="2.2" stroke-linejoin="round"/>`;
+	svg += `<line x1="${C - 60}" y1="${C}" x2="${C + 70}" y2="${C}" stroke="${PAL.ink}" stroke-width="7" stroke-linecap="round"/>`;
+	svg += `<line x1="${C - 60}" y1="${C}" x2="${C + 70}" y2="${C}" stroke="${k.light}" stroke-width="2.5" stroke-linecap="round"/>`;
+	svg += `<polygon points="${pts([[C + 58, C - 14], [C + 86, C], [C + 58, C + 14]])}" fill="${LINE}"/>`;
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${svg}</g>`;
+} else if (piece === "lens") {
+	const k = KIND.lens;
+	// ground glass in a brass rim, a notch on the east side where the focused beam leaves
+	svg += `<circle cx="${C}" cy="${C}" r="88" fill="${PAL.brassDark}"/>`;
+	svg += `<circle cx="${C}" cy="${C}" r="88" fill="none" stroke="${LINE}" stroke-width="2.2"/>`;
+	svg += `<circle cx="${C}" cy="${C}" r="72" fill="${k.mid}"/>`;
+	svg += `<path d="M ${C - 72} ${C} A 72 72 0 0 1 ${C + 72} ${C} Z" fill="${k.light}" opacity="0.8"/>`;
+	svg += `<circle cx="${C}" cy="${C}" r="72" fill="none" stroke="${LINE}" stroke-width="1.6"/>`;
+	svg += `<circle cx="${C}" cy="${C}" r="50" fill="none" stroke="${LINE}" stroke-width="1" opacity="0.5"/>`;
+	svg += `<circle cx="${C}" cy="${C}" r="26" fill="none" stroke="${LINE}" stroke-width="1" opacity="0.5"/>`;
+	svg += `<path d="M ${C - 40} ${C - 40} Q ${C - 20} ${C - 56} ${C + 6} ${C - 54}" fill="none" stroke="${LINE}" stroke-width="3" stroke-linecap="round" opacity="0.8"/>`;
+	svg += `<polygon points="${pts([[C + 84, C - 16], [C + 112, C], [C + 84, C + 16]])}" fill="${PAL.brassLight}" stroke="${LINE}" stroke-width="1.6"/>`;
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${svg}</g>`;
+} else if (piece === "prism") {
+	const k = KIND.prism;
+	// a triangular prism seen end-on, its apex east
+	const a = [C + 100, C], b = [C - 70, C - 98], c = [C - 70, C + 98], m = [C - 6, C];
+	svg += `<polygon points="${pts([a, b, m])}" fill="${k.light}"/>`;
+	svg += `<polygon points="${pts([b, c, m])}" fill="${k.mid}"/>`;
+	svg += `<polygon points="${pts([c, a, m])}" fill="${k.dark}"/>`;
+	svg += `<polygon points="${pts([c, a, m])}" fill="url(#hatch)" opacity="0.3"/>`;
+	svg += `<polygon points="${pts([a, b, c])}" fill="none" stroke="${LINE}" stroke-width="2.4" stroke-linejoin="round"/>`;
+	svg += `<polyline points="${pts([a, m, b])}" fill="none" stroke="${LINE}" stroke-width="1.1" opacity="0.8"/><line x1="${m[0]}" y1="${m[1]}" x2="${c[0]}" y2="${c[1]}" stroke="${LINE}" stroke-width="1.1" opacity="0.8"/>`;
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${svg}</g>`;
+} else if (piece.endsWith("anvil")) {
+	const kind = piece.split("-")[0];
+	const k = KIND[kind];
+	// a brass hex plate with an anvil engraved on it, and the emblem of what it makes
+	const plate = hexPoints(C, C, 112, 0), rim = hexPoints(C, C, 98, 0);
+	svg += `<polygon points="${pts(plate)}" fill="${PAL.brassDark}"/>`;
+	svg += `<polygon points="${pts(rim)}" fill="${k.mid}"/>`;
+	svg += `<polygon points="${pts([rim[0], rim[1], rim[2], rim[3]])}" fill="url(#hatchInk)" opacity="0.18"/>`;
+	svg += `<polygon points="${pts(plate)}" fill="none" stroke="${LINE}" stroke-width="2.2"/><polygon points="${pts(rim)}" fill="none" stroke="${LINE}" stroke-width="1.2" opacity="0.7"/>`;
+	// the anvil: horn, face, waist, foot
+	const anvil = [[C - 62, C - 4], [C - 30, C - 18], [C + 54, C - 18], [C + 54, C + 2], [C + 22, C + 6], [C + 16, C + 26], [C + 40, C + 42], [C - 36, C + 42], [C - 14, C + 26], [C - 20, C + 6], [C - 40, C + 4]];
+	svg += `<polygon points="${pts(anvil)}" fill="${PAL.ink}" stroke="${LINE}" stroke-width="1.8" stroke-linejoin="round"/>`;
+	svg += `<line x1="${C - 26}" y1="${C - 12}" x2="${C + 48}" y2="${C - 12}" stroke="${LINE}" stroke-width="1" opacity="0.6"/>`;
+	const ex = C, ey = C - 52;
+	if (kind === "forge") {
+		svg += `<path d="M ${ex - 22} ${ey + 6} L ${ex + 14} ${ey - 18} L ${ex + 22} ${ey - 8} L ${ex - 14} ${ey + 16} Z" fill="${PAL.ink}" stroke="${LINE}" stroke-width="1.5"/>`;
+		svg += `<rect x="${ex + 8}" y="${ey - 30}" width="22" height="14" transform="rotate(-34 ${ex + 19} ${ey - 23})" fill="${PAL.ink}" stroke="${LINE}" stroke-width="1.5"/>`;
+	} else if (kind === "strike") {
+		svg += `<polygon points="${pts([[ex + 6, ey - 28], [ex - 14, ey + 2], [ex, ey + 2], [ex - 8, ey + 26], [ex + 16, ey - 6], [ex + 2, ey - 6]])}" fill="${PAL.ink}" stroke="${LINE}" stroke-width="1.5" stroke-linejoin="round"/>`;
+	} else if (kind === "vault") {
+		svg += `<rect x="${ex - 20}" y="${ey - 18}" width="40" height="32" rx="3" fill="${PAL.ink}" stroke="${LINE}" stroke-width="1.5"/><circle cx="${ex}" cy="${ey - 2}" r="7" fill="none" stroke="${LINE}" stroke-width="1.5"/>`;
+	} else {
+		let d = `M ${ex} ${ey}`;
+		for (let t = 0; t < 4 * Math.PI; t += 0.2) d += ` L ${ex + Math.cos(t) * t * 2.2} ${ey + Math.sin(t) * t * 2.2}`;
+		svg += `<path d="${d}" fill="none" stroke="${PAL.ink}" stroke-width="4.5" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${LINE}" stroke-width="1.6" stroke-linecap="round"/>`;
+	}
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${svg}</g>`;
+} else if (piece === "lit") {
+	// the halo a piece gets while energy runs through it: fine rings and short engraved rays, tinted in game
+	for (let i = 0; i < 3; i++) svg += `<circle cx="${C}" cy="${C}" r="${84 + i * 12}" fill="none" stroke="#fff" stroke-width="${2 - i * 0.5}" opacity="${0.75 - i * 0.22}"/>`;
+	for (let a = 0; a < 360; a += 10) {
+		const [x1, y1] = polar(C, C, 112, a), [x2, y2] = polar(C, C, a % 30 === 0 ? 126 : 119, a);
+		svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#fff" stroke-width="1.3" opacity="0.6"/>`;
+	}
+	svg = `<defs>${defs}</defs><g filter="url(#worn)">${svg}</g>`;
+} else if (piece === "beam") {
+	W = 512; H = 32;
+	// an etched channel: a bright core between fine rails, stretched along a link and tinted in game
+	svg += `<line x1="0" y1="16" x2="512" y2="16" stroke="#fff" stroke-width="5" opacity="0.95"/>`;
+	svg += `<line x1="0" y1="9" x2="512" y2="9" stroke="#fff" stroke-width="1" opacity="0.45"/><line x1="0" y1="23" x2="512" y2="23" stroke="#fff" stroke-width="1" opacity="0.45"/>`;
+	for (let x = 4; x < 512; x += 9) svg += `<line x1="${x}" y1="10" x2="${x + 4}" y2="22" stroke="#fff" stroke-width="0.8" opacity="0.25"/>`;
+} else if (piece === "spark") {
+	W = H = 64;
+	// an engraved eight-point star, white so the game can tint it
+	const s = [];
+	for (let i = 0; i < 16; i++) {
+		const r = i % 2 === 0 ? (i % 4 === 0 ? 30 : 18) : 6;
+		const a = (i / 16) * Math.PI * 2 - Math.PI / 2;
+		s.push([32 + Math.cos(a) * r, 32 + Math.sin(a) * r]);
+	}
+	svg += `<polygon points="${pts(s)}" fill="#fff"/>`;
+} else if (piece === "arrow") {
+	W = 256; H = 64;
+	// the hint: a pointing hand-drawn arrow, white for tinting
+	svg += `<path d="M 6 32 C 70 26, 140 28, 200 32" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>`;
+	svg += `<path d="M 6 32 C 70 38, 140 36, 200 32" fill="none" stroke="#fff" stroke-width="1.4" opacity="0.6"/>`;
+	svg += `<polygon points="${pts([[186, 12], [250, 32], [186, 52], [200, 32]])}" fill="#fff"/>`;
+}
+mount(svg, W, H);
+</script>
+</body>
+</html>

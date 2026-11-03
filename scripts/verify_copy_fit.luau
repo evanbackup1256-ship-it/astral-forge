@@ -71,9 +71,9 @@ local CASES: { Case } = {
 	{ file = "pages/PagesSocial.tsx", needle = "You're getting +${adv}% more than you give", fill = { adv = "100" }, size = 12, minSize = 10, bold = true, width = tradeWidth },
 	{ file = "pages/PagesSocial.tsx", needle = "Fair trade · about even", size = 12, minSize = 10, bold = true, width = tradeWidth },
 	{ file = "pages/PagesSocial.tsx", needle = "Add items or currency to see the balance", size = 12, minSize = 10, bold = true, width = tradeWidth },
-	{ file = "pages/views/GuildView.ts", needle = "Every deposit and build counts toward it.", size = 11, bold = false, width = PHONE - 14 * 2 - 8, box = 30 },
-	{ file = "pages/views/GuildView.ts", needle = "Leader turned chat off", size = 14, bold = false, width = chatWidth },
-	{ file = "pages/views/GuildView.ts", needle = "Message your guild…", size = 14, bold = false, width = chatWidth },
+	{ file = "pages/views/GuildView.tsx", needle = "Every deposit and build counts toward it.", size = 11, bold = false, width = PHONE - 14 * 2 - 8, box = 30 },
+	{ file = "pages/views/GuildView.tsx", needle = "Leader turned chat off", size = 14, bold = false, width = chatWidth },
+	{ file = "pages/views/GuildView.tsx", needle = "Message your guild…", size = 14, bold = false, width = chatWidth },
 	-- player list at its 286px minimum (inner width 266)
 	{ file = "UiCore/PlayerlistOverlay.ts", needle = "Just you in here. Invite friends for a production boost, trades, crews and visits.", size = 12, minSize = 11, bold = false, width = 266 - 24, box = 54 },
 	{ file = "UiCore/PlayerlistOverlay.ts", needle = "Thanks for helping keep the server friendly.", size = 12, minSize = 11, bold = false, width = 266 - 20, box = 34 },
@@ -110,9 +110,9 @@ local function phoneCases(phone: number)
 	return {
 		{ file = "pages/PagesProgress/LabView.tsx", needle = "Move cells whenever you like.", size = 16, minSize = 12, bold = true, width = panel - 8, phone = phone },
 		{ file = "pages/PagesProgress/LabView.tsx", needle = "Bonuses apply at once. A new cell unlocks every 8 rebirths.", size = 11, minSize = 10, bold = false, width = panel - 8, box = 32, phone = phone },
-		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Title wardrobe", size = 18, minSize = 12, bold = true, width = panel, phone = phone },
-		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Each title shows as it looks on you.", size = 11, bold = false, width = panel, phone = phone },
-		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Train officers with signals.", size = 12, minSize = 10, bold = false, width = panel, phone = phone },
+		{ file = "pages/PagesSystem/CommandView.tsx", needle = "EXPEDITION TELEMETRY", size = 11, bold = true, width = panel, phone = phone },
+		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Find on orbital expeditions", size = 11, bold = false, width = panel, phone = phone },
+		{ file = "pages/PagesSystem/CommandView.tsx", needle = "Enhances fleet operations", size = 11, bold = false, width = panel, phone = phone },
 		{ file = "pages/PagesShop.tsx", needle = "Passes, packs and codes", size = 18, minSize = 14, bold = true, width = panel, phone = phone },
 	}
 end

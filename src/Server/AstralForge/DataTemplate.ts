@@ -284,7 +284,6 @@ const DataTemplate = {
 				PanelHover: 1,
 				PanelEntrances: 1,
 				AnimatedTitles: 1,
-				IconAnimations: 1,
 				NumberAnimations: 1,
 				ConfettiEnabled: 1,
 				ScreenFlashes: 0.8,

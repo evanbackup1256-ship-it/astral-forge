@@ -180,6 +180,8 @@ const RULES: Record<string, Rule> = {
 	[Protocol.Actions.DomainLattice]: { Cost: 1, Cooldown: 0.15 },
 	[Protocol.Actions.EventAct]: { Cost: 0.4, Cooldown: 0.2 },
 	[Protocol.Actions.ConstellationAct]: { Cost: 1, Cooldown: 0.25 },
+	// the Reaches page: mining, Warden strikes (the server's own 0.3s strike cooldown is the real limit) and upgrades
+	[Protocol.Actions.OreAct]: { Cost: 0.3, Cooldown: 0.15 },
 	[Protocol.Actions.UpgradeContinuum]: { Cost: 1.5, Cooldown: 0.35 },
 	// Star Foundry moves; Ignite is a timing tap, so the cooldown is short
 	[Protocol.Actions.FoundryAct]: { Cost: 0.45, Cooldown: 0.06 },
@@ -563,6 +565,13 @@ function validateActionPayload(action: string, payload: unknown): LuaTuple<[bool
 	} else if (action === Protocol.Actions.ConstellationAct) {
 		if (!typeIs(payload, "table") || bag.Op !== "Light" || !stringField(bag, "Star", 1, 24)) {
 			return $tuple(false, "invalid constellation action");
+		}
+	} else if (action === Protocol.Actions.OreAct) {
+		const buying = bag.Op === "Buy" && stringField(bag, "Upgrade", 1, 32);
+		const mining = bag.Op === "Mine" && stringField(bag, "Node", 3, 32);
+		const striking = bag.Op === "Strike";
+		if (!typeIs(payload, "table") || !(buying || mining || striking)) {
+			return $tuple(false, "invalid ore action");
 		}
 	} else if (action === Protocol.Actions.DomainLattice) {
 		if (!typeIs(payload, "table") || (bag.Op !== "Etch" && bag.Op !== "Clear")) {

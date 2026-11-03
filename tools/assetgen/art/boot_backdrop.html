@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><script src="common.js"></script></head>
+<body>
+<script>
+// The loading screen's ground: dark printing paper with grain, and a faint star chart on it the way an old
+// atlas plate would have one: a few meridians and declination arcs, stars by magnitude, two constellations.
+const W = 1024, H = 576;
+const R = rng(90311);
+let defs = `
+	<filter id="paper" x="0" y="0" width="100%" height="100%">
+		<feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" result="n"/>
+		<feColorMatrix in="n" type="matrix" values="0 0 0 0 0.92  0 0 0 0 0.87  0 0 0 0 0.76  0 0 0 0.05 0"/>
+	</filter>
+	<filter id="fibres" x="0" y="0" width="100%" height="100%">
+		<feTurbulence type="fractalNoise" baseFrequency="0.02 0.035" numOctaves="3" seed="11" result="n"/>
+		<feColorMatrix in="n" type="matrix" values="0 0 0 0 0.8  0 0 0 0 0.74  0 0 0 0 0.62  0 0 0 0.035 -0.008"/>
+	</filter>
+	<radialGradient id="vignette" cx="50%" cy="46%" r="70%">
+		<stop offset="0.45" stop-color="#000" stop-opacity="0"/>
+		<stop offset="1" stop-color="#000" stop-opacity="0.62"/>
+	</radialGradient>
+	${grainDefs("worn", 0.8, 21)}`;
+let chart = "";
+// the projection: a pole off to the upper right, meridians fanning from it, declination arcs around it
+const px = W * 0.86, py = -H * 0.35;
+for (let i = 1; i <= 9; i++) {
+	const r = 260 + i * 92;
+	chart += `<circle cx="${px}" cy="${py}" r="${r}" fill="none" stroke="${PAL.parchmentDim}" stroke-width="${i % 3 === 0 ? 0.9 : 0.5}" opacity="${i % 3 === 0 ? 0.18 : 0.1}"/>`;
+}
+for (let a = 100; a <= 260; a += 12) {
+	const t = (a * Math.PI) / 180;
+	chart += `<line x1="${px}" y1="${py}" x2="${px + Math.cos(t) * 1400}" y2="${py + Math.sin(t) * 1400}" stroke="${PAL.parchmentDim}" stroke-width="0.5" opacity="0.1"/>`;
+}
+// stars by magnitude: many faint, few bright, the bright ones drawn as small engraved stars
+for (let i = 0; i < 260; i++) {
+	const x = R() * W, y = R() * H, m = R();
+	if (m > 0.97) {
+		const s = 3 + R() * 2.5;
+		chart += `<path d="M ${x} ${y - s} L ${x + s * 0.28} ${y - s * 0.28} L ${x + s} ${y} L ${x + s * 0.28} ${y + s * 0.28} L ${x} ${y + s} L ${x - s * 0.28} ${y + s * 0.28} L ${x - s} ${y} L ${x - s * 0.28} ${y - s * 0.28} Z" fill="${PAL.parchment}" opacity="0.55"/>`;
+	} else {
+		chart += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(0.4 + m * 1.1).toFixed(2)}" fill="${PAL.parchment}" opacity="${(0.12 + m * 0.3).toFixed(2)}"/>`;
+	}
+}
+// two constellations, joined by dotted lines like an atlas
+const figures = [
+	[[120, 130], [172, 96], [236, 118], [262, 178], [214, 224], [150, 206]],
+	[[700, 420], [760, 388], [812, 410], [846, 470], [790, 500]],
+];
+for (const figure of figures) {
+	for (let i = 0; i < figure.length - 1; i++) {
+		const [x1, y1] = figure[i], [x2, y2] = figure[i + 1];
+		chart += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${PAL.parchmentDim}" stroke-width="0.7" stroke-dasharray="1.5 4" opacity="0.35"/>`;
+	}
+	for (const [x, y] of figure) {
+		chart += `<circle cx="${x}" cy="${y}" r="2.2" fill="${PAL.parchment}" opacity="0.5"/>`;
+	}
+}
+const svg = `<defs>${defs}</defs>
+	<rect width="${W}" height="${H}" fill="${PAL.ink}"/>
+	<rect width="${W}" height="${H}" filter="url(#fibres)"/>
+	<g filter="url(#worn)">${chart}</g>
+	<rect width="${W}" height="${H}" filter="url(#paper)"/>
+	<rect width="${W}" height="${H}" fill="url(#vignette)"/>`;
+mount(svg, W, H);
+</script>
+</body>
+</html>

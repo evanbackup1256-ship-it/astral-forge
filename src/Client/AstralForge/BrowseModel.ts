@@ -1,4 +1,4 @@
-﻿// Search, category and sort logic shared by every browsable page and Quick Find.
+﻿// Search, category and sort logic shared by every browsable page.
 // No Roblox APIs and no imports (so no runtime library), so the Lune suite can test it directly.
 
 interface Category {
@@ -360,21 +360,9 @@ function recall(id: string): Memory | undefined {
 	return memory[id];
 }
 
-// Deep links (Quick Find -> a page): remembered for a page that mounts later, and pushed
-// live to a page that is already open.
+// A page that is already open hears when its remembered search, category or sort is set from outside.
 type Listener = (this: void, entry: Memory) => void;
 const listeners: Record<string, Listener[]> = {};
-function link(id: string, entry: Memory): void {
-	const previous = memory[id] as Memory | undefined;
-	memory[id] = {
-		query: entry.query,
-		category: entry.category,
-		sort: entry.sort ?? (previous ? previous.sort : undefined),
-	};
-	for (const listener of [...(listeners[id] ?? [])]) {
-		listener(memory[id]);
-	}
-}
 function listen(id: string, listener: Listener): () => void {
 	const list = listeners[id] ?? [];
 	listeners[id] = list;
@@ -385,22 +373,6 @@ function listen(id: string, listener: Listener): () => void {
 			list.remove(at);
 		}
 	};
-}
-
-// Recent Quick Find picks, newest first.
-const recents: string[] = [];
-function pushRecent(key: string, limit?: number): void {
-	const at = recents.indexOf(key);
-	if (at !== -1) {
-		recents.remove(at);
-	}
-	recents.unshift(key);
-	while (recents.size() > (limit ?? 6)) {
-		recents.pop();
-	}
-}
-function recent(): string[] {
-	return [...recents];
 }
 
 const Model = {
@@ -417,10 +389,7 @@ const Model = {
 	highlight,
 	remember,
 	recall,
-	link,
 	listen,
-	pushRecent,
-	recent,
 };
 
 export = Model;

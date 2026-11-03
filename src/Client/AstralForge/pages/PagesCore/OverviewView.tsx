@@ -12,8 +12,6 @@ import { useAntilag } from "../../MotionKit/antilag";
 import { Flex, FlexItem } from "../../MotionKit/flexbox";
 import { useClock, useFlash, usePulse, useStagger, useViewport } from "../../MotionKit/motion";
 import makeOverviewGoal = require("../../OverviewGoals");
-import QuickFind = require("../../QuickFind");
-import ReadyBoard = require("../../ReadyBoard");
 import SessionStats = require("../../SessionStats");
 import { named } from "../luauDeps";
 import { AudioPlayer, kitMember, LuauComponent } from "../luauKits";
@@ -580,21 +578,6 @@ function progressLadder(state: OverviewState, config: OverviewConfig | undefined
 	return lines;
 }
 
-// puts the "Ready now" strip first when it is shown
-// With the Ready strip on screen, the "ops" card (claims across Missions, Lab, Forge Path) only
-// repeated it lower down, so it is left out.
-function withReady(entry: Section | undefined, sections: Section[]): Section[] {
-	if (entry !== undefined) {
-		for (let index = sections.size() - 1; index >= 0; index--) {
-			if (sections[index].id === "ops") {
-				sections.remove(index);
-			}
-		}
-		sections.unshift(entry);
-	}
-	return sections;
-}
-
 interface OverviewViewProps {
 	state: OverviewState;
 	config?: OverviewConfig;
@@ -846,23 +829,6 @@ export function OverviewView({
 			SkillPoints: 0,
 			Nodes: [],
 		} as DomainState);
-	const readyList = ReadyBoard.collect(state, config);
-	const readySection: Section | undefined =
-		tutorialDone && navigate !== undefined
-			? {
-					id: "ready",
-					height: phone ? 52 : 58,
-					element: (
-						<ReadyBoard.Strip
-							list={readyList}
-							compact={phone}
-							pillHeight={phone ? 48 : 44}
-							onOpen={navigate}
-							onFind={() => QuickFind.open()}
-						/>
-					),
-				}
-			: undefined;
 	const domainProgress = math.min(
 		math.clamp(asFlux(state.Rebirths ?? 0) / math.max(1, asFlux(domain.RequiredRebirths)), 0, 1),
 		math.clamp(asFlux(state.Cores ?? 0) / math.max(1, asFlux(domain.RequiredCores)), 0, 1),
@@ -883,7 +849,7 @@ export function OverviewView({
 					tailPad={scrollTail(stack, chrome.bottomSafe, overviewTail)}
 					scrollBarColor={Palette.green}
 					scrollBarThickness={4}
-					sections={withReady(readySection, [
+					sections={[
 						{
 							id: "top",
 							height: topBandH,
@@ -2014,7 +1980,8 @@ export function OverviewView({
 						{
 							// this session, live
 							id: "session",
-							height: SessionStats.height(phone ? 2 : 4) + 56,
+							// the panel's padding on both sides plus the 24px title row sit around the tile grid
+							height: SessionStats.height(phone ? 2 : 4) + 24 + 2 * math.min(stack ? chrome.cardPadding : Pad.panel, Pad.panelMax),
 							element: (
 								<Panel
 									layoutOrder={8}
@@ -2037,7 +2004,7 @@ export function OverviewView({
 								</Panel>
 							),
 						},
-					])}
+					]}
 				/>
 			</frame>
 		</frame>

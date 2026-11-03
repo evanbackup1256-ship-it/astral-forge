@@ -1,4 +1,4 @@
-﻿// Shared presentation and input rules; authorization remains exclusively server-side.
+// Shared presentation and input rules; authorization remains exclusively server-side.
 import { T } from "./Locale";
 interface Definition {
 	World?: unknown;
@@ -16,6 +16,12 @@ interface Rule {
 }
 
 const fractional: Record<string, boolean> = { GrantFlux: true, GrantCores: true, GrantStardust: true };
+// commands whose amount does not follow the Grant/Set/duration naming rules
+const overrides: Record<string, Partial<Rule>> = {
+	FastForward: { Mode: "add", UsesAmount: true, Minimum: 1, Maximum: 720, Integer: true, Summary: "Credits this many hours of the player's current production." },
+	ServerGift: { Mode: "add", UsesAmount: true, Minimum: 1, Maximum: 1e9, Integer: true, Summary: "Gives every player in this server this amount of the chosen currency." },
+	ServerShow: { Mode: "duration", UsesAmount: true, Minimum: 3, Maximum: 20, Integer: true, Summary: "Plays the effect on every screen in this server. Duration is in seconds." },
+};
 const isSet = (value: unknown) => value !== undefined && value !== false;
 
 function describe(command: string, definition: Definition): Rule {
@@ -29,7 +35,8 @@ function describe(command: string, definition: Definition): Rule {
 	if (isSet(definition.Moderation)) {
 		mode = command === "ServerBan" || command === "GlobalBan" ? "moderation" : "action";
 	}
-	return {
+	const override = overrides[command];
+	const rule: Rule = {
 		Mode: mode,
 		UsesAmount: mode !== "action",
 		Minimum: mode === "duration" ? 3 : mode === "set" || mode === "moderation" ? 0 : 1,
@@ -48,6 +55,7 @@ function describe(command: string, definition: Definition): Rule {
 								? "Changes saved progression. Review the target before confirming."
 								: "Runs this action once on the selected player.",
 	};
+	return override !== undefined ? { ...rule, ...override } : rule;
 }
 
 function canonical(raw: unknown, commands: Record<string, unknown>): string | undefined {

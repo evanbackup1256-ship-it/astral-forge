@@ -1,7 +1,7 @@
 import React from "@rbxts/react";
 import { Palette, lighten } from "../CoreKit/theme";
 import { useAntilag } from "../MotionKit/antilag";
-import { ScaleFromCenter, easeOutBack, easeOutCubic, useClock } from "../MotionKit/motion";
+import { ScaleFromCenter, easeOutCubic, useClock } from "../MotionKit/motion";
 import { Text } from "./ui";
 import { UiEffectsPausedContext } from "../CoreKit/effectsPause";
 
@@ -15,16 +15,37 @@ export interface PopEntry {
 	critical?: boolean;
 }
 
+// a struck number: it lands oversized, settles with one damped overshoot, drifts up and away from the
+// centre while it is read, then thins out
+function punch(seconds: number, strength: number): number {
+	if (seconds <= 0) {
+		return 1 + strength;
+	}
+	return 1 + strength * math.exp(-seconds * 14) * math.cos(seconds * 26);
+}
+
 function Pop({ pop }: { pop: PopEntry }) {
-	const clock = useClock(true, 1, 1000, true);
+	const [done, setDone] = React.useState(false);
+	const clock = useClock(!done, 1, 1000, true);
+	React.useEffect(() => {
+		const job = task.delay(POP_SECONDS + 0.05, () => setDone(true));
+		return () => {
+			pcall(task.cancel, job);
+		};
+	}, []);
 	const size = pop.critical ? 30 : 22;
-	const travel = pop.critical ? 190 : 140;
+	const travel = pop.critical ? 86 : 58;
+	const drift = math.sign(pop.offset) * math.min(math.abs(pop.offset) * 0.25, 18);
 	const rise = clock.map((seconds) => {
 		const progress = easeOutCubic(math.clamp(seconds / POP_SECONDS, 0, 1));
-		return new UDim2(0.5, pop.offset, 1, -70 - math.floor(progress * travel));
+		return new UDim2(0.5, pop.offset + drift * progress, 1, -78 - progress * travel);
 	});
-	const fade = clock.map((seconds) => math.clamp((seconds - 0.5) / 0.6, 0, 1));
-	const scale = clock.map((seconds) => 0.72 + easeOutBack(math.clamp(seconds / 0.2, 0, 1)) * 0.28);
+	const fade = clock.map((seconds) => (done ? 1 : easeOutCubic(math.clamp((seconds - 0.62) / (POP_SECONDS - 0.62), 0, 1))));
+	const scale = clock.map((seconds) => {
+		const settle = punch(seconds, pop.critical ? 0.42 : 0.24);
+		const shrink = 1 - 0.12 * math.clamp((seconds - 0.7) / (POP_SECONDS - 0.7), 0, 1);
+		return settle * shrink;
+	});
 	return (
 		<frame
 			Size={UDim2.fromOffset(240, 40)}
@@ -42,6 +63,7 @@ function Pop({ pop }: { pop: PopEntry }) {
 					weight={Enum.FontWeight.Heavy}
 					align={Enum.TextXAlignment.Center}
 					transparency={fade}
+					shadow={true}
 					zIndex={151}
 				/>
 				{pop.critical && (

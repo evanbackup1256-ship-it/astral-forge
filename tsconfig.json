@@ -23,6 +23,7 @@
       "types",
       "compiler-types"
     ],
+    "removeComments": true,
     "outDir": "out",
     "rootDir": "src",
     "plugins": [

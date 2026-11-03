@@ -170,7 +170,7 @@ function MissionRowImpl({ quest, dispatch, reducedMotion, position, stack }: Mis
 			/>
 			{reward !== "" && (
 				<frame
-					Size={UDim2.fromOffset(math.min(stack ? 170 : 220, reward.size() * 7 + 24), 20)}
+					Size={UDim2.fromOffset(math.min(stack ? 170 : 430, reward.size() * 7 + 24), 20)}
 					Position={UDim2.fromOffset(56, stack ? 72 : 56)}
 					BackgroundColor3={Palette.ink}
 					BorderSizePixel={0}

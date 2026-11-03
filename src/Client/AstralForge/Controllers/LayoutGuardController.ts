@@ -1,5 +1,6 @@
 import { Controller, OnInit, OnStart, OnTick } from "@flamework/core";
 import { ClientLog } from "../CoreKit/log";
+import { live } from "../MotionKit/antilagState";
 import { UiRootRegistry } from "./UiRootRegistry";
 import Diagnostics = require("../LayoutDiagnostics");
 
@@ -17,6 +18,8 @@ interface LayoutGeom {
 	rectWidth(this: void, r: Rect): number;
 	rectHeight(this: void, r: Rect): number;
 	overflowAmount(this: void, inner: Rect, outer: Rect): number;
+	fitRect(this: void, rect: Rect, box: Rect, anchorX: number, anchorY: number, minW: number, minH: number): Rect;
+	offsetDelta(this: void, anchorX: number, anchorY: number, dx: number, dy: number, dw: number, dh: number): { x: number; y: number };
 }
 
 interface GuardPlan {
@@ -82,6 +85,7 @@ const stats = {
 	geometryChanges: 0,
 	dirtyDescendants: 0,
 	nestedScrollConflicts: 0,
+	nestedScrollFixed: 0,
 };
 const MIN_TOUCH_TARGET = 44;
 const INPUT_SHIELD_SHARE = 0.8;
@@ -89,11 +93,68 @@ const COLLISION_CELL = 96;
 const DIRTY_DESCENDANT_CAP = 128;
 const REPORT_EVERY = 300;
 const ReplicatedStorageService = game.GetService("ReplicatedStorage");
-// The guard is a development tool: it only watches the UI when ReplicatedStorage has
-// AstralLayoutGuard (or AstralDebugLogs) set to true. In normal play it never binds or ticks.
+// The guard repairs clipped, overflowing and overlapping UI as it appears, so it runs in normal play
+// on a small per-frame budget (LIVE_BUDGET_SECONDS). Setting ReplicatedStorage.AstralLayoutGuard to
+// false turns it off. A subtree opts out of repairs with LayoutGuardRecovery = "off" (or out of
+// everything with LayoutGuardIgnore).
+const MIN_FIT_TEXT = 10;
+const MIN_LABEL_WIDTH = 24;
+const MIN_LABEL_HEIGHT = 10;
+const LABEL_GAP = 6;
+const MIN_VISIBLE_SHARE = 0.35;
+const SELF_WRITE_QUIET = 0.35;
+const GUARD_DISABLED_SCROLL = "LayoutGuardDisabledScroll";
+// instances the guard itself just wrote to, so its own geometry signals do not reset repair budgets
+const selfWrittenAt = setmetatable(new Map<Instance, number>(), { __mode: "k" } as LuaMetatable<Map<Instance, number>>);
+function markWritten(inst: Instance) {
+	selfWrittenAt.set(inst, os.clock());
+	// readable in the Studio explorer: how many repairs the guard has made to this element
+	const earlier = inst.GetAttribute("LayoutGuardFixed");
+	inst.SetAttribute("LayoutGuardFixed", (typeIs(earlier, "number") ? earlier : 0) + 1);
+}
+function recentlyWritten(inst: Instance): boolean {
+	const at = selfWrittenAt.get(inst);
+	return at !== undefined && os.clock() - at < SELF_WRITE_QUIET;
+}
+// A repair waits until the very same defect (same geometry, to the pixel) has been seen for a while.
+// Things that are mid-animation, collapsing or still settling change shape from one look to the next,
+// so only a defect that is truly standing still gets repaired.
+const standing = setmetatable(new Map<Instance, { since: number; sig: string }>(), { __mode: "k" } as LuaMetatable<Map<Instance, { since: number; sig: string }>>);
+function sigOf(...values: number[]): string {
+	return values.map((value) => tostring(math.floor(value + 0.5))).join(",");
+}
+function persisted(inst: Instance, sig: string, seconds: number): boolean {
+	const now = os.clock();
+	const entry = standing.get(inst);
+	if (entry === undefined || entry.sig !== sig) {
+		standing.set(inst, { since: now, sig });
+		return false;
+	}
+	if (now - entry.since >= seconds) {
+		standing.delete(inst);
+		return true;
+	}
+	return false;
+}
+// UIScale on the element or any ancestor multiplies every Offset the guard writes
+function uiScaleOf(inst: Instance): number {
+	let scale = 1;
+	let current: Instance | undefined = inst;
+	while (current !== undefined) {
+		const found = current.FindFirstChildOfClass("UIScale");
+		if (found !== undefined) {
+			scale *= found.Scale;
+		}
+		if (current.IsA("LayerCollector")) {
+			break;
+		}
+		current = current.Parent;
+	}
+	return scale > 0.01 ? scale : 1;
+}
 const GATE_RECHECK_SECONDS = 2;
 function guardEnabled(): boolean {
-	return ReplicatedStorageService.GetAttribute("AstralLayoutGuard") === true || ReplicatedStorageService.GetAttribute("AstralDebugLogs") === true;
+	return ReplicatedStorageService.GetAttribute("AstralLayoutGuard") !== false;
 }
 const FRAME_BUDGET_SECONDS = 0.0015;
 // Live clients use a smaller budget; all diagnostics and bounded collision passes still run.
@@ -203,6 +264,28 @@ function overlapArea(a: Rect, b: Rect): number {
 function rectArea(rect: Rect): number {
 	return math.max(0, rect.x1 - rect.x0) * math.max(0, rect.y1 - rect.y0);
 }
+// the part of a control that can actually be seen and tapped: scrolled out of its scroller (or cut by a
+// clipping parent) it no longer collides with anything, however far its bounds reach under a neighbour
+function visibleRectOf(object: GuiObject): Rect | undefined {
+	let rect = rectOf(object);
+	let ancestor = object.Parent;
+	while (ancestor !== undefined && !ancestor.IsA("LayerCollector")) {
+		if (ancestor.IsA("GuiObject") && (ancestor.ClipsDescendants || ancestor.IsA("ScrollingFrame"))) {
+			const pos = ancestor.AbsolutePosition;
+			const size = ancestor.IsA("ScrollingFrame") ? ancestor.AbsoluteWindowSize : ancestor.AbsoluteSize;
+			const x0 = math.max(rect.x0, pos.X);
+			const y0 = math.max(rect.y0, pos.Y);
+			const x1 = math.min(rect.x1, pos.X + size.X);
+			const y1 = math.min(rect.y1, pos.Y + size.Y);
+			if (x1 <= x0 || y1 <= y0) {
+				return undefined;
+			}
+			rect = { x0, y0, x1, y1 };
+		}
+		ancestor = ancestor.Parent;
+	}
+	return rect;
+}
 function engineOwns(gui: GuiObject): boolean {
 	if (gui.FindFirstChildOfClass("UIFlexItem") !== undefined) {
 		return true;
@@ -219,7 +302,7 @@ function engineOwns(gui: GuiObject): boolean {
 	return false;
 }
 function allowWrite(inst: Instance): boolean {
-	if (!Diagnostics.canRecover(inst, "Canvas") && !Diagnostics.canRecover(inst, "FloatingPanel")) {
+	if (!Diagnostics.canRecover(inst, "Layout") || inMotion(inst)) {
 		return false;
 	}
 	if (abandoned.get(inst) || suppressed(inst)) {
@@ -268,20 +351,67 @@ function insideScrollableArea(instance: Instance): boolean {
 	}
 	return false;
 }
-function recordViewportAction(instance: Instance, rect: Rect) {
+// returns the viewport rect when the control sticks out of it (so the caller can pull it back in)
+function recordViewportAction(instance: Instance, rect: Rect): Rect | undefined {
 	if (insideScrollableArea(instance)) {
-		return;
+		return undefined;
 	}
 	const layer = interactionLayer(instance);
 	if (layer === undefined) {
-		return;
+		return undefined;
 	}
 	const layerRect = rectOf(layer);
 	if (Geom.overflowAmount(rect, layerRect) > FIT_SLOP) {
 		if (diagnostics.record(instance, "ActionOutsideViewport", "Active control extends beyond the visible viewport")) {
 			stats.actionsOutsideViewport += 1;
 		}
+		return layerRect;
 	}
+	return undefined;
+}
+// Moves (and if needed shrinks) a control that is partly cut off back inside `box`. A control that is
+// mostly outside is parked or mid-animation, not misplaced, so it is left alone.
+function pullActionInto(button: GuiButton, rect: Rect, box: Rect, clipper?: Instance): boolean {
+	if (engineOwns(button) || inMotion(button) || floatingRoot(button) !== undefined || button.GetAttribute(IGNORE_ATTRIBUTE) === true) {
+		return false;
+	}
+	// a scroller between the control and the thing that cuts it off means the cut is scroll position
+	if (clipper !== undefined) {
+		let between = button.Parent;
+		while (between !== undefined && between !== clipper) {
+			if (between.IsA("ScrollingFrame")) {
+				return false;
+			}
+			between = between.Parent;
+		}
+	}
+	const area = rectArea(rect);
+	if (area <= 0 || overlapArea(rect, box) / area < MIN_VISIBLE_SHARE) {
+		return false;
+	}
+	if (!Diagnostics.canRecover(button, "Layout")) {
+		return false;
+	}
+	// never move a control the pointer is on: hover and press motion own its geometry right now
+	const pointer = UserInputService.GetMouseLocation();
+	const [inset] = game.GetService("GuiService").GetGuiInset();
+	const py = pointer.Y - inset.Y;
+	if (pointer.X >= rect.x0 - 6 && pointer.X <= rect.x1 + 6 && py >= rect.y0 - 6 && py <= rect.y1 + 6) {
+		return false;
+	}
+	const fitted = Geom.fitRect(rect, box, button.AnchorPoint.X, button.AnchorPoint.Y, 28, 28);
+	if (math.abs(fitted.x0 - rect.x0) < 1 && math.abs(fitted.y0 - rect.y0) < 1 && math.abs(rectArea(fitted) - area) < 1) {
+		return false;
+	}
+	if (!persisted(button, sigOf(rect.x0, rect.y0, rect.x1, rect.y1, box.x0, box.y0, box.x1, box.y1), 1.5)) {
+		return false;
+	}
+	if (!allowWrite(button)) {
+		return false;
+	}
+	applyBox(button, fitted, rect);
+	stats.outOfBoxFixed += 1;
+	return true;
 }
 function clippingAncestor(instance: Instance, rect: Rect): GuiObject | undefined {
 	let ancestor = instance.Parent;
@@ -329,12 +459,109 @@ function repairText(label: TextLabel | TextBox | TextButton): undefined {
 			stats.clippedActions += 1;
 		}
 	}
-	if (label.TextFits) {
+	// TextFits can read false for text that measures inside its box (scaled or padded labels); only
+	// text that really measures larger than the box counts
+	if (textFits(label)) {
 		tryCount.delete(label);
 		return undefined;
 	}
-	diagnostics.record(label, "TextOverflow", `Text ${label.TextBounds.X}×${label.TextBounds.Y} exceeds box ${size.X}×${size.Y}; owner must wrap, reflow or allocate space`);
+	diagnostics.record(label, "TextOverflow", `Text ${label.TextBounds.X}×${label.TextBounds.Y} exceeds box ${size.X}×${size.Y}`);
+	fitText(label);
 	return undefined;
+}
+function textFits(label: TextLabel | TextBox | TextButton): boolean {
+	const bounds = label.TextBounds;
+	const box = label.AbsoluteSize;
+	return label.TextFits || (bounds.X <= box.X + 0.5 && bounds.Y <= box.Y + 0.5);
+}
+// Wrap if the box is tall enough, else shrink toward MIN_FIT_TEXT, else truncate: the text stays
+// whole where it can and never spills out of its box. One write attempt covers the whole sequence.
+function fitText(label: TextLabel | TextBox | TextButton): boolean {
+	if (label.TextScaled || label.AutomaticSize !== Enum.AutomaticSize.None) {
+		return false;
+	}
+	// Wrapping is left to the owner: the engine under-reports the height of text it has just been told to
+	// wrap (a wrapped 20pt sentence reads as one line tall), so a wrap cannot be checked from here.
+	// Single lines measure true, so the guard shrinks toward the floor and then truncates.
+	const canShrink = label.TextSize > MIN_FIT_TEXT;
+	const canTruncate = label.TextTruncate === Enum.TextTruncate.None;
+	if (!canShrink && !canTruncate) {
+		return false;
+	}
+	const box = label.AbsoluteSize;
+	if (!persisted(label, `${label.Text}|${label.TextSize}|${sigOf(box.X, box.Y)}`, 0.8)) {
+		return false;
+	}
+	if (!allowWrite(label)) {
+		return false;
+	}
+	const original = label.TextSize;
+	let size = original;
+	while (!textFits(label) && size > MIN_FIT_TEXT) {
+		size -= 1;
+		label.TextSize = size;
+	}
+	let truncated = false;
+	if (!textFits(label) && canTruncate) {
+		label.TextTruncate = Enum.TextTruncate.AtEnd;
+		truncated = true;
+	}
+	if (size === original && !truncated) {
+		return false;
+	}
+	markWritten(label);
+	stats.textFitFixed += 1;
+	return true;
+}
+// Pixel geometry change on a GuiObject; the anchor decides how a size change moves the position.
+function applyBox(gui: GuiObject, fitted: Rect, from: Rect) {
+	const k = uiScaleOf(gui);
+	const dw = (fitted.x1 - fitted.x0) - (from.x1 - from.x0);
+	const dh = (fitted.y1 - fitted.y0) - (from.y1 - from.y0);
+	const shift = Geom.offsetDelta(gui.AnchorPoint.X, gui.AnchorPoint.Y, fitted.x0 - from.x0, fitted.y0 - from.y0, dw, dh);
+	const size = gui.Size;
+	const pos = gui.Position;
+	gui.Size = new UDim2(size.X.Scale, size.X.Offset + dw / k, size.Y.Scale, size.Y.Offset + dh / k);
+	gui.Position = new UDim2(pos.X.Scale, pos.X.Offset + shift.x / k, pos.Y.Scale, pos.Y.Offset + shift.y / k);
+	markWritten(gui);
+}
+// A label whose text runs under a neighbour is narrowed on the side the neighbour intrudes from,
+// keeping the opposite edge where it was. Anything the engine lays out, or anything it would leave
+// too narrow to read, is left alone.
+function narrowLabelAway(label: TextLabel, block: Rect): boolean {
+	if (label.GetAttribute(IGNORE_ATTRIBUTE) === true || engineOwns(label) || inMotion(label) || !Diagnostics.canRecover(label, "Layout")) {
+		return false;
+	}
+	const labelRect = rectOf(label);
+	const current = labelRect.x1 - labelRect.x0;
+	let target = 0;
+	let fromRight = true;
+	if (block.x0 > labelRect.x0 + MIN_LABEL_WIDTH && block.x0 < labelRect.x1) {
+		target = block.x0 - labelRect.x0 - LABEL_GAP;
+	} else if (block.x1 < labelRect.x1 - MIN_LABEL_WIDTH && block.x1 > labelRect.x0) {
+		target = labelRect.x1 - block.x1 - LABEL_GAP;
+		fromRight = false;
+	} else {
+		return false;
+	}
+	if (target >= current - 2 || target < MIN_LABEL_WIDTH) {
+		return false;
+	}
+	if (!persisted(label, sigOf(labelRect.x0, labelRect.y0, labelRect.x1, labelRect.y1, block.x0, block.y0, block.x1, block.y1), 1)) {
+		return false;
+	}
+	if (!allowWrite(label)) {
+		return false;
+	}
+	const fitted = fromRight
+		? Geom.rect(labelRect.x0, labelRect.y0, labelRect.x0 + target, labelRect.y1)
+		: Geom.rect(labelRect.x1 - target, labelRect.y0, labelRect.x1, labelRect.y1);
+	applyBox(label, fitted, labelRect);
+	if (!label.TextWrapped && !label.TextScaled && label.TextTruncate === Enum.TextTruncate.None) {
+		label.TextTruncate = Enum.TextTruncate.AtEnd;
+	}
+	stats.textClearedOfButton += 1;
+	return true;
 }
 function repairButton(button: GuiButton): undefined {
 	if (button.IsA("TextButton")) {
@@ -355,10 +582,14 @@ function repairButton(button: GuiButton): undefined {
 				stats.smallTouchTargets += 1;
 			}
 		}
-		recordViewportAction(button, rect);
+		const viewportBox = recordViewportAction(button, rect);
 		const clippedBy = clippingAncestor(button, rect);
 		if (clippedBy !== undefined && diagnostics.record(button, "ClippedAction", `Action exceeds clipped ancestor ${clippedBy.GetFullName()}`)) {
 			stats.clippedActions += 1;
+		}
+		const wanted = clippedBy !== undefined ? rectOf(clippedBy) : viewportBox;
+		if (wanted !== undefined && pullActionInto(button, rect, wanted, clippedBy)) {
+			return undefined;
 		}
 	}
 	const parent = button.Parent;
@@ -391,6 +622,8 @@ function repairButton(button: GuiButton): undefined {
 	if (isActionable(button) && diagnostics.record(button, "ActionOutsideParent", `Action exceeds its padded parent by ${math.ceil(parentOverflow)}px`)) {
 		stats.actionsOutsideParent += 1;
 	}
+	// a control that pokes out of a parent that merely draws a card is often a hover pop or a spring
+	// mid-flight, so it is only reported; repairs are limited to controls cut off by a clip or the screen
 	return undefined;
 }
 function repairFloatingPanel(panel: Frame): undefined {
@@ -426,6 +659,12 @@ function repairFloatingPanel(panel: Frame): undefined {
 	stats.pulledIntoView += 1;
 	return undefined;
 }
+// true when the content is larger than the window on any axis, i.e. there is something to scroll to
+function scrollable(frame: ScrollingFrame): boolean {
+	const canvas = frame.AbsoluteCanvasSize;
+	const window = frame.AbsoluteWindowSize;
+	return canvas.X > window.X + 1 || canvas.Y > window.Y + 1;
+}
 function repairScrollingFrame(descendant: ScrollingFrame): undefined {
 	if (descendant.GetAttribute(IGNORE_ATTRIBUTE) === true) {
 		return undefined;
@@ -444,6 +683,18 @@ function repairScrollingFrame(descendant: ScrollingFrame): undefined {
 					if (diagnostics.record(descendant, "NestedScrollConflict", `Shares a scroll axis with ${ancestor.GetFullName()}`)) {
 						stats.nestedScrollConflicts += 1;
 					}
+					// an inner scroller with nothing to scroll only steals the outer one's wheel and drag
+					// whichever of the two has nothing to scroll gives way: the inner list, or the page around it
+					const loser = !scrollable(descendant) ? descendant : !scrollable(ancestor) ? ancestor : undefined;
+					if (
+						loser !== undefined && loser.ScrollingEnabled && Diagnostics.canRecover(loser, "Scroll") && !inMotion(loser) &&
+						persisted(loser, sigOf(loser.AbsoluteCanvasSize.X, loser.AbsoluteCanvasSize.Y, loser.AbsoluteWindowSize.X, loser.AbsoluteWindowSize.Y), 1)
+					) {
+						loser.ScrollingEnabled = false;
+						loser.SetAttribute(GUARD_DISABLED_SCROLL, true);
+						markWritten(loser);
+						stats.nestedScrollFixed += 1;
+					}
 					break;
 				}
 			}
@@ -451,7 +702,15 @@ function repairScrollingFrame(descendant: ScrollingFrame): undefined {
 		}
 	}
 	let heldScroll = false;
-	if (!descendant.ScrollingEnabled && descendant.GetAttribute("LayoutGuardAllowDisabledScroll") !== true) {
+	if (!descendant.ScrollingEnabled && descendant.GetAttribute(GUARD_DISABLED_SCROLL) === true) {
+		// the guard parked this scroller because it had nothing to scroll; hand scrolling back once it does
+		if (scrollable(descendant)) {
+			descendant.ScrollingEnabled = true;
+			descendant.SetAttribute(GUARD_DISABLED_SCROLL, undefined);
+			markWritten(descendant);
+			stats.scrollingReenabled += 1;
+		}
+	} else if (!descendant.ScrollingEnabled && descendant.GetAttribute("LayoutGuardAllowDisabledScroll") !== true) {
 		heldScroll = true;
 		diagnostics.record(descendant, "DisabledScroll", "Owner disabled scrolling without LayoutGuardAllowDisabledScroll");
 	}
@@ -580,7 +839,10 @@ function checkOverlappingHitboxes(root: Instance | Instance[]) {
 		if (layer === undefined) {
 			continue;
 		}
-		const rect = rectOf(descendant);
+		const rect = visibleRectOf(descendant);
+			if (rect === undefined) {
+				continue;
+			}
 		const area = rectArea(rect);
 		const layerArea = rectArea(rectOf(layer));
 		if (area <= 0 || (layerArea > 0 && area >= layerArea * shieldShare)) {
@@ -671,6 +933,16 @@ function paintsOver(button: GuiButton): boolean {
 	}
 	return false;
 }
+// a dismiss shield or modal scrim spans a big share of the screen; text under it is not "under a button"
+const SCRIM_SHARE = 0.25;
+function isScrim(button: GuiButton): boolean {
+	const layer = interactionLayer(button);
+	if (layer === undefined) {
+		return false;
+	}
+	const layerArea = rectArea(rectOf(layer));
+	return layerArea > 0 && rectArea(rectOf(button)) >= layerArea * SCRIM_SHARE;
+}
 function textRectOf(label: TextLabel): Rect {
 	const pos = label.AbsolutePosition;
 	const size = label.AbsoluteSize;
@@ -691,9 +963,9 @@ function textRectOf(label: TextLabel): Rect {
 	}
 	return { x0, y0, x1: x0 + w, y1: y0 + h };
 }
-function clearTextOfButton(label: Instance, button: Instance, _buttonRect: Rect): boolean {
-	diagnostics.record(label, "TextCollision", `Text overlaps ${button.GetFullName()}; owner must reserve space`);
-	return false;
+function clearTextOfButton(label: Instance, button: Instance, buttonRect: Rect): boolean {
+	diagnostics.record(label, "TextCollision", `Text overlaps ${button.GetFullName()}`);
+	return label.IsA("TextLabel") && narrowLabelAway(label, buttonRect);
 }
 const textPassLabels = new Map<Instance, TextLabel[]>();
 const textPassButtons = new Map<Instance, GuiButton[]>();
@@ -706,12 +978,12 @@ function checkTextUnderButtons(list: Instance[]) {
 	textPassLayerButtons.clear();
 	for (const inst of list) {
 		coroutine.yield();
-		if (inst.Parent === undefined || !isTrackedClass(inst) || !Diagnostics.visible(inst as GuiObject)) {
+		if (inst.Parent === undefined || !isTrackedClass(inst) || !Diagnostics.visible(inst as GuiObject) || visibleRectOf(inst as GuiObject) === undefined) {
 			continue;
 		}
 		const layer = interactionLayer(inst);
 		if (inst.IsA("GuiButton")) {
-			if (inst.Visible && paintsOver(inst) && inst.GetAttribute(IGNORE_ATTRIBUTE) !== true) {
+			if (inst.Visible && paintsOver(inst) && !isScrim(inst) && inst.GetAttribute(IGNORE_ATTRIBUTE) !== true) {
 				let bucket = textPassButtons.get(inst.Parent);
 				if (bucket === undefined) {
 					bucket = [];
@@ -792,7 +1064,10 @@ function checkTextUnderButtons(list: Instance[]) {
 				if (button.ZIndex < label.ZIndex) {
 					continue;
 				}
-				const buttonRect = rectOf(button);
+				const buttonRect = visibleRectOf(button);
+					if (buttonRect === undefined) {
+						continue;
+					}
 				const hidden = math.max(0, math.min(textRect.x1, buttonRect.x1) - math.max(textRect.x0, buttonRect.x0));
 				const shared = math.max(0, math.min(textRect.y1, buttonRect.y1) - math.max(textRect.y0, buttonRect.y0));
 				if (hidden / textWidth < TEXT_COVER_SHARE || shared / textHeight < TEXT_COVER_HEIGHT) {
@@ -829,7 +1104,10 @@ function checkTextUnderButtons(list: Instance[]) {
 				if (isAncestorOf(label, button) || isAncestorOf(button, label) || (button.ZIndex ?? 1) < (label.ZIndex ?? 1)) {
 					continue;
 				}
-				const buttonRect = rectOf(button);
+				const buttonRect = visibleRectOf(button);
+					if (buttonRect === undefined) {
+						continue;
+					}
 				const hidden = math.max(0, math.min(textRect.x1, buttonRect.x1) - math.max(textRect.x0, buttonRect.x0));
 				const shared = math.max(0, math.min(textRect.y1, buttonRect.y1) - math.max(textRect.y0, buttonRect.y0));
 				if (hidden / textWidth < TEXT_COVER_SHARE || shared / textHeight < TEXT_COVER_HEIGHT) {
@@ -878,6 +1156,28 @@ function separateStack(label: TextLabel, solid: GuiObject): boolean {
 		return false;
 	}
 	diagnostics.record(label, "StackCollision", `Text runs into ${solid.GetFullName()} by ${math.ceil(intrude)}px`);
+	shortenLabelAbove(label, labelRect, solidRect);
+	return true;
+}
+// A label that reaches down into the control stacked under it is cut off just above that control,
+// keeping its top edge; the text then re-fits (wraps, shrinks or truncates) in the shorter box.
+function shortenLabelAbove(label: TextLabel, labelRect: Rect, solidRect: Rect): boolean {
+	if (label.GetAttribute(IGNORE_ATTRIBUTE) === true || engineOwns(label) || inMotion(label) || !Diagnostics.canRecover(label, "Layout")) {
+		return false;
+	}
+	const target = solidRect.y0 - SOLID_MIN_GAP - labelRect.y0;
+	const current = labelRect.y1 - labelRect.y0;
+	if (target < MIN_LABEL_HEIGHT || target >= current - 1) {
+		return false;
+	}
+	if (!persisted(label, sigOf(labelRect.x0, labelRect.y0, labelRect.x1, labelRect.y1, solidRect.x0, solidRect.y0, solidRect.x1, solidRect.y1), 1)) {
+		return false;
+	}
+	if (!allowWrite(label)) {
+		return false;
+	}
+	applyBox(label, Geom.rect(labelRect.x0, labelRect.y0, labelRect.x1, labelRect.y0 + target), labelRect);
+	stats.stackSeparated += 1;
 	return true;
 }
 function checkStackedText(list: Instance[]) {
@@ -1077,7 +1377,12 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 		}
 		this.geometryReadyAt.set(instance, now + 0.2);
 		stats.geometryChanges += 1;
-		this.markDirty(instance);
+		if (recentlyWritten(instance)) {
+			// the guard's own write: re-check it, but keep the repair budget so a fight with the owner ends
+			this.enqueue(instance, Plan.SETTLE_FRAMES);
+		} else {
+			this.markDirty(instance);
+		}
 		const parent = instance.Parent;
 		if (parent !== undefined && this.trackedIndex.get(parent) !== undefined) {
 			this.enqueue(parent, Plan.SETTLE_FRAMES);
@@ -1473,8 +1778,13 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 		if (root === undefined) {
 			return undefined;
 		}
+		// a hidden UI or a backgrounded window needs no guarding
+		if (live.suspended) {
+			return undefined;
+		}
 		this.frame += 1;
-		this.deadline = os.clock() + (IS_STUDIO ? FRAME_BUDGET_SECONDS : LIVE_BUDGET_SECONDS);
+		// the antilag tier sets how much of a frame the guard may take (tier 3 is the full budget)
+		this.deadline = os.clock() + (IS_STUDIO ? FRAME_BUDGET_SECONDS : LIVE_BUDGET_SECONDS) * (live.layoutBudgetMs / 0.5);
 		diagnostics.beginPairs(this.deadline);
 		this.sinceSweep += _dt;
 		this.checkResize(root);
@@ -1551,7 +1861,7 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 		}
 		const delta = total - this.reportedTotal;
 		this.reportedTotal = total;
-		ClientLog.debug("LayoutGuard", `${delta} layout diagnostic${delta === 1 ? "" : "s"} in the last ${REPORT_EVERY}s; component owners retain geometry`, {
+		ClientLog.debug("LayoutGuard", `${delta} layout diagnostic${delta === 1 ? "" : "s"} in the last ${REPORT_EVERY}s`, {
 			tracked: this.tracked.size(),
 			textFit: stats.textFitFixed,
 			textOffButton: stats.textClearedOfButton,
@@ -1574,6 +1884,7 @@ class LayoutGuardController implements OnInit, OnStart, OnTick {
 			geometryChanges: stats.geometryChanges,
 			dirtyDescendants: stats.dirtyDescendants,
 			nestedScroll: stats.nestedScrollConflicts,
+			nestedScrollFixed: stats.nestedScrollFixed,
 		});
 		// name the action problems, not just count them, so a Studio log is enough to find the component
 		const shown = new Set<string>();

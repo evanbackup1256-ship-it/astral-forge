@@ -621,11 +621,12 @@ const Juice = {
 		Juice.banner(text, undefined, color, icon, 1.5, tone, "pill");
 	},
 
-	live(this: void, key: string, data: LiveEntry | undefined) {
+	// callers describe the entry; its timestamps are stamped here
+	live(this: void, key: string, data: Omit<LiveEntry, "expiresAt" | "updatedAt"> | undefined) {
 		if (data === undefined) {
 			liveEntries.delete(key);
 		} else {
-			const entry = table.clone(data);
+			const entry = table.clone(data) as LiveEntry;
 			entry.key = key;
 			entry.updatedAt = os.clock();
 			entry.expiresAt = os.clock() + (entry.ttl ?? 8);

@@ -1,3 +1,4 @@
+import { clamp01 } from "../CoreKit/easing";
 import React from "@rbxts/react";
 import { easeInCubic, easeOutBack, easeOutCubic, ScaleFromCenter, useSprScale } from "../MotionKit/motion";
 import { Palette } from "../CoreKit/theme";
@@ -21,9 +22,6 @@ const HAMMER_ANCHOR_X = 0.92;
 export const FORGE_RIG_LOOP_SECONDS = 2.05;
 export const FORGE_RIG_ART_SCALE = 0.56;
 
-function clamp01(value: number) {
-	return math.clamp(value, 0, 1);
-}
 function span(value: number, start: number, finish: number) {
 	return clamp01((value - start) / math.max(0.001, finish - start));
 }
