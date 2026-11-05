@@ -3412,6 +3412,9 @@ export class GameService {
 		const ledger = rebirthLedger(profile, now);
 		const [run, bank] = rebirthRun(profile, now, ledger) as LuaTuple<[Dict, unknown]>;
 		const [reward, dust] = rebirthBase(profile, bank) as LuaTuple<[unknown, number]>;
+		const rebirthConfig = (K.GameConfig.Economy.Rebirth as Dict | undefined) ?? ({} as Dict);
+		const countedAfter = num(rebirthConfig.MinCountedRunSeconds) ?? 0;
+		const runSeconds = math.max(0, num(run.Seconds) ?? 0);
 		const quote = K.RebirthMath.quote(
 			ledger,
 			{
@@ -3424,9 +3427,20 @@ export class GameService {
 		const [, nextStar] = K.RebirthMath.nextStar(ledger) as LuaTuple<[unknown, unknown]>;
 		return {
 			Ready: reward !== undefined,
+			RunSeconds: runSeconds,
+			Counted: runSeconds >= countedAfter,
+			CountedAfterSeconds: countedAfter,
+			Attempts: ledger.Attempts,
 			Cores: truthy(reward) ? K.Economy.Max(1, K.Economy.Floor(K.Economy.Mul(reward, quote.CoreMultiplier))) : 0,
 			Stardust: truthy(reward) ? quote.Stardust : 0,
 			Grade: quote.Grade,
+			Heat: quote.Heat,
+			Streak: ledger.Streak,
+			BestStreak: ledger.BestStreak,
+			StreakAfter: quote.StreakAfter,
+			StreakTarget: K.RebirthMath.STREAK_TARGET,
+			TemperDue: ledger.TemperDue === true,
+			Temper: ledger.Temper,
 			Vow: ledger.Vow,
 			VowHolds: holds,
 			VowStatus: status,
@@ -3452,6 +3466,8 @@ export class GameService {
 			const rebirthConfig = (K.GameConfig.Economy.Rebirth as Dict | undefined) ?? ({} as Dict);
 			const ledger = rebirthLedger(profile, now);
 			const [run, bank] = rebirthRun(profile, now, ledger) as LuaTuple<[Dict, unknown]>;
+			const minCounted = num(rebirthConfig.MinCountedRunSeconds) ?? 0;
+			const counted = (num(run.Seconds) ?? 0) >= minCounted;
 			const [baseReward, stardustBase] = rebirthBase(profile, bank) as LuaTuple<[unknown, number]>;
 			if (baseReward === undefined) {
 				return responseError(T("GameService.BankAtLeastSRun", (K.Format.Number as Fn)(K.Economy.PrestigeRequirementFor(num(profile.Rebirths) ?? 0))));
@@ -3490,10 +3506,14 @@ export class GameService {
 				K.GameConfig.Economy.StartingCash,
 				keepsakeAllowed(profile),
 			) as Dict;
-			const entry = K.RebirthMath.close(ledger, quote, now, typeIs(payload.Vow, "string") ? payload.Vow : undefined, undefined) as Dict;
-			// BALANCE v8: a run shorter than MinCountedRunSeconds pays out but doesn't move the rebirth count
-			const minCounted = num(rebirthConfig.MinCountedRunSeconds) ?? 0;
-			const counted = (num(run.Seconds) ?? 0) >= minCounted;
+			const entry = K.RebirthMath.close(
+				ledger,
+				quote,
+				now,
+				typeIs(payload.Vow, "string") ? payload.Vow : undefined,
+				undefined,
+				counted,
+			) as Dict;
 			if (counted) {
 				profile.Rebirths = (profile.Rebirths as number) + 1;
 			}
@@ -3527,7 +3547,11 @@ export class GameService {
 					CelebrationBoost: bonusCount > 0 ? celebrationBoost : undefined,
 					NextTarget: K.Economy.PrestigeRequirementFor(num(profile.Rebirths) ?? 0),
 					Counted: counted,
+					Attempt: entry.Attempt,
 					Grade: quote.Grade,
+					Heat: quote.Heat,
+					Streak: ledger.Streak,
+					TemperDue: ledger.TemperDue === true,
 					Vow: quote.Vow,
 					VowKept: quote.Kept,
 					Seconds: entry.Seconds,
@@ -3585,6 +3609,37 @@ export class GameService {
 					return responseError(T("GameService.PickMachinesToKeep"));
 				}
 				return responseSuccess(T("GameService.KeepsakesSet"), { Keep: table.clone(ledger.Keep as object) });
+			} else if (payload.Op === "Temper") {
+				const [ok, outcome] = K.RebirthMath.temper(ledger, typeIs(payload.Choice, "string") ? payload.Choice : "") as LuaTuple<
+					[unknown, unknown]
+				>;
+				if (!truthy(ok)) {
+					return responseError(outcome);
+				}
+				const result = outcome as Dict;
+				if (result.Cores !== undefined) {
+					profile.Cores = math.clamp((num(profile.Cores) ?? 0) + (result.Cores as number), 0, 1e14);
+					return responseSuccess("Quenched. +" + (K.Format.Number as Fn)(result.Cores) + " cores banked.", {
+						Temper: ledger.Temper,
+						Cores: result.Cores,
+					});
+				}
+				const rebirthConfig = (K.GameConfig.Economy.Rebirth as Dict | undefined) ?? ({} as Dict);
+				const boostId =
+					(rebirthConfig.AnnealBoostId as string | undefined) ??
+					(rebirthConfig.CelebrationBoostId as string | undefined) ??
+					"Overdrive";
+				if (!typeIs(profile.BoostInventory, "table")) {
+					profile.BoostInventory = {};
+				}
+				const boosts = profile.BoostInventory as Dict;
+				const charges = (result.Boosts as number | undefined) ?? 0;
+				boosts[boostId] = ((boosts[boostId] as number | undefined) ?? 0) + charges;
+				return responseSuccess("Annealed. " + charges + " " + boostId + " charges ready for the next run.", {
+					Temper: ledger.Temper,
+					BoostId: boostId,
+					Boosts: charges,
+				});
 			}
 			return responseError(T("GameService.UnknownRebirthAction"));
 		});

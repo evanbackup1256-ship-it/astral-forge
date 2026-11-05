@@ -1,16 +1,19 @@
-// The rebirth card on the overview, and the chamber it opens. The card is the run at a glance: how
-// far the flux has come, the run clock, the vow you swore and what a rebirth pays right now. The
-// chamber is where a run ends: the payout and its grade, the vow for the next run, keepsakes,
-// stars waiting to be lit, the run log, and the two-step ignition. The rules are RebirthMath's,
-// and the payout is the server's own quote, so the numbers here are the numbers you get.
+// The rebirth card on the overview, and the chamber it opens. The card is the run at a glance: the
+// pressure gauge, the run clock, the vow you swore and what a rebirth pays right now. The chamber
+// is where a run ends: the payout and its grade, the vow for the next run, keepsakes, stars waiting
+// to be lit, the run log, and a press-and-hold forge that can be let go at any point. The rules are
+// RebirthMath's, and the payout is the server's own quote, so the numbers here are the numbers
+// you get.
 import React from "@rbxts/react";
 import { useBackLayer } from "../../CoreKit/backLayer";
 import ReactRoblox from "@rbxts/react-roblox";
 import * as GamepadNavigationService from "../../CoreKit/GamepadNavigationService";
 import { asFlux, compactNumber, Flux } from "../../CoreKit/format";
 import { InteractionFeedback } from "../../CoreKit/interaction";
+import { clamp01, easeOut } from "../../CoreKit/easing";
 import { chromeFor, darken, Palette, TapTarget } from "../../CoreKit/theme";
-import { useFlash, usePulse, useStagger, useViewport } from "../../MotionKit/motion";
+import { joinTuple } from "../../lua";
+import { useChangePop, usePulse, useStagger, useViewport } from "../../MotionKit/motion";
 import { TooltipContent, mergeEvents, useTooltip } from "../../Tooltip";
 import { AudioPlayer, kitMember, LuauComponent, sharedModule } from "../luauKits";
 
@@ -55,6 +58,12 @@ interface RebirthMathApi {
 	effects(this: void, state: { Stars?: unknown }): StarEffects;
 	pair(this: void, index: number): string[];
 	GRADE_BONUS: Record<string, number | undefined>;
+	VOW_FAIL_SHARE: number;
+	QUENCH_SHARE: number;
+	ANNEAL_CHARGES: number;
+	STREAK_TARGET: number;
+	STREAK_STEP: number;
+	STREAK_CAP: number;
 	PERKS: Record<string, { Name: string; Line: string }>;
 	STARS: number[];
 	MASTERY_MAX: number;
@@ -98,15 +107,33 @@ const REBIRTH_ICONS: Record<string, string | undefined> = {
 };
 const GRADE_COLOR: Record<string, Color3 | undefined> = { S: Palette.mango, A: Palette.mint, B: Palette.cyan, C: Palette.muted };
 const GRADE_LINE: Record<string, string | undefined> = {
-	S: "A new best, with the vow kept.",
-	A: "A new best or a kept vow.",
-	B: "At least half your best run.",
-	C: "Under half your best run.",
+	S: "White-hot. Better than your best.",
+	A: "A strong run.",
+	B: "A steady run.",
+	C: "A cold run.",
+};
+// the temper pick after a counted rebirth
+const TEMPER_ART: Record<string, { icon: string; color: Color3; title: string; body: (q: number, a: number) => string }> = {
+	Quench: {
+		icon: "Vault.rebirthTemperQuench",
+		color: Palette.cyan,
+		title: "Quench",
+		body: (q) => `Bank +${math.floor(q * 100)}% of this run's cores, right now.`,
+	},
+	Anneal: {
+		icon: "Timer.rebirthTemperAnneal",
+		color: Palette.mango,
+		title: "Anneal",
+		body: (_, a) => `Stock ${a === 1 ? "a charge" : `${a} charges`} of the celebration boost for the run ahead.`,
+	},
 };
 
 interface RunEntry {
+	Attempt?: number;
 	Cores?: number;
+	Counted?: boolean;
 	Grade: string;
+	Heat?: number;
 	Seconds: number;
 	Kept?: boolean;
 	Vow: string;
@@ -116,6 +143,13 @@ interface RebirthInfo {
 	Cores: Flux;
 	Stardust: Flux;
 	Grade: string;
+	Heat?: number;
+	Streak?: number;
+	BestStreak?: number;
+	StreakAfter?: number;
+	StreakTarget?: number;
+	TemperDue?: boolean;
+	Temper?: string;
 	Vow: string;
 	VowHolds?: boolean;
 	VowStatus: string;
@@ -123,6 +157,10 @@ interface RebirthInfo {
 	KeptVows?: Record<string, number>;
 	RunStartedAt?: number;
 	Lifetime?: number;
+	Attempts?: number;
+	Counted?: boolean;
+	CountedAfterSeconds?: number;
+	RunSeconds?: number;
 	Stars?: unknown;
 	Pending?: number[];
 	Keep?: string[];
@@ -185,6 +223,16 @@ function rebirthOf(state: RebirthState): RebirthInfo {
 		KeptVows: {},
 		RunStartedAt: state.ServerTime ?? 0,
 		Lifetime: tonumber(state.Rebirths) ?? 0,
+		Attempts: tonumber(state.Rebirths) ?? 0,
+		Counted: true,
+		CountedAfterSeconds: 0,
+		Heat: 0,
+		Streak: 0,
+		BestStreak: 0,
+		StreakAfter: 0,
+		StreakTarget: 0,
+		TemperDue: false,
+		Temper: "",
 		Stars: {},
 		Pending: [],
 		Keep: [],
@@ -267,9 +315,7 @@ function rebirthGate(config: RebirthConfig | undefined, rebirths: number) {
 	return { name: bestName, need: bestNeed, last: lastNeed };
 }
 
-const DIAL_DOTS = 18;
-
-interface ChargeDialProps {
+interface RunGaugeProps {
 	size: number;
 	position: UDim2;
 	accent: Color3;
@@ -279,50 +325,60 @@ interface ChargeDialProps {
 	children?: React.ReactNode;
 }
 
-// ring of dots around the rebirth glyph; fills with run progress, then with the ignition charge
-function ChargeDial(props: ChargeDialProps) {
+// a stamped plate: the glyph sits on dark metal and a channel along the bottom fills as the run
+// (or the forge press) comes up, with etched notches at the quarter marks
+function RunGauge(props: RunGaugeProps) {
 	const size = props.size;
-	const radius = size * 0.5 - 4;
-	const children: Record<string, React.Element> = {};
-	for (let i = 1; i <= DIAL_DOTS; i++) {
-		const angle = -math.pi / 2 + ((i - 1) / DIAL_DOTS) * math.pi * 2;
-		const threshold = (i - 0.5) / DIAL_DOTS;
-		children["d" + i] = (
+	const zIndex = props.zIndex ?? 5;
+	const level = joinTuple(props.fill, props.charge);
+	const notches: Record<string, React.Element> = {};
+	for (let i = 1; i <= 3; i++) {
+		notches["n" + i] = (
 			<frame
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				Position={new UDim2(0.5, math.cos(angle) * radius, 0.5, math.sin(angle) * radius)}
-				Size={props.fill.map((amount) => (amount >= threshold ? UDim2.fromOffset(5, 5) : UDim2.fromOffset(3, 3)))}
+				AnchorPoint={new Vector2(0.5, 0)}
+				Position={new UDim2(i / 4, 0, 1, -10)}
+				Size={UDim2.fromOffset(1, 7)}
+				BackgroundColor3={Palette.creamSoft}
+				BackgroundTransparency={0.55}
 				BorderSizePixel={0}
-				BackgroundColor3={props.fill.map((amount) => (amount >= threshold ? props.accent : Palette.panelSoft))}
-				BackgroundTransparency={props.fill.map((amount) => (amount >= threshold ? 0 : 0.4))}
-				ZIndex={props.zIndex}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-			</frame>
+				ZIndex={zIndex + 2}
+			/>
 		);
 	}
 	return (
 		<frame
-			key="ChargeDial"
+			key="RunGauge"
 			Size={UDim2.fromOffset(size, size)}
 			Position={props.position}
-			BackgroundTransparency={1}
+			BackgroundColor3={Palette.ink}
 			BorderSizePixel={0}
-			ZIndex={props.zIndex}
+			ZIndex={zIndex}
 		>
-			{children}
+			<uicorner CornerRadius={new UDim(0, 12)} />
+			<uistroke
+				Color={props.accent}
+				Thickness={1}
+				Transparency={level.map(([fill, charge]) => 0.7 - math.clamp(math.max(fill, charge), 0, 1) * 0.5)}
+			/>
 			<frame
-				key="ChargeHalo"
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				Position={UDim2.fromScale(0.5, 0.5)}
-				Size={props.charge.map((amount) => UDim2.fromOffset(size - 6 + amount * 8, size - 6 + amount * 8))}
-				BackgroundTransparency={1}
+				key="GaugeTrack"
+				Position={new UDim2(0, 8, 1, -12)}
+				Size={new UDim2(1, -16, 0, 4)}
+				BackgroundColor3={Palette.panelSoft}
 				BorderSizePixel={0}
-				ZIndex={props.zIndex}
+				ZIndex={zIndex + 1}
 			>
 				<uicorner CornerRadius={new UDim(1, 0)} />
-				<uistroke Color={props.accent} Thickness={2} Transparency={props.charge.map((amount) => 1 - amount * 0.8)} />
+				<frame
+					Size={level.map(([fill, charge]) => new UDim2(math.clamp(math.max(fill, charge), 0, 1), 0, 1, 0))}
+					BackgroundColor3={props.accent}
+					BorderSizePixel={0}
+					ZIndex={zIndex + 2}
+				>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+				</frame>
 			</frame>
+			{notches}
 			{props.children}
 		</frame>
 	);
@@ -495,11 +551,12 @@ function RunLog(props: { runs: RunEntry[]; grow: React.Binding<number> }) {
 					Position={UDim2.fromScale(0, 1)}
 					Size={props.grow.map((amount) => new UDim2(1, 0, run ? share * amount : 0.04, 0))}
 					BackgroundColor3={tint}
-					BackgroundTransparency={run ? 0.1 : 0.6}
+					BackgroundTransparency={run ? (run.Counted === false ? 0.8 : 0.1) : 0.6}
 					BorderSizePixel={0}
 					ZIndex={906}
 				>
 					<uicorner CornerRadius={new UDim(0, 6)} />
+					{run !== undefined && run.Counted === false && <uistroke Color={tint} Thickness={1} Transparency={0.4} />}
 				</frame>
 				{run && (
 					<Text
@@ -520,6 +577,277 @@ function RunLog(props: { runs: RunEntry[]; grow: React.Binding<number> }) {
 	return (
 		<frame Size={new UDim2(1, 0, 1, 0)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={904}>
 			{bars}
+		</frame>
+	);
+}
+
+// a window of the cutscene's single clock: a,b are fractions of the whole run
+function seg(t: number, a: number, b: number): number {
+	return clamp01((t - a) / (b - a));
+}
+
+// lands past 1 and settles back, for the plate and the grade stamp
+function easeOutBack(t: number): number {
+	const u = clamp01(t) - 1;
+	return 1 + 2.7 * u * u * u + 1.7 * u * u;
+}
+
+interface CutsceneProps {
+	grade: string;
+	heat: number;
+	cores: Flux;
+	stardust: Flux;
+	streak: number;
+	onDone: () => void;
+}
+
+// the forge cutscene after a rebirth lands: letterbox in, the plate rises, two strokes etch it,
+// the grade stamps down with a jolt, the payout counts up, and it all lets go. One clock, one
+// tap anywhere to skip.
+function RebirthCutscene(props: CutsceneProps) {
+	const CUT_SECONDS = 3.1;
+	const [t, setT] = React.useBinding(0);
+	const doneRef = React.useRef(false);
+	const stampedRef = React.useRef(false);
+	const finish = () => {
+		if (!doneRef.current) {
+			doneRef.current = true;
+			props.onDone();
+		}
+	};
+	React.useEffect(() => {
+		const started = os.clock();
+		const connection: RBXScriptConnection = RunService.Heartbeat.Connect(() => {
+			const now = (os.clock() - started) / CUT_SECONDS;
+			setT(math.min(1, now));
+			if (now >= 0.62 && !stampedRef.current) {
+				stampedRef.current = true;
+				Audio.play("domainImpact");
+			}
+			if (now >= 1) {
+				finish();
+			}
+		});
+		return () => {
+			connection.Disconnect();
+		};
+	}, []);
+	const gradeColor = GRADE_COLOR[props.grade] ?? Palette.muted;
+	const fade = t.map((now) => 1 - seg(now, 0.88, 1));
+	const bars = t.map((now) => easeOut(seg(now, 0, 0.2)));
+	const plateScale = t.map((now) => easeOutBack(seg(now, 0.1, 0.4)) * (1 - seg(now, 0.9, 1) * 0.06));
+	const jolt = t.map((now) => {
+		const s = seg(now, 0.62, 0.85);
+		return math.sin(s * math.pi * 3) * (1 - s) * 7;
+	});
+	const etchA = t.map((now) => easeOut(seg(now, 0.42, 0.6)));
+	const etchB = t.map((now) => easeOut(seg(now, 0.5, 0.68)));
+	const stampScale = t.map((now) => 1 + (1 - easeOutBack(seg(now, 0.62, 0.78))) * 2.4);
+	const counters = t.map((now) => easeOut(seg(now, 0.66, 0.95)));
+	const heatFill = t.map((now) => easeOut(seg(now, 0.45, 0.72)));
+	const rise = t.map((now) => (1 - easeOut(seg(now, 0.66, 0.8))) * 18);
+	// the Keeper narrates the forge; each line owns a window of the clock
+	const KEEPER_LINES: Array<[number, string]> = [
+		[0, "Hold still."],
+		[0.3, "The metal remembers the run."],
+		[0.6, "Now — the stamp."],
+		[0.78, "Done. Spend it well."],
+	];
+	const keeperLine = (now: number): string => {
+		let line = KEEPER_LINES[0][1];
+		for (const [at, text] of KEEPER_LINES) {
+			if (now >= at) {
+				line = text;
+			}
+		}
+		return line;
+	};
+	return (
+		<frame key="RebirthCutscene" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={950}>
+			<frame
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundColor3={Palette.void}
+				BackgroundTransparency={t.map((now) => 1 - easeOut(seg(now, 0, 0.15)) * 0.72 * (1 - seg(now, 0.9, 1)))}
+				BorderSizePixel={0}
+				ZIndex={950}
+			/>
+			<frame
+				Size={bars.map((p) => new UDim2(1, 0, 0.11 * p, 0))}
+				BackgroundColor3={Palette.void}
+				BorderSizePixel={0}
+				ZIndex={955}
+			/>
+			<frame
+				AnchorPoint={new Vector2(0, 1)}
+				Position={UDim2.fromScale(0, 1)}
+				Size={bars.map((p) => new UDim2(1, 0, 0.11 * p, 0))}
+				BackgroundColor3={Palette.void}
+				BorderSizePixel={0}
+				ZIndex={955}
+			/>
+			<frame
+				AnchorPoint={new Vector2(0.5, 0.5)}
+				Position={jolt.map((dy) => new UDim2(0.5, 0, 0.5, dy - 10))}
+				Size={plateScale.map((s) => UDim2.fromOffset(340 * s, 168 * s))}
+				BackgroundColor3={Palette.ink}
+				BackgroundTransparency={fade.map((f) => 1 - f)}
+				BorderSizePixel={0}
+				ZIndex={956}
+			>
+				<uicorner CornerRadius={new UDim(0, 14)} />
+				<uistroke Color={Palette.creamSoft} Thickness={1} Transparency={fade.map((f) => 1 - f * 0.45)} />
+				<frame
+					AnchorPoint={new Vector2(0.5, 0)}
+					Position={new UDim2(0.5, 0, 0, -16)}
+					Size={etchA.map((p) => UDim2.fromOffset(380 * p, 2))}
+					Rotation={-18}
+					BackgroundColor3={Palette.mango}
+					BackgroundTransparency={fade.map((f) => 1 - f * 0.25)}
+					BorderSizePixel={0}
+					ZIndex={959}
+				/>
+				<frame
+					AnchorPoint={new Vector2(0.5, 0)}
+					Position={new UDim2(0.5, 0, 1, 16)}
+					Size={etchB.map((p) => UDim2.fromOffset(380 * p, 2))}
+					Rotation={-18}
+					BackgroundColor3={Palette.mango}
+					BackgroundTransparency={fade.map((f) => 1 - f * 0.25)}
+					BorderSizePixel={0}
+					ZIndex={959}
+				/>
+				<Text
+					value="FORGED"
+					size={11}
+					color={Palette.creamSoft}
+					weight={Enum.FontWeight.SemiBold}
+					align={Enum.TextXAlignment.Center}
+					fit={false}
+					position={new UDim2(0, 0, 0, 12)}
+					sizeConstraint={new UDim2(1, 0, 0, 14)}
+					zIndex={957}
+					transparency={fade.map((f) => 1 - f)}
+				/>
+				<frame
+					AnchorPoint={new Vector2(0.5, 0.5)}
+					Position={new UDim2(0.5, 0, 0, 48)}
+					Size={stampScale.map((s) => UDim2.fromOffset(74 * s, 74 * s))}
+					BackgroundColor3={darken(gradeColor, 0.72)}
+					BackgroundTransparency={t.map((now) => 1 - seg(now, 0.62, 0.68) * (1 - seg(now, 0.9, 1)))}
+					BorderSizePixel={0}
+					ZIndex={958}
+				>
+					<uicorner CornerRadius={new UDim(0, 12)} />
+					<uistroke Color={gradeColor} Thickness={1.5} Transparency={0.15} />
+					<Text
+						value={props.grade}
+						size={44}
+						color={gradeColor}
+						weight={Enum.FontWeight.Heavy}
+						align={Enum.TextXAlignment.Center}
+						fit={false}
+						sizeConstraint={UDim2.fromScale(1, 1)}
+						zIndex={959}
+					/>
+				</frame>
+				<frame
+					AnchorPoint={new Vector2(0.5, 0)}
+					Position={new UDim2(0.5, 0, 1, -22)}
+					Size={new UDim2(0.7, 0, 0, 4)}
+					BackgroundColor3={Palette.panelSoft}
+					BorderSizePixel={0}
+					ZIndex={957}
+				>
+					<uicorner CornerRadius={new UDim(1, 0)} />
+					<frame
+						Size={heatFill.map((p) => new UDim2(p * math.clamp(props.heat / 100, 0, 1), 0, 1, 0))}
+						BackgroundColor3={gradeColor}
+						BorderSizePixel={0}
+						ZIndex={958}
+					>
+						<uicorner CornerRadius={new UDim(1, 0)} />
+					</frame>
+				</frame>
+			</frame>
+			<Text
+				value={counters.map((p) => `+${compactNumber(math.floor(asFlux(props.cores) * p))} cores`)}
+				size={26}
+				color={Palette.cream}
+				weight={Enum.FontWeight.Heavy}
+				align={Enum.TextXAlignment.Center}
+				fit={false}
+				position={rise.map((dy) => new UDim2(0, 0, 0.5, 96 + dy))}
+				sizeConstraint={new UDim2(1, 0, 0, 30)}
+				zIndex={957}
+				transparency={fade.map((f) => 1 - f)}
+			/>
+			<Text
+				value={counters.map((p) => {
+					const dust = `+${compactNumber(math.floor(asFlux(props.stardust) * p))} stardust`;
+					return props.streak > 1 ? `${dust}  ·  streak ×${props.streak}` : dust;
+				})}
+				size={14}
+				color={Palette.mint}
+				align={Enum.TextXAlignment.Center}
+				fit={false}
+				position={rise.map((dy) => new UDim2(0, 0, 0.5, 130 + dy))}
+				sizeConstraint={new UDim2(1, 0, 0, 18)}
+				zIndex={957}
+				transparency={fade.map((f) => 1 - f)}
+			/>
+			<frame
+				AnchorPoint={new Vector2(0.5, 0)}
+				Position={new UDim2(0.5, 0, 1, -64)}
+				Size={new UDim2(0.62, 0, 0, 34)}
+				BackgroundColor3={Palette.ink}
+				BackgroundTransparency={fade.map((f) => 1 - f * 0.55)}
+				BorderSizePixel={0}
+				ZIndex={957}
+			>
+				<uicorner CornerRadius={new UDim(0, 8)} />
+				<uistroke Color={Palette.lineSoft} Transparency={0.6} />
+				<Text
+					value="KEEPER OF THE FORGE"
+					size={9}
+					color={Palette.mango}
+					weight={Enum.FontWeight.SemiBold}
+					fit={false}
+					position={UDim2.fromOffset(12, 3)}
+					sizeConstraint={new UDim2(1, -24, 0, 11)}
+					zIndex={958}
+					transparency={fade.map((f) => 1 - f)}
+				/>
+				<Text
+					value={t.map(keeperLine)}
+					size={12}
+					color={Palette.cream}
+					fit={false}
+					position={UDim2.fromOffset(12, 15)}
+					sizeConstraint={new UDim2(1, -24, 0, 15)}
+					zIndex={958}
+					transparency={fade.map((f) => 1 - f)}
+				/>
+			</frame>
+			<Text
+				value="tap to skip"
+				size={10}
+				color={Palette.muted}
+				align={Enum.TextXAlignment.Center}
+				fit={false}
+				position={new UDim2(0, 0, 1, -26)}
+				sizeConstraint={new UDim2(1, 0, 0, 14)}
+				zIndex={957}
+				transparency={fade.map((f) => 1 - f)}
+			/>
+			<textbutton
+				Size={UDim2.fromScale(1, 1)}
+				BackgroundTransparency={1}
+				BorderSizePixel={0}
+				AutoButtonColor={false}
+				Text=""
+				ZIndex={960}
+				Event={{ Activated: finish }}
+			/>
 		</frame>
 	);
 }
@@ -550,25 +878,31 @@ export function RebirthChamber(props: ChamberProps) {
 	const [keep, setKeep] = React.useState(() => table.clone(info.Keep ?? []));
 	const [confirming, setConfirming] = React.useState(false);
 	const [busy, setBusy] = React.useState(false);
+	const [cutscene, setCutscene] = React.useState<CutsceneProps | undefined>(undefined);
 	const [igniting, setIgniting] = React.useState(false);
 	const [shakeToken, setShakeToken] = React.useState(0);
 	const [ignite, setIgnite] = React.useBinding(0);
 	// the star index whose permanent pick is in flight (one pick per star)
 	const starSentRef = React.useRef<number | undefined>(undefined);
+	const temperSentRef = React.useRef(false);
 	const mountedRef = React.useRef(true);
 	const ignitionRef = React.useRef<RBXScriptConnection>();
+	const drainRef = React.useRef<RBXScriptConnection>();
+	const releaseRef = React.useRef<RBXScriptConnection>();
 	const confirmArmedRef = React.useRef<number>();
 	const rebirthClaimHostRef = React.useRef<Frame>();
 	const enter = useStagger(0, softMotion);
 	const grow = useStagger(2, softMotion);
-	const gradeGlow = usePulse(!softMotion && !effectsPaused && info.Ready === true, 1.8);
+	const payPop = useChangePop(info.Ready === true ? `ready-${info.Grade}` : "waiting", softMotion || effectsPaused, 0.1);
 	const runSeconds = useRunClock(tonumber(info.RunStartedAt) ?? 0, state.ServerTime);
 	const canRebirth = info.Ready === true;
 	const stopIgnition = () => {
-		const connection = ignitionRef.current;
-		if (connection !== undefined) {
-			ignitionRef.current = undefined;
-			connection.Disconnect();
+		for (const ref of [ignitionRef, drainRef, releaseRef]) {
+			const connection = ref.current;
+			if (connection !== undefined) {
+				ref.current = undefined;
+				connection.Disconnect();
+			}
 		}
 	};
 	React.useEffect(() => {
@@ -644,25 +978,43 @@ export function RebirthChamber(props: ChamberProps) {
 			setIgnite(0);
 			if (response.ok) {
 				setConfirming(false);
-				props.onClose();
+				if (softMotion || props.effectsPaused) {
+					props.onClose();
+				} else {
+					setCutscene({
+						grade: info.Grade,
+						heat: tonumber(info.Heat) ?? 0,
+						cores: info.Cores,
+						stardust: info.Stardust,
+						streak: tonumber(info.StreakAfter) ?? tonumber(info.Streak) ?? 0,
+						onDone: props.onClose,
+					});
+					Audio.play("rebirthCharge");
+				}
 			} else {
 				setShakeToken((token) => token + 1);
 			}
 		});
 	};
-	// a short, cancellable charge before the reset actually fires; softMotion compresses it
+	// the forge press: hold to charge, let go to ease back down. Committing happens on the server.
 	const beginIgnition = () => {
 		if (igniting || ignitionRef.current !== undefined) {
 			return;
+		}
+		if (drainRef.current !== undefined) {
+			drainRef.current.Disconnect();
+			drainRef.current = undefined;
 		}
 		setIgniting(true);
 		Audio.play("rebirthCharge");
 		const duration = softMotion ? 0.35 : 1.15;
 		const ticks = softMotion ? 0 : 6;
+		const startAmount = ignite.getValue();
+		const head = (1 - startAmount) * duration;
 		const started = os.clock();
-		let ticked = 0;
+		let ticked = math.floor(startAmount * ticks);
 		const connection: RBXScriptConnection = RunService.Heartbeat.Connect(() => {
-			const amount = math.clamp((os.clock() - started) / duration, 0, 1);
+			const amount = math.clamp(startAmount + (os.clock() - started) / head, 0, 1);
 			setIgnite(amount);
 			const due = math.floor(amount * ticks);
 			if (due > ticked && due < ticks) {
@@ -670,10 +1022,7 @@ export function RebirthChamber(props: ChamberProps) {
 				Audio.play("countTick", 0.9 + due * 0.08);
 			}
 			if (amount >= 1) {
-				connection.Disconnect();
-				if (ignitionRef.current === connection) {
-					ignitionRef.current = undefined;
-				}
+				stopIgnition();
 				if (!mountedRef.current) {
 					return;
 				}
@@ -683,17 +1032,45 @@ export function RebirthChamber(props: ChamberProps) {
 			}
 		});
 		ignitionRef.current = connection;
+		releaseRef.current = UserInputService.InputEnded.Connect((input) => {
+			if (
+				input.UserInputType === Enum.UserInputType.MouseButton1 ||
+				input.UserInputType === Enum.UserInputType.Touch ||
+				input.KeyCode === Enum.KeyCode.ButtonA
+			) {
+				cancelIgnition(true);
+			}
+		});
 	};
-	const cancelIgnition = () => {
+	// letting go early lets the pressure settle back instead of snapping to zero
+	const cancelIgnition = (drain = false) => {
+		const wasIgniting = igniting;
 		stopIgnition();
-		setIgnite(0);
 		setIgniting(false);
-		Audio.play("close");
+		if (wasIgniting) {
+			Audio.play("close");
+		}
+		const rest = ignite.getValue();
+		if (drain && rest > 0 && !softMotion) {
+			const started = os.clock();
+			const connection: RBXScriptConnection = RunService.Heartbeat.Connect(() => {
+				const amount = math.clamp((os.clock() - started) / 0.22, 0, 1);
+				setIgnite(rest * (1 - amount));
+				if (amount >= 1) {
+					connection.Disconnect();
+					if (drainRef.current === connection) {
+						drainRef.current = undefined;
+					}
+				}
+			});
+			drainRef.current = connection;
+		} else {
+			setIgnite(0);
+		}
 	};
-	// The confirm step disarms itself: a second press only counts within CONFIRM_WINDOW seconds of the
-	// first and not as part of the same double-click, so a stray tap later can never start a reset.
+	// The confirm step disarms itself: a tap only arms within CONFIRM_WINDOW seconds, and the reset
+	// itself needs a held press, so a stray tap can never start one.
 	const CONFIRM_WINDOW = 6;
-	const CONFIRM_MIN_GAP = 0.35;
 	const rebirth = () => {
 		if (!canRebirth || busy || igniting) {
 			return undefined;
@@ -706,10 +1083,11 @@ export function RebirthChamber(props: ChamberProps) {
 			Audio.play("preview");
 			return undefined;
 		}
-		if (elapsed < CONFIRM_MIN_GAP) {
-			return undefined;
+	};
+	const pressForge = () => {
+		if (confirming && canRebirth && !busy && !igniting) {
+			beginIgnition();
 		}
-		beginIgnition();
 	};
 
 	const accent = igniting ? Palette.mango : confirming ? Palette.coral : Palette.violet;
@@ -727,7 +1105,7 @@ export function RebirthChamber(props: ChamberProps) {
 		reasons.push(
 			info.VowHolds
 				? `${vow.Name} holds: ×${"%.2f".format(RebirthMath.vowMultiplier({ Kept: info.KeptVows, Stars: info.Stars }, vow.Id))} ${vow.Pays.lower()}`
-				: `${vow.Name} broken: ${info.VowStatus}`,
+				: `${vow.Name} broken, still pays ${math.floor(RebirthMath.VOW_FAIL_SHARE * 100)}%: ${info.VowStatus}`,
 		);
 	} else {
 		reasons.push("No vow this run.");
@@ -735,6 +1113,22 @@ export function RebirthChamber(props: ChamberProps) {
 	const gradeBonus = RebirthMath.GRADE_BONUS[info.Grade] ?? 0;
 	if (gradeBonus > 0) {
 		reasons.push(`Grade ${info.Grade}: +${math.floor(gradeBonus * 100)}% stardust`);
+	}
+	const streak = tonumber(info.Streak) ?? 0;
+	const streakAfter = tonumber(info.StreakAfter) ?? streak;
+	if (streak > 0) {
+		reasons.push(
+			streakAfter > streak
+				? `Streak ×${streakAfter} (fast and clean): +${math.floor(streakAfter * RebirthMath.STREAK_STEP * 100)}% stardust`
+				: streakAfter === 0
+					? `Streak ×${streak} ends here: too slow${vow && !info.VowHolds ? " or the vow broke" : ""}.`
+					: `Streak ×${streak}: +${math.floor(streak * RebirthMath.STREAK_STEP * 100)}% stardust`,
+		);
+	} else if (streakAfter > 0) {
+		reasons.push(`Starts a streak: +${math.floor(streakAfter * RebirthMath.STREAK_STEP * 100)}% stardust`);
+	}
+	if (canRebirth && info.Counted === false) {
+		reasons.push("Quick run: pays out, but the count stays.");
 	}
 	const fx = RebirthMath.effects({ Stars: info.Stars });
 	if (fx.CoreYield > 0) {
@@ -752,20 +1146,38 @@ export function RebirthChamber(props: ChamberProps) {
 			order={1}
 			height={118}
 			title={canRebirth ? "This rebirth pays" : "Not ready yet"}
-			note={`run time ${clock(runSeconds)}`}
+			note={`run time ${clock(runSeconds)}${canRebirth && info.Counted === false ? " · won't count" : ""}`}
 		>
-			<frame Size={UDim2.fromOffset(78, 78)} BackgroundColor3={darken(gradeColor, 0.7)} BorderSizePixel={0} ZIndex={905}>
+			<frame
+				AnchorPoint={new Vector2(0, 0.5)}
+				Position={UDim2.fromOffset(0, 48)}
+				Size={payPop.map((amount) => UDim2.fromOffset(78 * amount, 78 * amount))}
+				BackgroundColor3={darken(gradeColor, 0.7)}
+				BorderSizePixel={0}
+				ZIndex={905}
+			>
 				<uicorner CornerRadius={new UDim(0, 14)} />
-				<uistroke Color={gradeColor} Thickness={1} Transparency={gradeGlow.map((amount) => 0.4 + amount * 0.4)} />
+				<uistroke Color={gradeColor} Thickness={1} Transparency={0.3} />
 				<Text
 					value={canRebirth ? info.Grade : "–"}
-					size={44}
+					size={40}
 					color={gradeColor}
 					weight={Enum.FontWeight.Heavy}
 					align={Enum.TextXAlignment.Center}
 					fit={false}
-					position={UDim2.fromOffset(0, 15)}
-					sizeConstraint={new UDim2(1, 0, 0, 48)}
+					position={UDim2.fromOffset(0, 8)}
+					sizeConstraint={new UDim2(1, 0, 0, 42)}
+					zIndex={906}
+				/>
+				<Text
+					value={canRebirth ? `heat ${tonumber(info.Heat) ?? 0}` : ""}
+					size={9}
+					color={Palette.creamSoft}
+					weight={Enum.FontWeight.SemiBold}
+					align={Enum.TextXAlignment.Center}
+					fit={false}
+					position={UDim2.fromOffset(0, 52)}
+					sizeConstraint={new UDim2(1, 0, 0, 12)}
 					zIndex={906}
 				/>
 			</frame>
@@ -807,6 +1219,63 @@ export function RebirthChamber(props: ChamberProps) {
 			/>
 		</Section>
 	);
+
+	// the temper still waiting on the last counted rebirth
+	if (info.TemperDue === true) {
+		const temperCards: Record<string, React.Element> = {};
+		for (const choice of ["Quench", "Anneal"]) {
+			const art = TEMPER_ART[choice]!;
+			temperCards[choice] = (
+				<ChoiceCard
+					name={"Temper" + choice}
+					icon={art.icon}
+					color={art.color}
+					title={art.title}
+					body={art.body(RebirthMath.QUENCH_SHARE, RebirthMath.ANNEAL_CHARGES)}
+					iconSize={34}
+					size={new UDim2(0.5, -6, 1, 0)}
+					position={new UDim2(choice === "Anneal" ? 0.5 : 0, choice === "Anneal" ? 6 : 0, 0, 0)}
+					sound="reward"
+					tooltip={{
+						title: art.title,
+						body:
+							choice === "Quench"
+								? "Take the bonus now and it's spent. The next run starts plain."
+								: "The boost charges sit in your inventory, ready to fire early in the next run.",
+						hint: "One temper per counted rebirth.",
+						accent: art.color,
+					}}
+					onPick={() => {
+						if (temperSentRef.current === true) {
+							return;
+						}
+						temperSentRef.current = true;
+						const fallback = task.delay(8, () => {
+							temperSentRef.current = false;
+						});
+						dispatch("RebirthAct", { Op: "Temper", Choice: choice }, (response: { ok?: boolean }) => {
+							pcall(task.cancel, fallback);
+							if (response.ok !== true) {
+								temperSentRef.current = false;
+							}
+						});
+					}}
+				/>
+			);
+		}
+		sections.temper = (
+			<Section
+				name="RebirthTemper"
+				order={2}
+				height={22 + 74}
+				title="Temper the last run"
+				accent={Palette.mango}
+				note={info.Temper !== "" ? `last: ${info.Temper}` : "pick once"}
+			>
+				{temperCards}
+			</Section>
+		);
+	}
 
 	// stars waiting: the first one, its two perks side by side
 	const pending = info.Pending ?? [];
@@ -859,7 +1328,7 @@ export function RebirthChamber(props: ChamberProps) {
 		sections.stars = (
 			<Section
 				name="RebirthStars"
-				order={2}
+				order={3}
 				height={22 + 74}
 				title={`Star ${index} is lit: choose one, it's permanent`}
 				accent={Palette.mango}
@@ -892,7 +1361,7 @@ export function RebirthChamber(props: ChamberProps) {
 				title={def ? def.Name : art.name!}
 				body={
 					def
-						? `${def.Line} ×${"%.2f".format(RebirthMath.vowMultiplier({ Kept: info.KeptVows, Stars: info.Stars }, id))} ${def.Pays.lower()}.`
+						? `${def.Line} ×${"%.2f".format(RebirthMath.vowMultiplier({ Kept: info.KeptVows, Stars: info.Stars }, id))} ${def.Pays.lower()}, ${math.floor(RebirthMath.VOW_FAIL_SHARE * 100)}% even broken.`
 						: art.line!
 				}
 				tag={def && kept > 0 ? `Kept ${kept}${mastery > 0 ? " · M" + mastery : ""}` : undefined}
@@ -900,7 +1369,7 @@ export function RebirthChamber(props: ChamberProps) {
 					def
 						? {
 								title: def.Name,
-								body: `Checked the moment you rebirth. Kept, it multiplies your ${def.Pays.lower()}; broken, you just get the normal payout.`,
+								body: `Checked the moment you rebirth. Kept, it multiplies your ${def.Pays.lower()}; broken, it still pays ${math.floor(RebirthMath.VOW_FAIL_SHARE * 100)}% of that.`,
 								hint:
 									mastery >= RebirthMath.MASTERY_MAX
 										? `Kept ${kept} times, fully mastered.`
@@ -921,7 +1390,7 @@ export function RebirthChamber(props: ChamberProps) {
 	sections.vows = (
 		<Section
 			name="RebirthVows"
-			order={3}
+			order={4}
 			height={22 + vowRows * vowCardH + (vowRows - 1) * vowGap}
 			title="Vow for the next run"
 			note="keep it and the payout grows"
@@ -983,7 +1452,7 @@ export function RebirthChamber(props: ChamberProps) {
 		sections.keep = (
 			<Section
 				name="RebirthKeepsakes"
-				order={4}
+				order={5}
 				height={22 + rows * chipH + (rows - 1) * 8}
 				title={`Keepsakes · ${keep.size()} of ${slots}`}
 				note={`keeps ${math.floor(fxShare * 100 + 0.5)}% of the level`}
@@ -994,7 +1463,7 @@ export function RebirthChamber(props: ChamberProps) {
 	} else {
 		const nextAt = RebirthMath.KEEP_SLOTS_AT[0];
 		sections.keep = (
-			<Section name="RebirthKeepsakes" order={4} height={22 + 18} title="Keepsakes">
+			<Section name="RebirthKeepsakes" order={5} height={22 + 18} title="Keepsakes">
 				<Text
 					value={`After rebirth ${nextAt}, one machine can come with you into the next run.`}
 					size={11}
@@ -1056,7 +1525,7 @@ export function RebirthChamber(props: ChamberProps) {
 		keepCopy += ", plus " + keepNames.join(" and ");
 	}
 	sections.ledger = (
-		<Section name="RebirthLedger" order={5} height={22 + (stack ? 120 : 96)} title="What stays, what goes">
+		<Section name="RebirthLedger" order={6} height={22 + (stack ? 120 : 96)} title="What stays, what goes">
 			{ledgerColumn("You keep", keepCopy, Palette.mint, 0, "Check.rebirthKeeps")}
 			{ledgerColumn(
 				"Resets",
@@ -1074,7 +1543,7 @@ export function RebirthChamber(props: ChamberProps) {
 	sections.log = (
 		<Section
 			name="RebirthRunLog"
-			order={6}
+			order={7}
 			height={22 + 110}
 			title={`Last ${math.min(runs.size(), RebirthMath.LOG_LIMIT)} runs`}
 			note={runs.size() > 0 ? `best ${compactNumber(info.BestCores)} cores · fastest ${clock(info.FastestSeconds)}` : undefined}
@@ -1098,14 +1567,24 @@ export function RebirthChamber(props: ChamberProps) {
 	const claimText = busy
 		? "Rebirthing…"
 		: igniting
-			? "Igniting…"
+			? "Forging… let go to stop"
 			: confirming
-				? "Ignite rebirth"
+				? "Hold to forge"
 				: canRebirth
 					? `REBIRTH · ${vowName(nextVow)} next`
 					: "Not ready";
 	return ReactRoblox.createPortal(
 		<frame key="RebirthChamber" Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} BorderSizePixel={0} ZIndex={900}>
+			{cutscene !== undefined && (
+				<RebirthCutscene
+					grade={cutscene.grade}
+					heat={cutscene.heat}
+					cores={cutscene.cores}
+					stardust={cutscene.stardust}
+					streak={cutscene.streak}
+					onDone={cutscene.onDone}
+				/>
+			)}
 			<textbutton
 				key="Scrim"
 				Size={UDim2.fromScale(1, 1)}
@@ -1129,11 +1608,11 @@ export function RebirthChamber(props: ChamberProps) {
 			>
 				<uicorner CornerRadius={new UDim(0, 14)} />
 				<uistroke Color={accent} Thickness={1} Transparency={0.45} />
-				<ChargeDial size={54} position={UDim2.fromOffset(16, 14)} accent={accent} fill={ignite} charge={ignite} zIndex={903}>
-					<Icon kind="Rebirth.rebirthChamber" size={34} position={UDim2.fromOffset(10, 10)} zIndex={904} />
-				</ChargeDial>
+				<RunGauge size={54} position={UDim2.fromOffset(16, 14)} accent={accent} fill={ignite} charge={ignite} zIndex={903}>
+					<Icon kind="Rebirth.rebirthChamber" size={30} position={UDim2.fromOffset(12, 7)} zIndex={904} />
+				</RunGauge>
 				<Text
-					value={igniting ? "Igniting" : confirming ? "Check your rebirth" : `Rebirth ${(tonumber(info.Lifetime) ?? 0) + 1}`}
+					value={igniting ? "Forging" : confirming ? "Check your rebirth" : `Rebirth ${(tonumber(info.Lifetime) ?? 0) + 1}`}
 					size={10}
 					color={accent}
 					weight={Enum.FontWeight.Heavy}
@@ -1143,7 +1622,7 @@ export function RebirthChamber(props: ChamberProps) {
 					zIndex={903}
 				/>
 				<Text
-					value={igniting ? "Stop now or the run resets." : confirming ? "Press again to ignite." : "End this run"}
+					value={igniting ? "Release to let go." : confirming ? "Press and hold the forge." : "End this run"}
 					size={stack ? 18 : 22}
 					color={Palette.cream}
 					weight={Enum.FontWeight.Heavy}
@@ -1205,6 +1684,21 @@ export function RebirthChamber(props: ChamberProps) {
 						highlight={canRebirth && !igniting && !softMotion}
 						zIndex={904}
 					/>
+					<textbutton
+						key="ForgePress"
+						Size={new UDim2(stack ? 0.62 : 0.7, -6, 0, TapTarget)}
+						Position={UDim2.fromOffset(0, 0)}
+						BackgroundTransparency={1}
+						BorderSizePixel={0}
+						AutoButtonColor={false}
+						Text=""
+						Selectable={true}
+						ZIndex={905}
+						Event={{
+							Activated: rebirth,
+							InputBegan: pressForge,
+						}}
+					/>
 					<frame
 						key="IgnitionBar"
 						Size={ignite.map((amount) => new UDim2((stack ? 0.62 : 0.7) * amount, -6, 0, 4))}
@@ -1219,7 +1713,7 @@ export function RebirthChamber(props: ChamberProps) {
 					<Button
 						text={igniting ? "Stop" : confirming ? "Cancel" : "Close"}
 						icon="Close.rebirthIgniteStop"
-						onClick={igniting ? cancelIgnition : confirming ? () => setConfirming(false) : close}
+						onClick={igniting ? () => cancelIgnition(true) : confirming ? () => setConfirming(false) : close}
 						sound={igniting ? undefined : "close"}
 						color={Palette.panelSoft}
 						textColor={Palette.cream}
@@ -1272,7 +1766,6 @@ export function RebirthPanel({
 	const rebirths = math.max(0, math.floor(tonumber(state.Rebirths) ?? 0));
 	const seconds = useRunClock(tonumber(info.RunStartedAt) ?? 0, state.ServerTime);
 	const [chamberOpen, setChamberOpen] = React.useState(false);
-	const readiness = useFlash(canRebirth ? 1 : 0, softMotion || effectsPaused, 0.8);
 	const heroReveal = useStagger(1, softMotion);
 	const starPulse = usePulse((info.Pending ?? []).size() > 0 && !softMotion && !effectsPaused, 1.4);
 	const [dialFill, setDialFill] = React.useBinding(progress);
@@ -1328,18 +1821,17 @@ export function RebirthPanel({
 			reducedMotion={softMotion || effectsPaused}
 			clips={false}
 		>
-			<ChargeDial size={stack ? 56 : 64} position={UDim2.fromOffset(-3, stack ? 2 : 6)} accent={accent} fill={dialFill} charge={ignite}>
+			<RunGauge size={stack ? 56 : 64} position={UDim2.fromOffset(-3, stack ? 2 : 6)} accent={accent} fill={dialFill} charge={ignite}>
 				<IconTile
 					kind={REBIRTH_ICONS.Dial}
 					accent={accent}
-					size={(stack ? 56 : 64) - 18}
-					radius={14}
-					position={UDim2.fromOffset(9, 9)}
+					size={(stack ? 56 : 64) - 26}
+					radius={10}
+					position={UDim2.fromOffset(12, 5)}
 					glow={lively}
-					spin={lively}
 					reducedMotion={softMotion || effectsPaused}
 				/>
-			</ChargeDial>
+			</RunGauge>
 			<frame
 				Size={new UDim2(1, -((stack ? 66 : 76) + colW + (stack ? 0 : 16)), 0, stack ? 134 : height - 36)}
 				Position={UDim2.fromOffset(stack ? 66 : 76, 0)}
@@ -1393,7 +1885,6 @@ export function RebirthPanel({
 				</frame>
 				<Meter
 					value={progress}
-					rainbow={true}
 					color={accent}
 					reducedMotion={softMotion || effectsPaused}
 					shimmer={lively}
@@ -1403,7 +1894,7 @@ export function RebirthPanel({
 				<Text
 					value={
 						canRebirth
-							? `+${compactNumber(info.Stardust)} stardust`
+							? `+${compactNumber(info.Stardust)} stardust${(tonumber(info.Streak) ?? 0) > 0 ? `  ·  streak ×${info.Streak}` : ""}`
 							: `${compactNumber(conversionFlux)} / ${compactNumber(target)}`
 					}
 					size={10}
@@ -1460,19 +1951,7 @@ export function RebirthPanel({
 					reducedMotion={softMotion}
 				/>
 			</frame>
-			{lively && (
-				<frame
-					Size={readiness.map((amount) => UDim2.fromOffset(18 + amount * 54, 18 + amount * 54))}
-					Position={UDim2.fromOffset(29, 38)}
-					AnchorPoint={new Vector2(0.5, 0.5)}
-					BackgroundTransparency={1}
-					BorderSizePixel={0}
-					ZIndex={8}
-				>
-					<uicorner CornerRadius={new UDim(1, 0)} />
-					<uistroke Color={accent} Thickness={2} Transparency={readiness.map((amount) => 1 - amount * 0.54)} />
-				</frame>
-			)}
+
 			{chamberOpen && (
 				<RebirthChamber
 					state={state}

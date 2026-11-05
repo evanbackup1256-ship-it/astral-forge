@@ -1,20 +1,9 @@
 import { clamp01 } from "../CoreKit/easing";
-// Credits: the Forge Reel. Everyone who made the game, read from SharedData#CreditsConfig through CreditsModel.
-//
-// The credits roll like a reel struck at the anvil. The title letters arrive white-hot and cool to
-// cream, each chapter draws its rule with a spark running down it, and every name plate is struck
-// into place as it scrolls into view (a heat flash across the plate, a bright sweep, then it settles).
-// Behind it a three-layer star field drifts at different depths against the scroll, and embers rise.
-// The reel rolls by itself and gives way the moment you touch the wheel, a drag or a chapter: it waits
-// a few seconds, then carries on. A chapter rail follows where you are, its marker stretching as it
-// travels. Tap a plate to cheer: sparks fly off the avatar. B or Esc closes, LB/RB change chapter, and
-// a tap outside the panel closes too. Reduced Motion drops the auto-roll, the drift and the embers.
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import * as GamepadNavigationService from "../CoreKit/GamepadNavigationService";
 import { ClientLog } from "../CoreKit/log";
 import { chromeFor, darken, Palette, TapTarget } from "../CoreKit/theme";
-import { useAntilag } from "../MotionKit/antilag";
 import { revealOffset, useFlipperSpring, usePresence, useViewport } from "../MotionKit/motion";
 import * as MotionTokens from "../MotionKit/motionTokens";
 import { Button, OverlayPresence, useGamepadAutofocus } from "./ui";
@@ -110,7 +99,6 @@ const CHIP_ROW_H = TapTarget;
 const RAIL_W = 196;
 const ROW_STEP = TapTarget + SurfaceMetrics.rowGap;
 
-// the reel
 const REEL_PAD = 14;
 const PLATE_GAP = 12;
 const HEAD_H = 84;
@@ -119,10 +107,7 @@ const FINALE_H = 250;
 const ROLL_SPEED = 30;
 const ROLL_RAMP = 1.5;
 const USER_PAUSE = 3.5;
-const CLOCK_STEP = 1 / 45;
 const JUMP_SECONDS = 0.6;
-const HOT = Color3.fromRGB(255, 168, 84);
-const WHITE_HOT = Color3.fromRGB(255, 244, 222);
 
 
 function tone(key: string, fallback: Color3): Color3 {
@@ -134,19 +119,16 @@ function memberKey(category: Category, member: Member): string {
 	return category.Id + ":" + member.Name;
 }
 
-// the animated layers and the sparks are cosmetic; the guard has nothing to repair in them
 function ignoreGuard(instance: Instance | undefined) {
 	if (instance !== undefined) {
 		instance.SetAttribute("LayoutGuardIgnore", true);
 	}
 }
 
-// ── Live names ─────────────────────────────────────────────────────────────────
 
 const liveNames: Record<number, { display?: unknown; username?: unknown } | undefined> = {};
 let liveNamesRequested = false;
 
-// display names and usernames change; ask Roblox once per session and redraw when they land
 function useLiveNames() {
 	const [, setVersion] = React.useState(0);
 	React.useEffect(() => {
@@ -205,17 +187,13 @@ function namesOf(member: Member): LuaTuple<[string, string]> {
 	return $tuple(display, username);
 }
 
-// ── Reel plumbing ──────────────────────────────────────────────────────────────
 
-// where the reel is scrolled to, shared with everything that reveals as it comes into view
 interface Hub {
 	y: number;
 	h: number;
 	listeners: Set<(y: number) => void>;
 }
 
-// true while any part of [top, top + height] is inside the reel window; it lets go only once the block
-// is well clear of the window, so a block at the edge does not flicker between struck and unstruck
 function useInView(hub: Hub, top: number, height: number): boolean {
 	const decide = (y: number, previous: boolean): boolean => {
 		const bottom = y + hub.h;
@@ -244,7 +222,6 @@ function useInView(hub: Hub, top: number, height: number): boolean {
 	return seen;
 }
 
-// 0 -> 1 on the bouncy spring once `seen` (after `delay`), back to 0 when it leaves; instant with reduced motion
 function useStrike(seen: boolean, reduced: boolean, delay: number): React.Binding<number> {
 	const [goal, setGoal] = React.useState(0);
 	React.useEffect(() => {
@@ -261,115 +238,17 @@ function useStrike(seen: boolean, reduced: boolean, delay: number): React.Bindin
 			pcall(task.cancel, job);
 		};
 	}, [seen]);
-	const spring = MotionTokens.SPRING.bouncy;
+	const spring = MotionTokens.SPRING.smooth;
 	return useFlipperSpring(reduced ? 1 : goal, reduced, spring.stiffness, spring.damping, reduced ? 1 : 0);
 }
 
-// ── Backdrop: star field and embers ────────────────────────────────────────────
 
-interface Dot {
-	x: number;
-	y: number;
-	s: number;
-	a: number;
-}
-interface Ember {
-	x: number;
-	speed: number;
-	phase: number;
-	sway: number;
-	size: number;
-}
-const rng = new Random(11);
-const LAYER_SPECS = [
-	{ depth: 0.05, drift: 3, count: 18, size: 2, alpha: 0.7 },
-	{ depth: 0.11, drift: 7, count: 12, size: 2, alpha: 0.54 },
-	{ depth: 0.2, drift: 13, count: 8, size: 3, alpha: 0.4 },
-];
-const LAYERS = LAYER_SPECS.map((spec) => {
-	const dots: Dot[] = [];
-	for (let i = 0; i < spec.count; i++) {
-		dots.push({ x: rng.NextNumber(), y: rng.NextNumber(), s: spec.size + rng.NextInteger(0, 1), a: spec.alpha + rng.NextNumber() * 0.14 });
-	}
-	return { depth: spec.depth, drift: spec.drift, dots };
-});
-const EMBERS: Ember[] = [];
-for (let i = 0; i < 9; i++) {
-	EMBERS.push({ x: rng.NextNumber(), speed: 14 + rng.NextNumber() * 18, phase: rng.NextNumber(), sway: 0.6 + rng.NextNumber() * 1.1, size: 3 + rng.NextInteger(0, 1) });
-}
-
-function Backdrop(props: { width: number; height: number; scroll: React.Binding<number>; clock?: React.Binding<number> }) {
-	const { width, height, scroll, clock } = props;
-	const span = height + 60;
-	return (
-		<frame ref={ignoreGuard} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ClipsDescendants={true} ZIndex={1}>
-			{LAYERS.map((layer, li) => {
-				const offset =
-					clock !== undefined
-						? React.joinBindings({ s: scroll, t: clock }).map(({ s, t }) => (s * layer.depth + t * layer.drift) % height)
-						: scroll.map((s) => (s * layer.depth) % height);
-				const dots: React.Element[] = [];
-				for (const tile of [0, 1]) {
-					layer.dots.forEach((dot, di) => {
-						dots.push(
-							<frame
-								key={`${tile}:${di}`}
-								Size={UDim2.fromOffset(dot.s, dot.s)}
-								Position={UDim2.fromOffset(dot.x * width, dot.y * height + tile * height)}
-								BackgroundColor3={di % 4 === 0 ? HOT : Palette.cream}
-								BackgroundTransparency={1 - dot.a * 0.5}
-								BorderSizePixel={0}
-							>
-								<uicorner CornerRadius={new UDim(1, 0)} />
-							</frame>,
-						);
-					});
-				}
-				return (
-					<frame
-						key={`layer${li}`}
-						Size={UDim2.fromOffset(width, height * 2)}
-						Position={offset.map((o) => UDim2.fromOffset(0, -o))}
-						BackgroundTransparency={1}
-					>
-						{dots}
-					</frame>
-				);
-			})}
-			{clock !== undefined &&
-				EMBERS.map((ember, i) => (
-					<frame
-						key={`ember${i}`}
-						Size={UDim2.fromOffset(ember.size, ember.size)}
-						Position={clock.map((t) => {
-							const life = (t * ember.speed + ember.phase * span) % span;
-							return UDim2.fromOffset(ember.x * width + math.sin(t * ember.sway + ember.phase * 9) * 10, height - life);
-						})}
-						BackgroundColor3={i % 3 === 0 ? WHITE_HOT : HOT}
-						BackgroundTransparency={clock.map((t) => {
-							const life = ((t * ember.speed + ember.phase * span) % span) / span;
-							return 1 - 0.72 * math.sin(life * math.pi);
-						})}
-						BorderSizePixel={0}
-					>
-						<uicorner CornerRadius={new UDim(1, 0)} />
-					</frame>
-				))}
-		</frame>
-	);
-}
-
-// ── Avatar ─────────────────────────────────────────────────────────────────────
-
-// the member's initial, with their headshot loaded over it when they have a UserId; `ring` turns a
-// bright arc around the edge
 function Avatar(props: {
 	member: Member;
 	size: number;
 	accent: Color3;
 	position?: UDim2;
 	anchor?: Vector2;
-	ring?: React.Binding<number>;
 	zIndex: number;
 }) {
 	const member = props.member;
@@ -386,23 +265,7 @@ function Avatar(props: {
 			ZIndex={props.zIndex}
 		>
 			<uicorner CornerRadius={radius} />
-			<uistroke Color={props.accent} Thickness={props.ring !== undefined ? 2 : 1} Transparency={props.ring !== undefined ? 0.1 : 0.7}>
-				{props.ring !== undefined && (
-					<uigradient
-						Color={
-							new ColorSequence([
-								new ColorSequenceKeypoint(0, props.accent),
-								new ColorSequenceKeypoint(0.5, Palette.cream),
-								new ColorSequenceKeypoint(1, props.accent),
-							])
-						}
-						Transparency={
-							new NumberSequence([new NumberSequenceKeypoint(0, 0.65), new NumberSequenceKeypoint(0.5, 0), new NumberSequenceKeypoint(1, 0.65)])
-						}
-						Rotation={props.ring}
-					/>
-				)}
-			</uistroke>
+			<uistroke Color={props.accent} Thickness={1} Transparency={0.7} />
 			<textlabel
 				Size={UDim2.fromScale(1, 1)}
 				BackgroundTransparency={1}
@@ -428,42 +291,31 @@ function Avatar(props: {
 	);
 }
 
-// ── Hero title ─────────────────────────────────────────────────────────────────
 
-function HeroLetter(props: { char: string; index: number; fontSize: number; reduced: boolean; seen: boolean; clock?: React.Binding<number> }) {
+function HeroLetter(props: { char: string; index: number; fontSize: number; reduced: boolean; seen: boolean }) {
 	const p = useStrike(props.seen, props.reduced, 0.3 + props.index * 0.05);
 	const size = props.fontSize;
 	if (props.char === " ") {
 		return <frame Size={UDim2.fromOffset(size * 0.45, size)} LayoutOrder={props.index} BackgroundTransparency={1} />;
 	}
-	const index = props.index;
-	// white-hot as it lands, cooling to cream; once cool, a glint runs along the word now and then
-	const color =
-		props.clock !== undefined
-			? React.joinBindings({ p, t: props.clock }).map(({ p: a, t }) => {
-					const cool = HOT.Lerp(Palette.cream, clamp01(a) ** 1.6);
-					const glint = math.max(0, math.sin(t * 1.4 - index * 0.42)) ** 14;
-					return cool.Lerp(WHITE_HOT, glint * 0.85 * clamp01(a));
-				})
-			: p.map((a) => HOT.Lerp(Palette.cream, clamp01(a) ** 1.6));
 	return (
 		<frame Size={new UDim2(0, 0, 1, 0)} AutomaticSize={Enum.AutomaticSize.X} LayoutOrder={props.index} BackgroundTransparency={1}>
 			<textlabel
 				Size={new UDim2(0, 0, 1, 0)}
 				AutomaticSize={Enum.AutomaticSize.X}
-				Position={p.map((a) => UDim2.fromOffset(0, (1 - clamp01(a)) * 36))}
+				Position={p.map((a) => UDim2.fromOffset(0, (1 - clamp01(a)) * 8))}
 				BackgroundTransparency={1}
 				Text={props.char}
 				FontFace={surfaceFont(Enum.FontWeight.Heavy)}
 				TextSize={size}
-				TextColor3={color}
+				TextColor3={Palette.cream}
 				TextTransparency={p.map((a) => 1 - math.clamp(a * 1.7, 0, 1))}
 			/>
 		</frame>
 	);
 }
 
-function Hero(props: { hub: Hub; top: number; width: number; height: number; subline: string; reduced: boolean; clock?: React.Binding<number> }) {
+function Hero(props: { hub: Hub; top: number; width: number; height: number; subline: string; reduced: boolean }) {
 	const seen = useInView(props.hub, props.top, props.height);
 	const p = useStrike(seen, props.reduced, 0.9);
 	const letters: React.Element[] = [];
@@ -478,7 +330,6 @@ function Hero(props: { hub: Hub; top: number; width: number; height: number; sub
 				fontSize={fontSize}
 				reduced={props.reduced}
 				seen={seen}
-				clock={seen ? props.clock : undefined}
 			/>,
 		);
 		index += 1;
@@ -502,22 +353,12 @@ function Hero(props: { hub: Hub; top: number; width: number; height: number; sub
 				/>
 				{letters}
 			</frame>
-			{/* the forged rule: grows out from the middle, a diamond lands on it last */}
 			<frame
 				Size={p.map((a) => UDim2.fromOffset(lineW * clamp01(a), 2))}
 				Position={new UDim2(0.5, 0, 0, fontSize + 46)}
 				AnchorPoint={new Vector2(0.5, 0)}
-				BackgroundColor3={HOT}
-				BackgroundTransparency={0.35}
-				BorderSizePixel={0}
-			/>
-			<frame
-				Size={UDim2.fromOffset(9, 9)}
-				Position={new UDim2(0.5, 0, 0, fontSize + 46)}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				Rotation={45}
-				BackgroundColor3={WHITE_HOT}
-				BackgroundTransparency={p.map((a) => 1 - clamp01((a - 0.55) * 2.2))}
+				BackgroundColor3={Palette.lineSoft}
+				BackgroundTransparency={0.2}
 				BorderSizePixel={0}
 			/>
 			{props.subline !== "" && (
@@ -535,7 +376,6 @@ function Hero(props: { hub: Hub; top: number; width: number; height: number; sub
 	);
 }
 
-// ── Chapter head ───────────────────────────────────────────────────────────────
 
 function ChapterHead(props: {
 	hub: Hub;
@@ -587,70 +427,11 @@ function ChapterHead(props: {
 				BackgroundTransparency={0.45}
 				BorderSizePixel={0}
 			/>
-			{/* the spark that draws the rule */}
-			<frame
-				Size={UDim2.fromOffset(8, 8)}
-				Position={p.map((a) => UDim2.fromOffset(width * clamp01(a) - 4, 67))}
-				BackgroundColor3={WHITE_HOT}
-				BackgroundTransparency={p.map((a) => 1 - math.sin(clamp01(a) * math.pi))}
-				BorderSizePixel={0}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-			</frame>
 		</frame>
 	);
 }
 
-// ── Cheer sparks ───────────────────────────────────────────────────────────────
 
-const SPARK_COUNT = 10;
-
-function Sparks(props: { x: number; y: number; accent: Color3 }) {
-	const [progress, setProgress] = React.useMemo(() => React.createBinding(0), []);
-	const [done, setDone] = React.useState(false);
-	React.useEffect(() => {
-		const started = os.clock();
-		const connection = RunService.Heartbeat.Connect(() => {
-			const a = (os.clock() - started) / 0.8;
-			if (a >= 1) {
-				connection.Disconnect();
-				setDone(true);
-				return;
-			}
-			setProgress(a);
-		});
-		return () => connection.Disconnect();
-	}, []);
-	if (done) {
-		return <></>;
-	}
-	const sparks: React.Element[] = [];
-	for (let i = 0; i < SPARK_COUNT; i++) {
-		const angle = (i / SPARK_COUNT) * math.pi * 2 + (i % 2) * 0.3;
-		const reach = 52 + (i % 3) * 16;
-		sparks.push(
-			<frame
-				key={`s${i}`}
-				ref={ignoreGuard}
-				Size={progress.map((a) => UDim2.fromOffset(math.max(1, 6 * (1 - a)), math.max(1, 6 * (1 - a))))}
-				Position={progress.map((a) => {
-					const out = 1 - (1 - a) ** 3;
-					return UDim2.fromOffset(props.x + math.cos(angle) * reach * out, props.y + math.sin(angle) * reach * out + 26 * a * a);
-				})}
-				AnchorPoint={new Vector2(0.5, 0.5)}
-				BackgroundColor3={i % 2 === 0 ? WHITE_HOT : props.accent}
-				BackgroundTransparency={progress.map((a) => a ** 1.5)}
-				BorderSizePixel={0}
-				ZIndex={14}
-			>
-				<uicorner CornerRadius={new UDim(1, 0)} />
-			</frame>,
-		);
-	}
-	return <>{sparks}</>;
-}
-
-// ── Name plate ─────────────────────────────────────────────────────────────────
 
 const cheers: Record<string, number> = {};
 
@@ -665,7 +446,6 @@ function Plate(props: {
 	height: number;
 	delay: number;
 	reduced: boolean;
-	clock?: React.Binding<number>;
 }) {
 	const member = props.member;
 	const accent = props.accent;
@@ -677,21 +457,15 @@ function Plate(props: {
 	const [hovered, setHovered] = React.useState(false);
 	const lit = useSurfaceSpring(hovered ? 1 : 0, props.reduced);
 	const [count, setCount] = React.useState(cheers[key] ?? 0);
-	const [burst, setBurst] = React.useState(0);
 	const [display, username] = namesOf(member);
 	const avatar = MODEL.ShowAvatars !== false ? math.min(MODEL.AvatarSize, height - 28) : 0;
 	const textX = avatar > 0 ? 16 + avatar + 16 : 18;
 	const showNote = MODEL.ShowNotes !== false && member.Note !== "" && height >= 100;
 	const hasRole = MODEL.ShowRoles !== false && member.Role !== "";
-	const ring =
-		props.clock !== undefined && avatar > 0
-			? React.joinBindings({ t: props.clock, l: lit }).map(({ t, l }) => (t * (50 + 160 * l)) % 360)
-			: undefined;
 	const cheer = () => {
 		const total = (cheers[key] ?? 0) + 1;
 		cheers[key] = total;
 		setCount(total);
-		setBurst((current) => current + 1);
 		Audio.play("confirm");
 	};
 	return (
@@ -701,7 +475,7 @@ function Plate(props: {
 			BackgroundTransparency={1}
 			ZIndex={2}
 		>
-			{/* the plate */}
+
 			<frame
 				Size={UDim2.fromScale(1, 1)}
 				BackgroundColor3={darken(accent, 0.78)}
@@ -717,35 +491,7 @@ function Plate(props: {
 					Transparency={React.joinBindings({ p, l: lit }).map(({ p: a, l }) => 1 - (0.2 + 0.3 * l) * clamp01(a))}
 				/>
 			</frame>
-			{/* heat: the plate flashes as it lands, then cools to its own colour */}
-			<frame
-				ref={ignoreGuard}
-				Size={UDim2.fromScale(1, 1)}
-				BackgroundColor3={HOT}
-				BackgroundTransparency={p.map((a) => 1 - 0.34 * math.sin(clamp01(a) * math.pi))}
-				BorderSizePixel={0}
-				ZIndex={2}
-			>
-				<uicorner CornerRadius={new UDim(0, 14)} />
-			</frame>
-			{/* a bright sweep crosses the plate while it is struck */}
-			<frame ref={ignoreGuard} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ClipsDescendants={true} ZIndex={3}>
-				<uicorner CornerRadius={new UDim(0, 14)} />
-				<frame
-					Size={new UDim2(0, 64, 1, 0)}
-					Position={p.map((a) => UDim2.fromOffset(-80 + (width + 160) * clamp01(a / 0.9), 0))}
-					BackgroundColor3={WHITE_HOT}
-					BackgroundTransparency={p.map((a) => 1 - 0.55 * math.sin(clamp01(a) * math.pi))}
-					BorderSizePixel={0}
-				>
-					<uigradient
-						Transparency={
-							new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(0.5, 0), new NumberSequenceKeypoint(1, 1)])
-						}
-					/>
-				</frame>
-			</frame>
-			{/* accent edge: grows from the middle as the plate lands */}
+
 			<frame
 				Size={p.map((a) => new UDim2(0, 3, clamp01(a) * 0.62, 0))}
 				Position={new UDim2(0, 5, 0.5, 0)}
@@ -763,7 +509,6 @@ function Plate(props: {
 					accent={accent}
 					position={new UDim2(0, 16, 0.5, 0)}
 					anchor={new Vector2(0, 0.5)}
-					ring={ring}
 					zIndex={5}
 				/>
 			)}
@@ -801,7 +546,7 @@ function Plate(props: {
 				/>
 			)}
 			<SurfaceText
-				text={count > 0 ? `Cheered ×${count}` : "Tap to cheer"}
+				text={count > 0 ? `Thanks ×${count}` : "Give thanks"}
 				type="hint"
 				color={count > 0 ? accent : Palette.muted}
 				align={Enum.TextXAlignment.Right}
@@ -809,8 +554,7 @@ function Plate(props: {
 				position={new UDim2(1, -134, 0, 5)}
 				zIndex={8}
 			/>
-			{burst > 0 && <Sparks key={`b${burst}`} x={16 + avatar / 2} y={height / 2} accent={accent} />}
-			{/* the whole plate is one tap target */}
+
 			<textbutton
 				Size={UDim2.fromScale(1, 1)}
 				BackgroundTransparency={1}
@@ -831,7 +575,6 @@ function Plate(props: {
 	);
 }
 
-// ── Finale ─────────────────────────────────────────────────────────────────────
 
 function Finale(props: {
 	hub: Hub;
@@ -839,12 +582,10 @@ function Finale(props: {
 	width: number;
 	lines: string[];
 	reduced: boolean;
-	clock?: React.Binding<number>;
 	onReplay: () => void;
 }) {
 	const seen = useInView(props.hub, props.top, FINALE_H);
 	const p = useStrike(seen, props.reduced, 0.1);
-	const breathe = props.clock !== undefined ? props.clock.map((t) => 0.5 + 0.5 * math.sin(t * 1.6)) : undefined;
 	const footer = MODEL.Footer;
 	const lineW = math.min(props.width - 40, 220);
 	return (
@@ -853,7 +594,7 @@ function Finale(props: {
 				Size={p.map((a) => UDim2.fromOffset(lineW * clamp01(a), 2))}
 				Position={new UDim2(0.5, 0, 0, 20)}
 				AnchorPoint={new Vector2(0.5, 0)}
-				BackgroundColor3={HOT}
+				BackgroundColor3={Palette.lineSoft}
 				BackgroundTransparency={0.4}
 				BorderSizePixel={0}
 			/>
@@ -865,7 +606,7 @@ function Finale(props: {
 					Text={footer}
 					FontFace={surfaceFont(Enum.FontWeight.Heavy)}
 					TextSize={30}
-					TextColor3={breathe !== undefined ? breathe.map((b) => Palette.cream.Lerp(HOT, b * 0.4)) : Palette.cream}
+					TextColor3={Palette.cream}
 					TextTransparency={p.map((a) => 1 - clamp01(a * 1.4))}
 				/>
 			)}
@@ -898,7 +639,6 @@ function Finale(props: {
 	);
 }
 
-// ── Chapter pickers ────────────────────────────────────────────────────────────
 
 function SectionPick(props: {
 	tab: Tab;
@@ -957,7 +697,6 @@ function chipWidth(tab: Tab): number {
 	return math.ceil(width) + 14 + 10 + (MODEL.ShowCategoryCounts !== false ? 8 + 30 : 0);
 }
 
-// the marker beside the rail: its head leaps ahead of its tail, so it stretches while it travels
 function RailMarker(props: { index: number; accent: Color3; reduced: boolean }) {
 	const head = useFlipperSpring(props.index, props.reduced, 900, 44);
 	const tail = useFlipperSpring(props.index, props.reduced, 260, 36);
@@ -975,7 +714,6 @@ function RailMarker(props: { index: number; accent: Color3; reduced: boolean }) 
 	);
 }
 
-// ── Overlay ────────────────────────────────────────────────────────────────────
 
 interface Jump {
 	from: number;
@@ -985,10 +723,9 @@ interface Jump {
 
 export function CreditsOverlay(props: { version?: string; reducedMotion?: boolean; onClose: () => void }) {
 	const reduced = props.reducedMotion === true;
-	const antilag = useAntilag();
 	const [reveal, exiting, beginExit] = usePresence(reduced);
 	const [query, setQuery] = React.useState("");
-	const [rolling, setRolling] = React.useState(!reduced);
+	const [rolling, setRolling] = React.useState(false);
 	const [active, setActive] = React.useState(0);
 	useLiveNames();
 	const headEnter = useSurfaceEnter(reduced, 0.05);
@@ -1022,7 +759,6 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	}));
 	const showTabs = MODEL.CategoryTabs === true && chapterTabs.size() > 1;
 	const showSearch = CreditsModel.showSearch(MODEL);
-	// wide: chapters in a rail on the left; narrow: a row of chapter chips above the reel
 	const rail = showTabs && !stack && innerW >= 720;
 	const mainX = rail ? RAIL_W + 16 : 0;
 	const mainW = innerW - mainX;
@@ -1033,14 +769,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	const reelH = math.max(120, height - pad * 2 - reelTop);
 	const contentW = mainW - REEL_PAD * 2 - 6;
 
-	// the clock runs the drift, the embers, the glints and the avatar rings; it sleeps under reduced motion
-	// and while the game is struggling
-	const clockOn = !reduced && !antilag.constrained;
-	const [scrollB, setScrollB] = React.useMemo(() => React.createBinding(0), []);
-	const [clockB, setClockB] = React.useMemo(() => React.createBinding(0), []);
-	const clock = clockOn ? clockB : undefined;
 
-	// ── the reel's layout: every block has a known top, so each can reveal itself as it nears the window
 	const replayRef = React.useRef<() => void>(() => {});
 	const hubRef = React.useRef<Hub>({ y: 0, h: reelH, listeners: new Set() });
 	const hub = hubRef.current;
@@ -1063,7 +792,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	const reelItems: React.Element[] = [];
 	const chapterTops: number[] = [];
 	let y = 0;
-	reelItems.push(<Hero key="hero" hub={hub} top={y} width={contentW} height={heroH} subline={subline} reduced={reduced} clock={clock} />);
+	reelItems.push(<Hero key="hero" hub={hub} top={y} width={contentW} height={heroH} subline={subline} reduced={reduced} />);
 	y += heroH + 24;
 	for (const [ci, entry] of ipairs(visible)) {
 		const accent = tone(entry.category.Accent, Palette.violet);
@@ -1080,7 +809,6 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 			);
 			y += 28;
 		} else {
-			// a chapter with fewer people than columns gives each a wider plate
 			const entryCols = math.max(1, math.min(cols, entry.members.size()));
 			const entryW = math.floor((contentW - PLATE_GAP * (entryCols - 1)) / entryCols);
 			entry.members.forEach((member, mi) => {
@@ -1099,7 +827,6 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 						height={plateH}
 						delay={MODEL.EntranceStagger !== false ? math.min(mi, 6) * 0.07 : 0}
 						reduced={reduced}
-						clock={clock}
 					/>,
 				);
 			});
@@ -1123,11 +850,10 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	}
 	const smallPrint = table.clone(MODEL.Acknowledgements);
 	const finaleTop = y;
-	reelItems.push(<Finale key="finale" hub={hub} top={finaleTop} width={contentW} lines={smallPrint} reduced={reduced} clock={clock} onReplay={() => replayRef.current()} />);
+	reelItems.push(<Finale key="finale" hub={hub} top={finaleTop} width={contentW} lines={smallPrint} reduced={reduced} onReplay={() => replayRef.current()} />);
 	const canvasH = finaleTop + FINALE_H + 24;
 	const maxScroll = math.max(0, canvasH - reelH);
 
-	// ── scrolling: spy, auto-roll, jumps
 	const scrollRef = React.useRef<ScrollingFrame>();
 	const rollingRef = React.useRef(rolling);
 	rollingRef.current = rolling;
@@ -1143,7 +869,6 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 
 	const onScroll = (value: number) => {
 		hub.y = value;
-		setScrollB(value);
 		for (const listener of hub.listeners) {
 			listener(value);
 		}
@@ -1214,19 +939,8 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	const stepRef = React.useRef(step);
 	stepRef.current = step;
 
-	// one heartbeat: the clock, the auto-roll and the chapter jumps
 	React.useEffect(() => {
-		let acc = 0;
-		let t = 0;
 		const connection = RunService.Heartbeat.Connect((dt) => {
-			if (clockOn) {
-				acc += dt;
-				if (acc >= CLOCK_STEP) {
-					t += acc;
-					acc = 0;
-					setClockB(t);
-				}
-			}
 			const scroller = scrollRef.current;
 			if (scroller === undefined) {
 				return;
@@ -1254,9 +968,8 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 			place(current + ROLL_SPEED * clamp01(rolledFor.current / ROLL_RAMP) * dt);
 		});
 		return () => connection.Disconnect();
-	}, [clockOn]);
+	}, []);
 
-	// LB / RB step through the chapters
 	React.useEffect(() => {
 		if (!showTabs) {
 			return undefined;
@@ -1283,7 +996,6 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	}, [requestClose]);
 	useBackLayer(true, requestClose);
 
-	// gamepad: the overlay owns focus while open and starts on its first button
 	const padFocus = useGamepadAutofocus(true);
 	const hostRef = React.useRef<Frame>();
 	React.useEffect(() => {
@@ -1325,7 +1037,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 	return (
 		<OverlayPresence amount={reveal}>
 			<frame key="CreditsClaimActions" ref={hostRef} Size={UDim2.fromScale(1, 1)} BackgroundTransparency={1} ZIndex={320}>
-				{/* tap outside the panel closes */}
+
 				<imagebutton
 					Size={UDim2.fromScale(1, 1)}
 					BackgroundColor3={new Color3(0, 0, 0)}
@@ -1345,7 +1057,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 					ZIndex={321}
 				>
 					<Surface appear={reveal} padding={pad} active={true} zIndex={321}>
-						{/* header */}
+
 						<SurfaceText
 							text={MODEL.Eyebrow}
 							type="label"
@@ -1356,7 +1068,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 							zIndex={322}
 						/>
 						<SurfaceText
-							text={rolling ? "Rolling" : "Paused"}
+							text={rolling ? "Auto-scroll on" : "Scroll at your own pace"}
 							type="small"
 							color={Palette.creamSoft}
 							size={new UDim2(1, -(TapTarget + rollW + 24), 0, 16)}
@@ -1382,7 +1094,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 							reducedMotion={reduced}
 							zIndex={323}
 						/>
-						{/* chapters: rail (wide) */}
+
 						{rail && (
 							<frame
 								Size={new UDim2(0, RAIL_W, 1, -headerH)}
@@ -1418,7 +1130,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 								</frame>
 							</frame>
 						)}
-						{/* chapters: chips (narrow) */}
+
 						{!rail && showTabs && (
 							<scrollingframe
 								Size={new UDim2(1, 0, 0, CHIP_ROW_H)}
@@ -1456,7 +1168,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 								zIndex={323}
 							/>
 						)}
-						{/* the reel */}
+
 						<frame
 							Size={UDim2.fromOffset(mainW, reelH)}
 							Position={UDim2.fromOffset(mainX, reelTop)}
@@ -1468,7 +1180,6 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 						>
 							<uicorner CornerRadius={new UDim(0, SurfaceMetrics.radius)} />
 							<uistroke Color={Palette.lineSoft} Thickness={1} Transparency={0.7} ApplyStrokeMode={Enum.ApplyStrokeMode.Border} />
-							<Backdrop width={mainW} height={reelH} scroll={scrollB} clock={clock} />
 							<scrollingframe
 								ref={scrollRef}
 								Size={UDim2.fromScale(1, 1)}
@@ -1498,30 +1209,7 @@ export function CreditsOverlay(props: { version?: string; reducedMotion?: boolea
 									{reelItems}
 								</frame>
 							</scrollingframe>
-							{/* the reel fades into its edges */}
-							<frame
-								ref={ignoreGuard}
-								Size={new UDim2(1, 0, 0, 22)}
-								BackgroundColor3={Palette.panel}
-								BackgroundTransparency={0}
-								BorderSizePixel={0}
-								Active={false}
-								ZIndex={3}
-							>
-								<uigradient Rotation={90} Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 0.1), new NumberSequenceKeypoint(1, 1)])} />
-							</frame>
-							<frame
-								ref={ignoreGuard}
-								Size={new UDim2(1, 0, 0, 30)}
-								Position={new UDim2(0, 0, 1, -30)}
-								BackgroundColor3={Palette.panel}
-								BackgroundTransparency={0}
-								BorderSizePixel={0}
-								Active={false}
-								ZIndex={3}
-							>
-								<uigradient Rotation={90} Transparency={new NumberSequence([new NumberSequenceKeypoint(0, 1), new NumberSequenceKeypoint(1, 0.1)])} />
-							</frame>
+
 						</frame>
 					</Surface>
 				</frame>

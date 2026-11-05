@@ -23,6 +23,7 @@ export const MORE_ROUTES: ReadonlyArray<RouteDef> = table.freeze([
 	{ id: "Wheel", label: "Wheel", eyebrow: "Daily spin", icon: "Wheel.1", accentKey: "mango" },
 	{ id: "Bazaar", label: "Black Market", eyebrow: "Stock and supplies", icon: "Shop.2", accentKey: "violet" },
 	{ id: "Boosts", label: "Boosts", eyebrow: "Timed multipliers", icon: "Boost.7", accentKey: "pink" },
+	{ id: "Rebirth", label: "Rebirth", eyebrow: "Ignition runs", icon: "Rebirth.9", accentKey: "violet" },
 	{ id: "Worlds", label: "Worlds", eyebrow: "Zones", icon: "World.2", accentKey: "mint" },
 	{ id: "Reaches", label: "The Reaches", eyebrow: "Ore and the Warden", icon: "World.3", accentKey: "mango" },
 	{ id: "Lab", label: "Lab", eyebrow: "Orders", icon: "Lab.2", accentKey: "mint" },

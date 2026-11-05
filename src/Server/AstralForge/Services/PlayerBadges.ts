@@ -1,5 +1,5 @@
 import { Service } from "@flamework/core";
-﻿import { ModuleLogApi, req, SharedFolder, isTable, num } from "./LuaInterop";
+import { ModuleLogApi, req, SharedFolder, isTable, num } from "./LuaInterop";
 
 interface BadgeProfile {
 	Stats?: { Collected?: unknown; MachinesBought?: unknown };

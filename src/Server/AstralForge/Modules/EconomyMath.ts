@@ -235,7 +235,7 @@ interface AscensionMathApi {
 }
 
 interface DomainLatticeApi {
-	bonus(this: void, links: unknown, kind: string): number;
+	bonus(this: void, links: unknown, kind: string, rank?: number): number;
 }
 
 interface EchoMathApi {
@@ -747,7 +747,11 @@ __defs["Economy"] = () => {
 		// what the Domain Lattice adds to one kind of bonus ("Production", "Capacity", ...)
 		DomainTreeBonus(this: void, profile: ProfileLike, field: string): number {
 			const domain = profile.Domain;
-			return DomainLattice.bonus(truthy(domain) ? domain.Links : undefined, field);
+			return DomainLattice.bonus(
+				truthy(domain) ? domain.Links : undefined,
+				field,
+				truthy(domain) ? (tonumber(domain.Rank) ?? 1) : 1,
+			);
 		},
 
 		MachineCost(this: void, id: string, currentLevel: number): Persist {

@@ -3,9 +3,10 @@
 // world, overflow the requirement); keep it and the payout grows, and every few kept vows make
 // that vow stronger. From the third rebirth you can carry keepsakes: a machine comes with you at a
 // share of its level. Milestone rebirths light a star, and each star is a choice between two
-// permanent perks. The last of the original stars is 100; six more sit further out, so a long
-// forge still has a choice to make. Every run is logged with its time, payout and a grade
-// against your best.
+// permanent perks. Every run is graded by its heat — the payout against your best, plus how you
+// ran it — and counted runs closed fast and clean build a streak that pays extra stardust. After
+// every counted rebirth the metal gets one temper: Quench banks bonus cores on the spot, Anneal
+// stocks the next run with boost charges. Practice runs pay out but don't count or streak.
 // Pure: the server's rules and the screen's previews agree.
 import { T } from "./Locale";
 
@@ -36,6 +37,7 @@ interface RunSnapshot {
 }
 
 interface RunEntry {
+	Attempt: number;
 	N: number;
 	At: number;
 	Seconds: number;
@@ -43,7 +45,9 @@ interface RunEntry {
 	Stardust: number;
 	Vow: string;
 	Kept: boolean;
+	Counted: boolean;
 	Grade: string;
+	Heat?: number;
 }
 
 interface QuoteResult {
@@ -54,6 +58,9 @@ interface QuoteResult {
 	Vow: string;
 	Kept: boolean;
 	Grade: string;
+	Heat: number;
+	Streak: number;
+	StreakAfter: number;
 }
 
 interface CarryResult {
@@ -64,6 +71,7 @@ interface CarryResult {
 interface Bag {
 	Version: number;
 	Lifetime: number;
+	Attempts: number;
 	RunStartedAt: number;
 	Vow: string;
 	VowSince: number;
@@ -73,9 +81,13 @@ interface Bag {
 	Runs: RunEntry[];
 	BestCores: number;
 	FastestSeconds: number;
+	Streak: number;
+	BestStreak: number;
+	TemperDue: boolean;
+	Temper: string;
 }
 
-const VERSION = 1;
+const VERSION = 3;
 const LOG_LIMIT = 10;
 const VOW_GRACE = 180;
 const KEEP_SHARE = 0.2;
@@ -85,6 +97,25 @@ const MASTERY_EVERY = 5;
 const MASTERY_STEP = 0.05;
 const MASTERY_MAX = 5;
 const GRADE_BONUS: Record<string, number> = table.freeze({ S: 0.25, A: 0.1, B: 0, C: 0 });
+// a broken vow still pays this share of its multiplier
+const VOW_FAIL_SHARE = 0.4;
+// a run's heat: most of it is the payout against your best, the rest is how you ran it
+const HEAT_PACE = 0.6;
+const HEAT_PACE_FULL = 1.2;
+const HEAT_VOW_KEPT = 25;
+const HEAT_VOW_NONE = 12;
+const HEAT_VOW_BROKEN = 4;
+const HEAT_FAST = 15;
+// counted runs at or under this many seconds, with the vow unbroken, extend the streak;
+// each link of the streak adds STREAK_STEP stardust, up to STREAK_CAP
+const STREAK_TARGET = 900;
+const STREAK_STEP = 0.06;
+const STREAK_CAP = 5;
+// the temper pick after a counted rebirth: Quench banks this share of the run's cores
+// again right now; Anneal stocks this many boost charges for the next run
+const QUENCH_SHARE = 0.12;
+const ANNEAL_CHARGES = 2;
+const TEMPERS = table.freeze(["Quench", "Anneal"]);
 
 // each vow is checked at the moment you rebirth, against the run it was sworn for
 const VOWS: ReadonlyArray<Vow> = table.freeze([
@@ -180,6 +211,7 @@ function ensure(raw: unknown, now: number, lifetime?: number): Bag {
 	const bag: Bag = {
 		Version: VERSION,
 		Lifetime: math.max(int(input.Lifetime), int(lifetime)),
+		Attempts: math.max(int(input.Attempts), int(input.Lifetime), int(lifetime)),
 		RunStartedAt: int(input.RunStartedAt) > 0 ? int(input.RunStartedAt) : int(now),
 		Vow: "",
 		VowSince: 0,
@@ -189,6 +221,10 @@ function ensure(raw: unknown, now: number, lifetime?: number): Bag {
 		Runs: [],
 		BestCores: 0,
 		FastestSeconds: 0,
+		Streak: int(input.Streak),
+		BestStreak: math.max(int(input.BestStreak), int(input.Streak)),
+		TemperDue: input.TemperDue === true,
+		Temper: typeIs(input.Temper, "string") && TEMPERS.includes(input.Temper) ? input.Temper : "",
 	};
 	if (typeIs(input.Vow, "string") && vowById[input.Vow] !== undefined) {
 		bag.Vow = input.Vow;
@@ -226,12 +262,43 @@ function ensure(raw: unknown, now: number, lifetime?: number): Bag {
 		}
 	}
 	bag.Keep = keep;
-	bag.Runs = (typeIs(input.Runs, "table") ? input.Runs : []) as RunEntry[];
+	bag.Runs = [];
+	if (typeIs(input.Runs, "table")) {
+		for (const [index, rawRun] of ipairs(input.Runs as unknown[])) {
+			if (!typeIs(rawRun, "table")) {
+				continue;
+			}
+			const run = rawRun as Dict;
+			const attempt = math.max(index, int(run.Attempt), int(run.N));
+			run.Attempt = attempt;
+			run.Counted = run.Counted !== false;
+			bag.Attempts = math.max(bag.Attempts, attempt);
+			bag.Runs.push(run as unknown as RunEntry);
+		}
+	}
 	while (bag.Runs.size() > LOG_LIMIT) {
 		bag.Runs.remove(0);
 	}
 	bag.BestCores = num(input.BestCores);
 	bag.FastestSeconds = int(input.FastestSeconds);
+	// v2 saves had no streak track: seed it from the tail of the run log so a player mid-streak
+	// isn't reset to zero on the first v3 load
+	if (int(input.Version) < 3 && input.Streak === undefined) {
+		let run = 0;
+		for (let i = bag.Runs.size() - 1; i >= 0; i--) {
+			const entry = bag.Runs[i];
+			if (!entry.Counted) {
+				continue;
+			}
+			if (entry.Seconds <= STREAK_TARGET && (entry.Vow === "" || entry.Kept)) {
+				run += 1;
+			} else {
+				break;
+			}
+		}
+		bag.Streak = run;
+		bag.BestStreak = math.max(bag.BestStreak, run);
+	}
 	// The Luau original normalised the saved table in place: keep its identity and any extra keys.
 	if (typeIs(raw, "table")) {
 		for (const [key, value] of pairs(bag as unknown as Dict)) {
@@ -358,46 +425,84 @@ function vowHolds(bag: Bag, run: RunSnapshot): LuaTuple<[boolean, string]> {
 	return $tuple(false, "");
 }
 
-// a run's grade: S = a new best with a kept vow, A = either one, B = at least half your best
-function grade(bag: Bag, cores: number, kept: boolean): string {
-	const best = num(bag.BestCores);
-	const newBest = cores > best;
-	if (newBest && kept) {
+// a run's grade reads straight off its heat
+function gradeFor(h: number): string {
+	if (h >= 90) {
 		return "S";
-	} else if (newBest || kept) {
+	} else if (h >= 70) {
 		return "A";
-	} else if (cores >= best * 0.5) {
+	} else if (h >= 40) {
 		return "B";
 	}
 	return "C";
+}
+
+// a run's heat, 0..100: mostly the payout against your best, plus credit for how you ran it.
+// Heat is what the grade reads, and it feeds the celebration, but it never changes the payout.
+function heat(bag: Bag, cores: number, seconds: number, vowId: string, kept: boolean): number {
+	const best = num(bag.BestCores);
+	const pace = best > 0 ? math.clamp(cores / best, 0, HEAT_PACE_FULL) : 1;
+	let score = pace / HEAT_PACE_FULL * 100 * HEAT_PACE;
+	if (vowId === "") {
+		score += HEAT_VOW_NONE;
+	} else {
+		score += kept ? HEAT_VOW_KEPT : HEAT_VOW_BROKEN;
+	}
+	if (seconds > 0 && seconds <= STREAK_TARGET) {
+		score += HEAT_FAST * (1 - seconds / STREAK_TARGET);
+	}
+	return math.clamp(math.floor(score + 0.5), 0, 100);
+}
+
+// whether a counted run extends the streak: fast enough and the vow (if any) unbroken
+function streakHolds(seconds: number, vowId: string, kept: boolean): boolean {
+	return seconds > 0 && seconds <= STREAK_TARGET && (vowId === "" || kept);
+}
+
+// stardust multiplier from the current streak
+function streakMultiplier(streak: number): number {
+	return 1 + math.min(STREAK_CAP, math.max(0, streak)) * STREAK_STEP;
 }
 
 // what a rebirth pays right now. base = { Cores, Stardust } before the ledger; run as in vowHolds
 function quote(bag: Bag, base: unknown, run: unknown): QuoteResult {
 	const fx = effects(bag);
 	const v = vowById[bag.Vow];
-	const kept = v !== undefined ? vowHolds(bag, run as RunSnapshot)[0] : false;
+	const snapshot = run as RunSnapshot;
+	const seconds = int(snapshot.Seconds);
+	const kept = v !== undefined ? vowHolds(bag, snapshot)[0] : false;
 	let coreMult = 1 + fx.CoreYield;
 	let dustMult = 1 + fx.DustYield;
-	if (kept && v !== undefined) {
+	if (v !== undefined) {
+		// a kept vow pays in full; a broken one still pays a share, so swearing is never a loss
+		const mult = kept ? vowMultiplier(bag, v.Id) : 1 + (vowMultiplier(bag, v.Id) - 1) * VOW_FAIL_SHARE;
 		if (v.Pays === "Cores") {
-			coreMult *= vowMultiplier(bag, v.Id);
+			coreMult *= mult;
 		} else {
-			dustMult *= vowMultiplier(bag, v.Id);
+			dustMult *= mult;
 		}
 	}
 	const baseDict = base as Dict;
 	const cores = math.max(1, math.floor(num(baseDict.Cores) * coreMult));
-	const g = grade(bag, cores, kept);
+	const vowId = v !== undefined ? v.Id : "";
+	const h = heat(bag, cores, seconds, vowId, kept);
+	const g = gradeFor(h);
 	dustMult *= 1 + GRADE_BONUS[g];
+	// the streak this run would reach, and the stardust bonus that comes with it
+	const streak = int(bag.Streak);
+	const streakAfter = streakHolds(seconds, vowId, kept) ? streak + 1 : 0;
+	dustMult *= streakMultiplier(streak);
 	return {
 		Cores: cores,
 		CoreMultiplier: coreMult,
 		Stardust: math.floor(num(baseDict.Stardust) * dustMult),
 		StardustMultiplier: dustMult,
-		Vow: v !== undefined ? v.Id : "",
+		Vow: vowId,
 		Kept: kept,
 		Grade: g,
+		Heat: h,
+		Streak: streak,
+		StreakAfter: streakAfter,
 	};
 }
 
@@ -439,30 +544,41 @@ function close(
 	now: number,
 	nextVow?: string,
 	nextKeep?: string[],
+	counted = true,
 ): RunEntry {
 	const seconds = math.max(0, int(now) - bag.RunStartedAt);
 	const entry: RunEntry = {
-		N: int(bag.Lifetime) + 1,
+		Attempt: int(bag.Attempts) + 1,
+		N: int(bag.Lifetime) + (counted ? 1 : 0),
 		At: int(now),
 		Seconds: seconds,
 		Cores: q.Cores,
 		Stardust: q.Stardust,
 		Vow: q.Vow,
-		Kept: q.Kept,
+		Kept: counted && q.Kept,
+		Counted: counted,
 		Grade: q.Grade,
+		Heat: q.Heat,
 	};
+	bag.Attempts = entry.Attempt;
 	bag.Runs.push(entry);
 	while (bag.Runs.size() > LOG_LIMIT) {
 		bag.Runs.remove(0);
 	}
-	if (q.Kept && q.Vow !== "") {
-		bag.Kept[q.Vow] = int(bag.Kept[q.Vow]) + 1;
+	if (counted) {
+		if (q.Kept && q.Vow !== "") {
+			bag.Kept[q.Vow] = int(bag.Kept[q.Vow]) + 1;
+		}
+		bag.Lifetime = int(bag.Lifetime) + 1;
+		bag.BestCores = math.max(bag.BestCores, q.Cores);
+		if (bag.FastestSeconds === 0 || seconds < bag.FastestSeconds) {
+			bag.FastestSeconds = seconds;
+		}
+		bag.Streak = q.StreakAfter;
+		bag.BestStreak = math.max(int(bag.BestStreak), q.StreakAfter);
+		// a counted run earns its temper: quench or anneal, picked before the next close
+		bag.TemperDue = true;
 	}
-	bag.BestCores = math.max(bag.BestCores, q.Cores);
-	if (bag.FastestSeconds === 0 || seconds < bag.FastestSeconds) {
-		bag.FastestSeconds = seconds;
-	}
-	bag.Lifetime = int(bag.Lifetime) + 1;
 	bag.RunStartedAt = int(now);
 	bag.Vow = nextVow !== undefined && vowById[nextVow] !== undefined ? nextVow : "";
 	bag.VowSince = int(now);
@@ -476,6 +592,25 @@ function close(
 		bag.Keep = keep;
 	}
 	return entry;
+}
+
+// the temper pick waiting after a counted rebirth. Quench pays bonus cores off the last run's
+// payout now; Anneal returns a charge count for the server to stock the next run's boosts with.
+function temper(bag: Bag, choice: string): LuaTuple<[boolean, unknown]> {
+	if (!bag.TemperDue) {
+		return $tuple(false, "No temper is waiting on this run.");
+	}
+	if (!TEMPERS.includes(choice)) {
+		return $tuple(false, "Pick Quench or Anneal.");
+	}
+	bag.TemperDue = false;
+	bag.Temper = choice;
+	if (choice === "Quench") {
+		const last = bag.Runs[bag.Runs.size() - 1];
+		const cores = math.max(1, math.floor(num(last !== undefined ? last.Cores : 0) * QUENCH_SHARE));
+		return $tuple(true, { Cores: cores });
+	}
+	return $tuple(true, { Boosts: ANNEAL_CHARGES });
 }
 
 // swear (or drop, with "") a vow mid-run; swearing only counts in the run's first few minutes
@@ -529,6 +664,14 @@ const RebirthMath = {
 	MASTERY_STEP,
 	MASTERY_MAX,
 	GRADE_BONUS,
+	VOW_FAIL_SHARE,
+	HEAT_PACE_FULL,
+	STREAK_TARGET,
+	STREAK_STEP,
+	STREAK_CAP,
+	QUENCH_SHARE,
+	ANNEAL_CHARGES,
+	TEMPERS,
 	VOWS,
 	vow,
 	PERKS,
@@ -544,10 +687,14 @@ const RebirthMath = {
 	mastery,
 	vowMultiplier,
 	vowHolds,
-	grade,
+	heat,
+	gradeFor,
+	streakHolds,
+	streakMultiplier,
 	quote,
 	carry,
 	close,
+	temper,
 	swear,
 	setKeep,
 };

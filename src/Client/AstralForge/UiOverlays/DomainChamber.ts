@@ -1,9 +1,4 @@
 import { easeOut } from "../CoreKit/easing";
-// (ZIndex 600+: the main screen sorts globally and the chamber has to sit over the whole shell)
-// The Domain, one screen: the lattice on the left, and on the right whatever you're doing with it.
-//   mode "lattice": etch links between anchors, read what the lattice gives, clear it once per rank
-//   mode "confirm": the expansion rite; hold to expand, with what it costs, keeps and pays
-//   mode "result":  a ring of heat leaves the Hearth, the new rank lands and the rewards count in
 import React from "@rbxts/react";
 import { useBackLayer } from "../CoreKit/backLayer";
 import { Audio } from "../AudioKit/audio";
@@ -20,7 +15,6 @@ const RunService = game.GetService("RunService");
 const UserInputService = game.GetService("UserInputService");
 
 type Dict = Record<string, unknown>;
-// Props stay as loose tables, exactly as the Luau chamber built them.
 const h = React.createElement as unknown as (component: unknown, props?: unknown, ...children: unknown[]) => React.Element;
 
 interface DomainConfig {
@@ -36,8 +30,8 @@ interface GameConfigShape {
 const shared = ReplicatedStorage.WaitForChild("AstralForge").WaitForChild("Shared");
 const GameConfig = require(shared.WaitForChild("GameConfig") as ModuleScript) as GameConfigShape;
 
-const WHITE_HOT = Color3.fromRGB(255, 244, 222);
 const HOLD_SECONDS = 1.1;
+const LINK_DRAW_SECONDS = 0.42;
 const SCALE = 0.5 / 2.2;
 const KIND_COLOR: Record<string, Color3 | undefined> = {
 	Production: Palette.mango,
@@ -90,7 +84,6 @@ function splitKey(key: string): LuaTuple<[number, number]> {
 	const [a, b] = string.match(key, "^(%d+)%-(%d+)$");
 	return $tuple(tonumber(a) as number, tonumber(b) as number);
 }
-// a line between two points of the square canvas, drawn `p` of the way from the first
 function line(x1: number, y1: number, x2: number, y2: number, thickness: number, p: number): LuaTuple<[UDim2, UDim2, number]> {
 	const dx = (x2 - x1) * p;
 	const dy = (y2 - y1) * p;
@@ -110,15 +103,15 @@ function surgeLabel(): string {
 	return `Domain Surge for ${minutes} min`;
 }
 
-// what etching a link would change, for the preview
-function etchPreview(links: Links, key: string) {
+function etchPreview(links: Links, key: string, rank: number) {
 	const [a, b] = splitKey(key);
 	const degree = DomainLattice.degrees(links);
+	const attune = 1 + math.max(0, rank - 1) * DomainLattice.ATTUNE_STEP;
 	const lines: Array<{ color: Color3; text: string }> = [];
 	for (const index of [a, b]) {
 		const anchor = DomainLattice.ANCHORS[index];
 		const d = degree[index] ?? 0;
-		const gain = DomainLattice.anchorBonus(index, d + 1) - DomainLattice.anchorBonus(index, d);
+		const gain = (DomainLattice.anchorBonus(index, d + 1) - DomainLattice.anchorBonus(index, d)) * attune;
 		lines.push({ color: colorOf(index), text: `${anchor.name}: ${DomainLattice.describe(anchor.kind, gain)}` });
 	}
 	const after = table.clone(links);
@@ -141,12 +134,9 @@ interface Selection {
 interface LatticeProps {
 	links: Links;
 	tick: React.Binding<number>;
-	flare: React.Binding<number>;
 	selected?: Selection;
 	etchedAt: Record<string, number | undefined>;
-	facetAt: Record<number, number | undefined>;
 	anchorRefs: Record<number, Instance | undefined>;
-	reduced: boolean;
 	onLink: (key: string) => void;
 	onAnchor: (index: number) => void;
 }
@@ -166,46 +156,57 @@ function Lattice(props: LatticeProps) {
 			reached.add(index);
 		}
 	}
+	const kindledSet = new Set<number>();
+	for (const index of DomainLattice.kindled(links)) {
+		kindledSet.add(index);
+	}
 	const children: Record<string, unknown> = {};
-	// the figure's guide rings, faint like a drafting sheet
-	const rings = [1, 1.92];
-	for (let ring = 1; ring <= rings.size(); ring++) {
-		const radius = rings[ring - 1];
-		const s = radius * SCALE * 2;
-		children["guide" + ring] = h(
+	children.plate = h(
+		"frame",
+		{
+			Size: UDim2.fromScale(0.97, 0.97),
+			Position: UDim2.fromScale(0.5, 0.5),
+			AnchorPoint: new Vector2(0.5, 0.5),
+			BackgroundColor3: Palette.ink,
+			BackgroundTransparency: 0.55,
+			BorderSizePixel: 0,
+			ZIndex: 601,
+		},
+		h("uicorner", { CornerRadius: new UDim(0, 16) }),
+		h("uistroke", { Color: Palette.line, Thickness: 1, Transparency: 0.4 }),
+		h(
 			"frame",
 			{
-				Size: UDim2.fromScale(s, s),
+				Size: UDim2.fromScale(0.92, 0.92),
 				Position: UDim2.fromScale(0.5, 0.5),
 				AnchorPoint: new Vector2(0.5, 0.5),
 				BackgroundTransparency: 1,
+				ZIndex: 601,
+			},
+			h("uicorner", { CornerRadius: new UDim(0, 12) }),
+			h("uistroke", { Color: Palette.lineSoft, Thickness: 1, Transparency: 0.7 }),
+		),
+	);
+	for (const [cx, cy] of [
+		[0.035, 0.035],
+		[0.965, 0.035],
+		[0.035, 0.965],
+		[0.965, 0.965],
+	] as Array<[number, number]>) {
+		children["rivet" + cx + cy] = h(
+			"frame",
+			{
+				Size: UDim2.fromOffset(5, 5),
+				Position: UDim2.fromScale(cx, cy),
+				AnchorPoint: new Vector2(0.5, 0.5),
+				Rotation: 45,
+				BackgroundColor3: Palette.line,
+				BackgroundTransparency: 0.35,
+				BorderSizePixel: 0,
 				ZIndex: 602,
 			},
-			h("uicorner", { CornerRadius: new UDim(1, 0) }),
-			h("uistroke", { Color: Palette.line, Thickness: 1, Transparency: 0.55 }),
 		);
 	}
-	// the heat ring that leaves the Hearth when a rank lands
-	children.flare = h(
-		"frame",
-		{
-			Size: props.flare.map((f) => {
-				const s = easeOut(f) * 1.3;
-				return UDim2.fromScale(s, s);
-			}),
-			Position: UDim2.fromScale(0.5, 0.5),
-			AnchorPoint: new Vector2(0.5, 0.5),
-			BackgroundTransparency: 1,
-			Visible: props.flare.map((f) => f > 0.001 && f < 1),
-			ZIndex: 609,
-		},
-		h("uicorner", { CornerRadius: new UDim(1, 0) }),
-		h("uistroke", {
-			Color: WHITE_HOT,
-			Thickness: props.flare.map((f) => 2 + (1 - f) * 10),
-			Transparency: props.flare.map((f) => f),
-		}),
-	);
 	for (const e of DomainLattice.EDGES) {
 		const [x1, y1] = spot(e.a);
 		const [x2, y2] = spot(e.b);
@@ -213,66 +214,22 @@ function Lattice(props: LatticeProps) {
 		const open = !etched && (reached.has(e.a) || reached.has(e.b));
 		const picked = selected !== undefined && selected.kind === "link" && selected.id === e.key;
 		if (etched) {
-			// molten: a glow, a hot core drawing itself in from the Hearth's side, and a beat running outward
 			const key = e.key;
 			const drawn = (now: number) => {
 				const at = props.etchedAt[key];
-				return at === undefined ? 1 : easeOut((now - at) / 0.42);
+				return at === undefined ? 1 : easeOut((now - at) / LINK_DRAW_SECONDS);
 			};
-			const [, , rot] = line(x1, y1, x2, y2, 10, 1);
-			children["glow" + key] = h(
-				"frame",
-				{
-					Size: tick.map((now) => line(x1, y1, x2, y2, 10, drawn(now))[0]),
-					Position: tick.map((now) => line(x1, y1, x2, y2, 10, drawn(now))[1]),
-					Rotation: rot,
-					AnchorPoint: new Vector2(0.5, 0.5),
-					BackgroundColor3: Palette.ember,
-					BackgroundTransparency: 0.78,
-					BorderSizePixel: 0,
-					ZIndex: 603,
-				},
-				h("uicorner", { CornerRadius: new UDim(1, 0) }),
-			);
-			children["core" + key] = h(
-				"frame",
-				{
-					Size: tick.map((now) => line(x1, y1, x2, y2, 3, drawn(now))[0]),
-					Position: tick.map((now) => line(x1, y1, x2, y2, 3, drawn(now))[1]),
-					Rotation: rot,
-					AnchorPoint: new Vector2(0.5, 0.5),
-					BackgroundColor3: Palette.white,
-					BorderSizePixel: 0,
-					ZIndex: 604,
-				},
-				h("uigradient", {
-					Color: new ColorSequence([
-						new ColorSequenceKeypoint(0, Palette.mango),
-						new ColorSequenceKeypoint(0.5, WHITE_HOT),
-						new ColorSequenceKeypoint(1, Palette.mango),
-					]),
-					Offset: tick.map((now) => new Vector2(math.sin(now * 1.3 + e.a) * 0.4, 0)),
-				}),
-			);
-			if (!props.reduced) {
-				const phase = (e.a * 0.37 + e.b * 0.21) % 1;
-				children["beat" + key] = h(
-					"frame",
-					{
-						Size: UDim2.fromOffset(5, 5),
-						Position: tick.map((now) => {
-							const p = (now * 0.55 + phase) % 1;
-							return UDim2.fromScale(x1 + (x2 - x1) * p, y1 + (y2 - y1) * p);
-						}),
-						AnchorPoint: new Vector2(0.5, 0.5),
-						BackgroundColor3: WHITE_HOT,
-						BackgroundTransparency: tick.map((now) => (drawn(now) < 1 ? 1 : 0.1)),
-						BorderSizePixel: 0,
-						ZIndex: 605,
-					},
-					h("uicorner", { CornerRadius: new UDim(1, 0) }),
-				);
-			}
+			const [, , rot] = line(x1, y1, x2, y2, 3, 1);
+			children["etched" + key] = h("frame", {
+				Size: tick.map((now) => line(x1, y1, x2, y2, 3, drawn(now))[0]),
+				Position: tick.map((now) => line(x1, y1, x2, y2, 3, drawn(now))[1]),
+				Rotation: rot,
+				AnchorPoint: new Vector2(0.5, 0.5),
+				BackgroundColor3: Palette.mango,
+				BackgroundTransparency: 0.12,
+				BorderSizePixel: 0,
+				ZIndex: 604,
+			});
 		} else {
 			const [size, pos, rot] = line(x1, y1, x2, y2, open ? (picked ? 3 : 2) : 1, 1);
 			children["line" + e.key] = h("frame", {
@@ -280,12 +237,8 @@ function Lattice(props: LatticeProps) {
 				Position: pos,
 				Rotation: rot,
 				AnchorPoint: new Vector2(0.5, 0.5),
-				BackgroundColor3: picked ? WHITE_HOT : open ? Palette.mango : Palette.lineSoft,
-				BackgroundTransparency: picked
-					? 0
-					: open
-						? tick.map((now) => 0.35 + (math.sin(now * 3 + e.a + e.b) + 1) * 0.2)
-						: 0.55,
+				BackgroundColor3: picked ? Palette.cream : open ? Palette.mango : Palette.lineSoft,
+				BackgroundTransparency: picked ? 0 : open ? 0.3 : 0.55,
 				BorderSizePixel: 0,
 				ZIndex: 603,
 			});
@@ -309,7 +262,6 @@ function Lattice(props: LatticeProps) {
 			}
 		}
 	}
-	// facets: a lit mark in the middle of every closed triangle
 	for (let index = 1; index <= DomainLattice.TRIANGLES.size(); index++) {
 		const t = DomainLattice.TRIANGLES[index - 1];
 		if (facetSet.has(index)) {
@@ -323,24 +275,26 @@ function Lattice(props: LatticeProps) {
 			children["facet" + index] = h(
 				"frame",
 				{
-					Size: UDim2.fromOffset(16, 16),
+					Size: UDim2.fromOffset(9, 9),
 					Position: UDim2.fromScale(cx, cy),
 					AnchorPoint: new Vector2(0.5, 0.5),
-					BackgroundTransparency: 1,
+					Rotation: 45,
+					BackgroundColor3: Palette.mango,
+					BorderSizePixel: 0,
 					ZIndex: 605,
 				},
-				h("uiscale", {
-					Scale: tick.map((now) => {
-						const at = props.facetAt[index];
-						const pop = at === undefined ? 0 : 1 - easeOut((now - at) / 0.4);
-						return 1 + pop * 1.6 + math.sin(now * 2 + index) * 0.08;
-					}),
+				h("frame", {
+					Size: UDim2.fromOffset(4, 4),
+					Position: UDim2.fromScale(0.5, 0.5),
+					AnchorPoint: new Vector2(0.5, 0.5),
+					BackgroundColor3: Palette.ink,
+					BackgroundTransparency: 0.15,
+					BorderSizePixel: 0,
+					ZIndex: 605,
 				}),
-				h(Icon, { kind: "StarGrid.6", color: Palette.mango, accent: WHITE_HOT, size: 16, spin: false }),
 			);
 		}
 	}
-	// the anchors: a cut stone, filled as its links are etched, with a pip for every link it can take
 	for (const [, anchor] of pairs(DomainLattice.ANCHORS)) {
 		const index = anchor.index;
 		const [x, y] = spot(index);
@@ -349,26 +303,9 @@ function Lattice(props: LatticeProps) {
 		const maxD = DomainLattice.maxDegree(index);
 		const fill = d / math.max(1, maxD);
 		const isHearth = index === DomainLattice.HEARTH;
-		const stone = isHearth ? 34 : 24;
+		const isKindled = kindledSet.has(index);
+		const stone = isHearth ? 36 : 26;
 		const picked = selected !== undefined && selected.kind === "anchor" && selected.id === index;
-		const pips: Record<string, unknown> = {};
-		for (let pip = 1; pip <= maxD; pip++) {
-			const a = math.rad(-90 + ((pip - 1) * 360) / maxD);
-			const r = isHearth ? 0.5 : 0.42;
-			pips["p" + pip] = h(
-				"frame",
-				{
-					Size: UDim2.fromOffset(4, 4),
-					Position: UDim2.fromScale(0.5 + math.cos(a) * r, 0.5 + math.sin(a) * r),
-					AnchorPoint: new Vector2(0.5, 0.5),
-					BackgroundColor3: pip <= d ? color : Palette.lineSoft,
-					BackgroundTransparency: pip <= d ? 0 : 0.4,
-					BorderSizePixel: 0,
-					ZIndex: 608,
-				},
-				h("uicorner", { CornerRadius: new UDim(1, 0) }),
-			);
-		}
 		children["anchor" + index] = h(
 			"textbutton",
 			{
@@ -391,17 +328,16 @@ function Lattice(props: LatticeProps) {
 			h(
 				"frame",
 				{
-					// a plate that warms with the anchor's links, carrying its bonus's icon
-					Size: UDim2.fromOffset(stone + 6, stone + 6),
+					Size: UDim2.fromOffset(stone + 8, stone + 8),
 					Position: UDim2.fromScale(0.5, 0.5),
 					AnchorPoint: new Vector2(0.5, 0.5),
 					BackgroundColor3: darken(color, 0.7 - fill * 0.35),
 					BorderSizePixel: 0,
 					ZIndex: 608,
 				},
-				h("uicorner", { CornerRadius: new UDim(1, 0) }),
+				h("uicorner", { CornerRadius: new UDim(0, isHearth ? 12 : 9) }),
 				h("uistroke", {
-					Color: picked || fill >= 1 ? WHITE_HOT : color,
+					Color: picked || fill >= 1 ? Palette.cream : color,
 					Thickness: picked ? 2.5 : 1.5,
 					Transparency: d > 0 || isHearth ? 0 : 0.45,
 				}),
@@ -409,27 +345,22 @@ function Lattice(props: LatticeProps) {
 					kind: KIND_ICON[anchor.kind] ?? "Domain.6",
 					color: d > 0 || isHearth ? Palette.cream : Palette.muted,
 					accent: color,
-					size: stone - 4,
+					size: stone - 6,
 					spin: false,
 					position: UDim2.fromScale(0.5, 0.5),
 					anchorPoint: new Vector2(0.5, 0.5),
 				}),
 			),
-			h("frame", { Size: UDim2.fromScale(1, 1), BackgroundTransparency: 1, ZIndex: 608 }, pips),
-			picked &&
-				h(
-					"frame",
-					{
-						// a bracket that turns slowly around the picked anchor
-						Size: UDim2.fromScale(1.05, 1.05),
-						Position: UDim2.fromScale(0.5, 0.5),
-						AnchorPoint: new Vector2(0.5, 0.5),
-						Rotation: tick.map((now) => (now * 40) % 360),
-						BackgroundTransparency: 1,
-						ZIndex: 607,
-					},
-					h("uistroke", { Color: WHITE_HOT, Thickness: 1, Transparency: 0.35 }),
-				),
+			isKindled &&
+				h("frame", {
+					Size: UDim2.fromOffset(7, 7),
+					Position: new UDim2(0.5, 0, 0, -4),
+					AnchorPoint: new Vector2(0.5, 1),
+					Rotation: 45,
+					BackgroundColor3: Palette.mango,
+					BorderSizePixel: 0,
+					ZIndex: 609,
+				}),
 			h("textlabel", {
 				Size: UDim2.fromOffset(110, 14),
 				Position: new UDim2(0.5, 0, 1, isHearth ? 0 : -2),
@@ -581,13 +512,11 @@ function DomainChamber(props: ChamberProps) {
 	const stacked = viewport.width < 760 || viewport.width < viewport.height;
 	const reduced = props.reducedMotion === true;
 	const [tick, setTick] = React.useBinding(os.clock());
-	const [flare, setFlare] = React.useBinding(0);
 	const [hold, setHold] = React.useBinding(0);
 	const [selected, setSelected] = React.useState<Selection | undefined>(undefined);
 	const [override, setOverride] = React.useState<{ links: Links; points: number } | undefined>(undefined);
 	const [note, setNote] = React.useState<string | undefined>(undefined);
 	const etchedAt = React.useRef<Record<string, number | undefined>>({});
-	const facetAt = React.useRef<Record<number, number | undefined>>({});
 	const anchorRefs = React.useRef<Record<number, Instance | undefined>>({});
 	const resultAt = React.useRef(0);
 	const holding = React.useRef<number | undefined>(undefined);
@@ -615,15 +544,18 @@ function DomainChamber(props: ChamberProps) {
 		setHold(0);
 	}, [mode]);
 
-	// one clock drives everything on screen, plus the hold and the result's flare
 	React.useEffect(() => {
 		const connection = RunService.RenderStepped.Connect(() => {
 			const now = os.clock();
-			setTick(now);
-			if (mode === "result") {
-				setFlare(math.clamp((now - resultAt.current) / 1.1, 0, 1));
-			} else {
-				setFlare(0);
+			let animateLinks = false;
+			for (const [, at] of pairs(etchedAt.current)) {
+				if (at !== undefined && now - at < LINK_DRAW_SECONDS) {
+					animateLinks = true;
+					break;
+				}
+			}
+			if (animateLinks || (mode === "result" && now - resultAt.current < 2)) {
+				setTick(now);
 			}
 			const startedAt = holding.current;
 			if (startedAt !== undefined && !fired.current) {
@@ -644,7 +576,6 @@ function DomainChamber(props: ChamberProps) {
 		};
 	}, [mode, props.onConfirm]);
 
-	// a controller lands on the chamber's own buttons whenever the mode changes
 	const actionsRef = React.useRef<Frame>();
 	React.useEffect(() => {
 		GamepadNavigationService.BeginOverlayFocus();
@@ -667,7 +598,6 @@ function DomainChamber(props: ChamberProps) {
 		};
 	}, [mode]);
 
-	// Escape / B back out: the rite returns to the lattice, the lattice closes
 	const back = () => {
 		if (mode === "confirm" && rank >= 1) {
 			props.onMode("lattice");
@@ -688,21 +618,6 @@ function DomainChamber(props: ChamberProps) {
 	}, [mode, rank]);
 	useBackLayer(true, back);
 
-	const burstAt = (index: number, color: Color3, scale: number) => {
-		if (reduced) {
-			return;
-		}
-		const instance = anchorRefs.current[index] as GuiObject | undefined;
-		if (instance !== undefined && instance.Parent !== undefined) {
-			pcall(() => {
-				const Juice = require(script.Parent!.Parent!.FindFirstChild("JuiceFx") as ModuleScript) as {
-					burst(this: void, at: Vector2, color: Color3, scale: number): void;
-				};
-				Juice.burst(instance.AbsolutePosition.add(instance.AbsoluteSize.div(2)), color, scale);
-			});
-		}
-	};
-
 	const etch = (key: string) => {
 		if (requesting.current) {
 			return;
@@ -715,7 +630,6 @@ function DomainChamber(props: ChamberProps) {
 			return;
 		}
 		requesting.current = true;
-		const before = DomainLattice.facets(links);
 		props.dispatch("DomainLattice", { Op: "Etch", A: a, B: b }, (response) => {
 			requesting.current = false;
 			if (!truthyOk(response.ok) || !typeIs(response.Links, "table")) {
@@ -725,22 +639,11 @@ function DomainChamber(props: ChamberProps) {
 			}
 			const now = os.clock();
 			etchedAt.current[key] = now;
-			const was = new Set<number>();
-			for (const index of before) {
-				was.add(index);
-			}
-			for (const index of DomainLattice.facets(response.Links)) {
-				if (!was.has(index)) {
-					facetAt.current[index] = now + 0.3;
-				}
-			}
+			setTick(now);
 			setOverride({ links: response.Links as Links, points: math.floor(asNumber(response.SkillPoints)) });
 			setNote(undefined);
 			setSelected({ kind: "anchor", id: b });
 			Audio.play(truthyOk(response.ClosedFacet) ? "domainImpact" : "domainBind");
-			task.delay(0.36, () => {
-				burstAt(b, colorOf(b), truthyOk(response.ClosedFacet) ? 1.2 : 0.8);
-			});
 		});
 	};
 	const clear = () => {
@@ -752,7 +655,6 @@ function DomainChamber(props: ChamberProps) {
 			requesting.current = false;
 			if (truthyOk(response.ok) && typeIs(response.Links, "table")) {
 				etchedAt.current = {};
-				facetAt.current = {};
 				setOverride({ links: response.Links as Links, points: math.floor(asNumber(response.SkillPoints)) });
 				setSelected(undefined);
 				Audio.play("domainReward");
@@ -776,7 +678,6 @@ function DomainChamber(props: ChamberProps) {
 		setSelected({ kind: "anchor", id: index });
 	};
 
-	// the side panel
 	const rows: Record<string, unknown> = {};
 	let order = 0;
 	const add = (element: unknown) => {
@@ -810,11 +711,27 @@ function DomainChamber(props: ChamberProps) {
 		row("Domain points", tostring(points), { valueColor: points > 0 ? Palette.mango : Palette.cream });
 		row("Next link costs", nextCost === 1 ? "1 point" : `${nextCost} points`);
 		gap(6);
+		const [innerLit, outerLit, turned] = DomainLattice.ringProgress(links);
+		heading("The sigil wheel");
+		row("Links etched", `${etched} of ${DomainLattice.EDGES.size()}`);
+		row("Inner harmonic", innerLit >= 6 ? "+10% production" : `${innerLit} of 6 anchors kindled`, {
+			valueColor: innerLit >= 6 ? Palette.mango : undefined,
+		});
+		row("Outer harmonic", outerLit >= 6 ? "+8% production" : `${outerLit} of 6 anchors kindled`, {
+			valueColor: outerLit >= 6 ? Palette.mango : undefined,
+		});
+		if (turned) {
+			row("The wheel turns", "+25% production", { valueColor: Palette.mango });
+		}
+		if (rank > 1) {
+			row("Attunement", `rank ${rank}: +${(rank - 1) * 5}% on every anchor`);
+		}
+		gap(6);
 		if (selected !== undefined && selected.kind === "link" && links[selected.id as string] !== true) {
 			const selectedKey = selected.id as string;
 			const [a, b] = splitKey(selectedKey);
 			heading(`${DomainLattice.ANCHORS[a].name} to ${DomainLattice.ANCHORS[b].name}`);
-			for (const preview of etchPreview(links, selectedKey)) {
+			for (const preview of etchPreview(links, selectedKey, rank)) {
 				row(preview.text, undefined, { labelColor: preview.color });
 			}
 			const [ok, reason] = DomainLattice.canEtch(links, a, b, points);
@@ -831,11 +748,18 @@ function DomainChamber(props: ChamberProps) {
 			const d = DomainLattice.degrees(links)[anchor.index] ?? 0;
 			const maxD = DomainLattice.maxDegree(anchor.index);
 			heading(anchor.name, KIND_COLOR[anchor.kind]);
-			row("Gives now", DomainLattice.describe(anchor.kind, DomainLattice.anchorBonus(anchor.index, d)), {
+			const attune = 1 + math.max(0, rank - 1) * DomainLattice.ATTUNE_STEP;
+			row("Gives now", DomainLattice.describe(anchor.kind, DomainLattice.anchorBonus(anchor.index, d) * attune), {
 				valueColor: KIND_COLOR[anchor.kind],
 			});
 			row("Links", `${d} of ${maxD}`);
-			row("With every link etched", DomainLattice.describe(anchor.kind, anchor.full));
+			if (d >= maxD && maxD > 0) {
+				row("Kindled", "the full ring pays half again", { labelColor: Palette.mango });
+			} else {
+				row("Kindled ring", DomainLattice.describe(anchor.kind, anchor.full * (1 + DomainLattice.KINDLE_BONUS) * attune), {
+					labelColor: Palette.muted,
+				});
+			}
 			if (anchor.index === DomainLattice.HEARTH) {
 				gap(4);
 				row(
@@ -850,7 +774,7 @@ function DomainChamber(props: ChamberProps) {
 			heading("Lattice bonuses");
 			let anyBonus = false;
 			for (const [, anchor] of pairs(DomainLattice.ANCHORS)) {
-				const total = DomainLattice.bonus(links, anchor.kind);
+				const total = DomainLattice.bonus(links, anchor.kind, math.max(1, rank));
 				if (total > 0 && (anchor.kind !== "Production" || anchor.index === DomainLattice.HEARTH)) {
 					anyBonus = true;
 					row(DomainLattice.describe(anchor.kind, total), undefined, { labelColor: KIND_COLOR[anchor.kind] });
@@ -1006,7 +930,6 @@ function DomainChamber(props: ChamberProps) {
 							}
 						},
 						Activated: (_: unknown, input: InputObject | undefined) => {
-							// a controller press can't be held, so it confirms straight away
 							if (
 								input !== undefined &&
 								input.UserInputType !== undefined &&
@@ -1024,12 +947,11 @@ function DomainChamber(props: ChamberProps) {
 					"frame",
 					{
 						Size: hold.map((p) => UDim2.fromScale(p, 1)),
-						BackgroundColor3: Palette.white,
+						BackgroundColor3: Palette.mango,
 						BorderSizePixel: 0,
 						ZIndex: 635,
 					},
 					h("uicorner", { CornerRadius: new UDim(0, Radius.md) }),
-					h("uigradient", { Color: new ColorSequence(Palette.mango, WHITE_HOT) }),
 				),
 				h("textlabel", {
 					Size: UDim2.fromScale(1, 1),
@@ -1091,7 +1013,7 @@ function DomainChamber(props: ChamberProps) {
 		mode === "result"
 			? tick.map((now) => {
 					const t = (now - resultAt.current - 0.35) / 0.32;
-					return t < 0 ? 0 : 1 + (1 - easeOut(t)) * 1.4;
+					return t < 0 ? 1 : 1 + (1 - easeOut(t)) * 0.05;
 				})
 			: undefined;
 	const panel = h(
@@ -1147,7 +1069,7 @@ function DomainChamber(props: ChamberProps) {
 				Text: panelNumber,
 				TextSize: 50,
 				FontFace: Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-				TextColor3: mode === "result" ? WHITE_HOT : Palette.cream,
+				TextColor3: Palette.cream,
 				TextXAlignment: Enum.TextXAlignment.Left,
 				TextTransparency: numberSlam ? numberSlam.map((s) => (s <= 0 ? 1 : 0)) : 0,
 				ZIndex: 633,
@@ -1195,7 +1117,6 @@ function DomainChamber(props: ChamberProps) {
 		),
 	);
 
-	const heat = React.joinBindings([hold, flare]);
 	return h(
 		"frame",
 		{
@@ -1207,31 +1128,6 @@ function DomainChamber(props: ChamberProps) {
 			Active: true,
 			ZIndex: 620,
 		},
-		h(
-			"frame",
-			{
-				// the forge floor glows with the hold and the landing
-				Size: UDim2.fromScale(1, 0.7),
-				Position: UDim2.fromScale(0, 1),
-				AnchorPoint: new Vector2(0, 1),
-				BackgroundColor3: Palette.ember,
-				BackgroundTransparency: heat.map((v) => {
-					const values = v as unknown as number[];
-					const landing = values[1] > 0 ? 1 - values[1] : 0;
-					return math.clamp(0.86 - values[0] * 0.4 - landing * 0.5, 0, 1);
-				}),
-				BorderSizePixel: 0,
-				ZIndex: 621,
-			},
-			h("uigradient", {
-				Rotation: -90,
-				Transparency: new NumberSequence([
-					new NumberSequenceKeypoint(0, 0),
-					new NumberSequenceKeypoint(0.5, 0.75),
-					new NumberSequenceKeypoint(1, 1),
-				]),
-			}),
-		),
 		h(
 			"frame",
 			{
@@ -1252,12 +1148,9 @@ function DomainChamber(props: ChamberProps) {
 				h(Lattice, {
 					links,
 					tick,
-					flare,
 					selected: mode === "lattice" ? selected : undefined,
 					etchedAt: etchedAt.current,
-					facetAt: facetAt.current,
 					anchorRefs: anchorRefs.current,
-					reduced,
 					onLink: mode === "lattice" ? onLink : () => {},
 					onAnchor: mode === "lattice" ? onAnchor : () => {},
 				}),
@@ -1267,7 +1160,6 @@ function DomainChamber(props: ChamberProps) {
 	);
 }
 
-// Luau truthiness for reply fields (only nil and false are falsy)
 function truthyOk(value: unknown): boolean {
 	return value !== undefined && value !== false;
 }

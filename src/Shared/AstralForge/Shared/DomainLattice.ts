@@ -1,8 +1,11 @@
-﻿// The Domain Lattice: a fixed figure of thirteen anchors (the Hearth at the centre, an inner ring
-// of six, an outer ring of six) and the thirty links between them. Domain points etch links. An
-// anchor's bonus fills with the links that touch it; every closed triangle (a facet) adds
-// production on top. Links have to grow out of the Hearth, and the whole lattice can be cleared
-// for a full refund once per domain rank. Pure: the server rules and the client both use it.
+﻿// The Domain Lattice — the sigil wheel. Thirteen anchors (the Hearth at the centre, an inner
+// ring of six, an outer ring of six) and the thirty links between them. Domain points etch
+// links, and the wheel pays in layers: an anchor's bonus fills with the links that touch it;
+// a fully ringed anchor kindles and pays half again; a whole ring kindled is a harmonic that
+// feeds production; all thirty links turn the wheel for a further bonus on top. Every closed
+// triangle (a facet) adds production too, and each domain rank attunes every anchor a little
+// more. Links grow out of the Hearth, and the wheel can be cleared for a full refund once per
+// domain rank. Pure: the server rules and the client both use it.
 import { T } from "./Locale";
 
 interface Anchor {
@@ -55,7 +58,16 @@ const FULL: Record<string, number> = table.freeze({
 	CommandXP: 0.15,
 });
 
-const FACET_PRODUCTION = 0.015;
+const FACET_PRODUCTION = 0.02;
+const KINDLE_BONUS = 0.5;
+// a fully kindled ring hums as one: the inner ring feeds production,
+// the outer ring feeds the hearth's own reach
+const HARMONIC_INNER = 0.1;
+const HARMONIC_OUTER = 0.08;
+// with all thirty links etched the wheel turns as one piece
+const TURN_BONUS = 0.25;
+// every domain rank past the first attunes the whole lattice: each anchor pays this much more
+const ATTUNE_STEP = 0.05;
 const HEARTH = 1;
 
 const anchors: Record<number, Anchor> = {};
@@ -237,21 +249,57 @@ function facets(links: unknown): number[] {
 	return closed;
 }
 
-// what an anchor gives right now
+// what an anchor gives right now; a complete ring of links kindles it for half again
 function anchorBonus(index: number, degree?: number): number {
 	const anchor = anchors[index];
 	if (anchor === undefined) {
 		return 0;
 	}
-	const d = math.clamp(degree ?? 0, 0, maxDegree[index] ?? 1);
-	return anchor.full * d / math.max(1, maxDegree[index] ?? 1);
+	const max = math.max(1, maxDegree[index] ?? 1);
+	const d = math.clamp(degree ?? 0, 0, max);
+	const fill = anchor.full * d / max;
+	return d >= (maxDegree[index] ?? 1) && (maxDegree[index] ?? 0) > 0 ? fill * (1 + KINDLE_BONUS) : fill;
 }
 
-// the total bonus of one kind ("Production", "Capacity", ...) from a set of links
-function bonus(links: unknown, kind: string): number {
+// the anchors whose rings are fully etched
+function kindled(links: unknown): number[] {
+	const lit: number[] = [];
+	const degree = degrees(links);
+	for (const [, anchor] of pairs(anchors)) {
+		const max = maxDegree[anchor.index] ?? 0;
+		if (max > 0 && (degree[anchor.index] ?? 0) >= max) {
+			lit.push(anchor.index);
+		}
+	}
+	return lit;
+}
+
+// how far each ring is toward its harmonic, and whether the whole wheel has turned
+function ringProgress(links: unknown): LuaTuple<[number, number, boolean]> {
+	const lit = new Set<number>();
+	for (const index of kindled(links)) {
+		lit.add(index);
+	}
+	let inner = 0;
+	let outer = 0;
+	for (const index of lit) {
+		const ring = anchors[index]?.ring ?? -1;
+		if (ring === 1) {
+			inner += 1;
+		} else if (ring === 2) {
+			outer += 1;
+		}
+	}
+	return $tuple(inner, outer, count(links) >= edges.size());
+}
+
+// the total bonus of one kind ("Production", "Capacity", ...) from a set of links; higher
+// domain ranks attune every anchor, so the lattice keeps growing with each expansion
+function bonus(links: unknown, kind: string, rank?: number): number {
 	if (!typeIs(links, "table")) {
 		return 0;
 	}
+	const attune = 1 + math.max(0, (rank ?? 1) - 1) * ATTUNE_STEP;
 	const degree = degrees(links);
 	let total = 0;
 	for (const [, anchor] of pairs(anchors)) {
@@ -259,8 +307,19 @@ function bonus(links: unknown, kind: string): number {
 			total += anchorBonus(anchor.index, degree[anchor.index]);
 		}
 	}
+	total *= attune;
 	if (kind === "Production") {
 		total += facets(links).size() * FACET_PRODUCTION;
+		const [inner, outer, turned] = ringProgress(links);
+		if (inner >= INNER.size()) {
+			total += HARMONIC_INNER;
+		}
+		if (outer >= OUTER.size()) {
+			total += HARMONIC_OUTER;
+		}
+		if (turned) {
+			total += TURN_BONUS;
+		}
 	}
 	return total;
 }
@@ -359,6 +418,11 @@ const DomainLattice = {
 	EDGES: edges,
 	TRIANGLES: triangles,
 	FACET_PRODUCTION,
+	KINDLE_BONUS,
+	HARMONIC_INNER,
+	HARMONIC_OUTER,
+	TURN_BONUS,
+	ATTUNE_STEP,
 	HEARTH,
 	key: makeKey,
 	isEdge,
@@ -370,6 +434,8 @@ const DomainLattice = {
 	spent,
 	canEtch,
 	facets,
+	kindled,
+	ringProgress,
 	anchorBonus,
 	bonus,
 	describe,

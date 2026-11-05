@@ -462,7 +462,12 @@ function CompanionChip(_param: { companion: CompanionInfo; config?: unknown; tal
 	const traitLine = companion.Trait !== undefined ? ` ${companion.Trait.Text}.` : "";
 	const tip = useTooltip({
 		title: companion.Suffix !== "" ? `${companion.Name}, ${companion.Suffix}` : companion.Name,
-		body: `${companion.Rarity} companion, bond rank ${companion.Rank}. Gives +${pct}% ${companion.Kind} on top of your sockets.${traitLine}`,
+		body: `Companion bonus applies on top of your sockets.${traitLine}`,
+		stats: [
+			{ label: "Rarity", value: companion.Rarity },
+			{ label: "Bond rank", value: tostring(companion.Rank) },
+			{ label: "Socket bonus", value: `+${pct}% ${companion.Kind}` },
+		],
 		hint: companion.Offer !== undefined ? "A trait is waiting in Inventory" : "Swap it from Inventory",
 	});
 	return h(

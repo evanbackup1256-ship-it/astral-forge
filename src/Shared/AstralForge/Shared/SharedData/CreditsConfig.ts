@@ -23,7 +23,7 @@
 	CardMinWidth: 220,
 	CardHoverLift: true,
 
-	HideEmptyCategories: true, // no tabs or sections for roles nobody holds yet
+	HideEmptyCategories: true,
 	DefaultEmptyText: "To be announced.",
 
 	EntranceStagger: true,
@@ -61,7 +61,7 @@
 		{
 			Id: "Testers",
 			Label: "Testers",
-			Description: "Break things before you do.",
+			Description: "Test updates before release.",
 			Accent: "pink",
 			Icon: "Guide.2",
 			Members: {},

@@ -24,7 +24,9 @@ const GuiService = game.GetService("GuiService");
 const UserInputService = game.GetService("UserInputService");
 const Workspace = game.GetService("Workspace");
 
-export type TooltipContent = string | { title?: string; body?: string; hint?: string; accent?: Color3 };
+export type TooltipContent =
+	| string
+	| { title?: string; body?: string; stats?: { label: string; value: string }[]; hint?: string; accent?: Color3 };
 
 const Timing = {
 	mouse: 0.45,
@@ -91,6 +93,7 @@ export function labelFor(icon: string | undefined): string | undefined {
 interface TipData {
 	title?: string;
 	body?: string;
+	stats?: { label: string; value: string }[];
 	hint?: string;
 	accent?: Color3;
 }
@@ -101,7 +104,9 @@ function readContent(content: TooltipContent | undefined): TipData | undefined {
 	}
 	const data: TipData = typeIs(content, "string") ? { title: content } : content;
 	const filled = (text: string | undefined) => text !== undefined && text !== "";
-	return filled(data.title) || filled(data.body) ? data : undefined;
+	const stats = data.stats?.filter((stat) => filled(stat.label) && filled(stat.value));
+	const normalized = { ...data, stats };
+	return filled(data.title) || filled(data.body) || (stats !== undefined && stats.size() > 0) ? normalized : undefined;
 }
 
 // ── The one open tip ───────────────────────────────────────────────────────────
@@ -586,6 +591,57 @@ function Bubble(props: { tip: OpenTip; leaving: boolean; reducedMotion: boolean;
 					>
 						<uisizeconstraint MaxSize={new Vector2(maxW, math.huge)} />
 					</textlabel>
+				</frame>
+			)}
+
+			{data.stats !== undefined && data.stats.size() > 0 && (
+				<frame
+					AutomaticSize={Enum.AutomaticSize.Y}
+					BackgroundTransparency={1}
+					BorderSizePixel={0}
+					LayoutOrder={3}
+					Size={UDim2.fromOffset(maxW, 0)}
+				>
+					<uilistlayout
+						SortOrder={Enum.SortOrder.LayoutOrder}
+						Padding={new UDim(0, 3)}
+						FillDirection={Enum.FillDirection.Vertical}
+					/>
+					{data.stats.map((stat, index) => (
+						<frame
+							key={`${stat.label}${index}`}
+							Size={UDim2.fromOffset(maxW, 18)}
+							BackgroundTransparency={1}
+							BorderSizePixel={0}
+							LayoutOrder={index}
+						>
+							<textlabel
+								Size={UDim2.fromScale(0.56, 1)}
+								BackgroundTransparency={1}
+								BorderSizePixel={0}
+								Text={stat.label}
+								TextSize={SurfaceType.hint.size}
+								TextColor3={Palette.muted}
+								FontFace={FONT_BODY}
+								TextTruncate={Enum.TextTruncate.AtEnd}
+								TextXAlignment={Enum.TextXAlignment.Left}
+								TextYAlignment={Enum.TextYAlignment.Center}
+							/>
+							<textlabel
+								Position={UDim2.fromScale(0.56, 0)}
+								Size={UDim2.fromScale(0.44, 1)}
+								BackgroundTransparency={1}
+								BorderSizePixel={0}
+								Text={stat.value}
+								TextSize={SurfaceType.hint.size}
+								TextColor3={Palette.creamSoft}
+								FontFace={FONT_BODY}
+								TextTruncate={Enum.TextTruncate.AtEnd}
+								TextXAlignment={Enum.TextXAlignment.Right}
+								TextYAlignment={Enum.TextYAlignment.Center}
+							/>
+						</frame>
+					))}
 				</frame>
 			)}
 		</frame>

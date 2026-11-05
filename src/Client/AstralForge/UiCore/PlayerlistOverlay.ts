@@ -1355,6 +1355,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	const [inviteBusy, setInviteBusy] = React.useState(false);
 	const [awayTick, setAwayTick] = React.useState(0);
 	const alive = React.useRef(true);
+	const socialGeneration = React.useRef(0);
 	const [exitAmount, exiting, beginExit] = useExitTransition(reducedMotion);
 	const enter = useEntrance(reducedMotion);
 	React.useEffect(() => {
@@ -1436,6 +1437,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 	}, [applyRoster, refresh]);
 
 	const syncSocial = React.useCallback(() => {
+		const generation = ++socialGeneration.current;
 		task.spawn(() => {
 			const now = os.clock();
 			const nextFriends: Record<number, boolean> = {};
@@ -1465,12 +1467,25 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 					}
 				}
 			}
-			if (alive.current) {
+			if (alive.current && generation === socialGeneration.current) {
 				setFriends(nextFriends);
 				setBlocked(nextBlocked);
 			}
 		});
 	}, []);
+	React.useEffect(() => {
+		const changed = () => task.defer(() => {
+			if (alive.current) {
+				syncSocial();
+			}
+		});
+		const joined = Players.PlayerAdded.Connect(changed);
+		const left = Players.PlayerRemoving.Connect(changed);
+		return () => {
+			joined.Disconnect();
+			left.Disconnect();
+		};
+	}, [syncSocial]);
 	React.useEffect(() => {
 		syncSocial();
 		let friendship: RBXScriptConnection | undefined;
@@ -1486,7 +1501,7 @@ export function PlayerlistOverlay(param: PlayerlistOverlayProps) {
 				friendship.Disconnect();
 			}
 		};
-	}, [rows.size(), syncSocial]);
+	}, [syncSocial]);
 
 	const close = React.useCallback(() => {
 		if (exiting) {
